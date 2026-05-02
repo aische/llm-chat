@@ -4,6 +4,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
 import LLM.Types
+import Data.Maybe (fromMaybe)
 
 ageTool :: Tool
 ageTool =
@@ -35,7 +36,7 @@ ageSchema =
 -- | Dummy implementation — in reality you'd call a weather API
 getAge :: Value -> IO Text
 getAge args = do
-  let name = maybe "unknown" id $ parseMaybe parsePersonName args
+  let name = fromMaybe "unknown" $ parseMaybe parsePersonName args
   -- error "Age database is currently unavailable"
   pure $ "Age of " <> name <> ":41 years old."
 
