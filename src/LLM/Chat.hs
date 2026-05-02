@@ -29,12 +29,15 @@ runChat ::
   Text ->
   IO (Either LLMError (Text, Conversation, Usage))
 runChat client cfg tools conv msg = do
-  let conv' = conv ++ [UserTurn msg]
-  loop 0 emptyUsage conv'
+  let log = cfgLogger cfg
+      conv' = conv ++ [UserTurn msg]
+  log Info $ "runChat: model=" <> cfgModel cfg <> " tools=" <> T.pack (show (length tools))
+  loop log 0 emptyUsage conv'
   where
-    loop :: Int -> Usage -> Conversation -> IO (Either LLMError (Text, Conversation, Usage))
-    loop rounds acc conv'
-      | rounds >= cfgMaxToolRounds cfg =
+    loop :: Logger -> Int -> Usage -> Conversation -> IO (Either LLMError (Text, Conversation, Usage))
+    loop log rounds acc conv'
+      | rounds >= cfgMaxToolRounds cfg = do
+          log Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"
           pure $ Left (ToolLoopExceeded rounds)
       | otherwise = do
           let request =
@@ -46,24 +49,49 @@ runChat client cfg tools conv msg = do
                     reqTemperature = cfgTemperature cfg,
                     reqTools = map toolDef tools
                   }
+          log Debug $
+            "API request: round="
+              <> T.pack (show rounds)
+              <> " turns="
+              <> T.pack (show (length (reqConversation request)))
           result <-
             withTimeout (cfgRequestTimeout cfg) $
-              withRetry (cfgRetry cfg) $
+              withRetry (cfgRetry cfg) log $
                 clientChat client request
           case result of
-            Left err -> pure $ Left err
+            Left err -> do
+              log Error $ "API error: " <> T.pack (show err)
+              pure $ Left err
             Right resp ->
               let acc' = addUsage acc (fromMaybe emptyUsage (respUsage resp))
                in if hasToolCalls resp
                     then do
                       let calls = getToolCalls resp
+                      log Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
                       results <- executeTools tools calls
+                      log Debug $
+                        "Tool results: "
+                          <> T.intercalate
+                            ", "
+                            [trName r <> "=" <> T.take 100 (trContent r) | r <- results]
                       let conv'' =
                             conv'
                               ++ [AssistantTurn (respText resp) calls]
                               ++ [ToolTurn results]
-                      loop (rounds + 1) acc' conv''
+                      loop log (rounds + 1) acc' conv''
                     else do
+                      log Info $
+                        "Response: "
+                          <> T.take 100 (respText resp)
+                          <> maybe
+                            ""
+                            ( \u ->
+                                " usage="
+                                  <> T.pack (show (usageInputTokens u))
+                                  <> "+"
+                                  <> T.pack (show (usageOutputTokens u))
+                            )
+                            (respUsage resp)
                       let finalConv =
                             conv'
                               ++ [AssistantTurn (respText resp) []]
@@ -91,12 +119,15 @@ streamChat client cfg tools conv msg callback =
   case clientChatStream client of
     Nothing -> runChat client cfg tools conv msg
     Just stream -> do
-      let conv' = conv ++ [UserTurn msg]
-      sLoop 0 emptyUsage conv'
+      let log = cfgLogger cfg
+          conv' = conv ++ [UserTurn msg]
+      log Info $ "streamChat: model=" <> cfgModel cfg <> " tools=" <> T.pack (show (length tools))
+      sLoop log 0 emptyUsage conv'
       where
-        sLoop :: Int -> Usage -> Conversation -> IO (Either LLMError (Text, Conversation, Usage))
-        sLoop rounds acc conv'
-          | rounds >= cfgMaxToolRounds cfg =
+        sLoop :: Logger -> Int -> Usage -> Conversation -> IO (Either LLMError (Text, Conversation, Usage))
+        sLoop log rounds acc conv'
+          | rounds >= cfgMaxToolRounds cfg = do
+              log Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"
               pure $ Left (ToolLoopExceeded rounds)
           | otherwise = do
               let request =
@@ -108,32 +139,57 @@ streamChat client cfg tools conv msg callback =
                         reqTemperature = cfgTemperature cfg,
                         reqTools = map toolDef tools
                       }
+              log Debug $
+                "Stream request: round="
+                  <> T.pack (show rounds)
+                  <> " turns="
+                  <> T.pack (show (length (reqConversation request)))
               result <-
                 withTimeout (cfgRequestTimeout cfg) $
-                  withRetry (cfgRetry cfg) $
+                  withRetry (cfgRetry cfg) log $
                     stream request callback
               case result of
-                Left err -> pure $ Left err
+                Left err -> do
+                  log Error $ "Stream error: " <> T.pack (show err)
+                  pure $ Left err
                 Right resp ->
                   let acc' = addUsage acc (fromMaybe emptyUsage (respUsage resp))
                    in if hasToolCalls resp
                         then do
                           let calls = getToolCalls resp
+                          log Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
                           results <- executeTools tools calls
+                          log Debug $
+                            "Tool results: "
+                              <> T.intercalate
+                                ", "
+                                [trName r <> "=" <> T.take 100 (trContent r) | r <- results]
                           let conv'' =
                                 conv'
                                   ++ [AssistantTurn (respText resp) calls]
                                   ++ [ToolTurn results]
-                          sLoop (rounds + 1) acc' conv''
+                          sLoop log (rounds + 1) acc' conv''
                         else do
+                          log Info $
+                            "Response: "
+                              <> T.take 100 (respText resp)
+                              <> maybe
+                                ""
+                                ( \u ->
+                                    " usage="
+                                      <> T.pack (show (usageInputTokens u))
+                                      <> "+"
+                                      <> T.pack (show (usageOutputTokens u))
+                                )
+                                (respUsage resp)
                           let finalConv =
                                 conv'
                                   ++ [AssistantTurn (respText resp) []]
                           pure $ Right (respText resp, finalConv, acc')
 
 -- | Retry an action with exponential backoff on retryable errors.
-withRetry :: RetryConfig -> IO LLMResult -> IO LLMResult
-withRetry cfg action = go 0
+withRetry :: RetryConfig -> Logger -> IO LLMResult -> IO LLMResult
+withRetry cfg log action = go 0
   where
     go attempt
       | attempt >= retryMaxAttempts cfg = action
@@ -142,7 +198,17 @@ withRetry cfg action = go 0
           case result of
             Left err
               | isRetryable err -> do
-                  threadDelay (retryBaseDelay cfg * (2 ^ attempt))
+                  let delayUs = retryBaseDelay cfg * (2 ^ attempt)
+                  log Warn $
+                    "Retryable error (attempt "
+                      <> T.pack (show (attempt + 1))
+                      <> "/"
+                      <> T.pack (show (retryMaxAttempts cfg))
+                      <> ", delay "
+                      <> T.pack (show (delayUs `div` 1000))
+                      <> "ms): "
+                      <> T.pack (show err)
+                  threadDelay delayUs
                   go (attempt + 1)
             _ -> pure result
 

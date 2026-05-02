@@ -5,6 +5,7 @@ import Control.Exception (try)
 import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.IORef
 import Data.Text (Text)
 import Data.Text qualified as T

@@ -30,10 +30,14 @@ main = do
 
   let geminiPricing = PricingInfo {pricePerMillionInput = 0.10, pricePerMillionOutput = 0.40}
   let claudePricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.00}
+  let claudeConfig =
+        (defaultChatConfig "claude-haiku-4-5-20251001")
+          { cfgLogger = stderrLogger Debug
+          }
 
   -- putStrLn "=== Gemini ==="
   -- _ <- conversationLoop gemini (defaultChatConfig "gemini-2.0-flash") tools geminiPricing prompts
 
   putStrLn "\n=== Claude ==="
-  _ <- streamChatLoop claude (defaultChatConfig "claude-haiku-4-5-20251001") tools claudePricing prompts
+  _ <- streamChatLoop claude claudeConfig tools claudePricing prompts
   pure ()

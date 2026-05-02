@@ -18,10 +18,14 @@ module LLM.Types
     PricingInfo (..),
     StreamEvent (..),
     RetryConfig (..),
+    LogLevel (..),
+    Logger,
     defaultChatConfig,
     defaultRequest,
     defaultRetryConfig,
     noRetry,
+    noLogger,
+    stderrLogger,
     hasToolCalls,
     getToolCalls,
     executeTool,
@@ -40,6 +44,8 @@ import Control.Exception (SomeException, try)
 import Data.Aeson (Value)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
+import System.IO (stderr)
 
 data Role = User | Assistant
   deriving (Show, Eq)
@@ -132,9 +138,27 @@ data ChatConfig = ChatConfig
     cfgTemperature :: Maybe Double,
     cfgMaxToolRounds :: Int, -- safety limit to prevent infinite loops
     cfgRequestTimeout :: Maybe Int, -- per-request timeout in microseconds
-    cfgRetry :: RetryConfig
+    cfgRetry :: RetryConfig,
+    cfgLogger :: Logger
   }
-  deriving (Show)
+
+instance Show ChatConfig where
+  show cfg =
+    "ChatConfig {cfgModel = "
+      <> show (cfgModel cfg)
+      <> ", cfgSystem = "
+      <> show (cfgSystem cfg)
+      <> ", cfgMaxTokens = "
+      <> show (cfgMaxTokens cfg)
+      <> ", cfgTemperature = "
+      <> show (cfgTemperature cfg)
+      <> ", cfgMaxToolRounds = "
+      <> show (cfgMaxToolRounds cfg)
+      <> ", cfgRequestTimeout = "
+      <> show (cfgRequestTimeout cfg)
+      <> ", cfgRetry = "
+      <> show (cfgRetry cfg)
+      <> ", cfgLogger = <function>}"
 
 -- | Sensible defaults for chat config
 defaultChatConfig :: Text -> ChatConfig
@@ -146,7 +170,8 @@ defaultChatConfig model =
       cfgTemperature = Nothing,
       cfgMaxToolRounds = 10,
       cfgRequestTimeout = Nothing,
-      cfgRetry = defaultRetryConfig
+      cfgRetry = defaultRetryConfig,
+      cfgLogger = noLogger
     }
 
 -- | Retry configuration with exponential backoff
@@ -254,6 +279,23 @@ isRetryable :: LLMError -> Bool
 isRetryable (HttpError status _) = status `elem` [429, 503, 529]
 isRetryable (NetworkError _) = True
 isRetryable _ = False
+
+-- | Log verbosity levels, ordered from most to least verbose
+data LogLevel = Debug | Info | Warn | Error
+  deriving (Show, Eq, Ord)
+
+-- | A logger callback. The library calls it; the consumer decides what to do.
+type Logger = LogLevel -> Text -> IO ()
+
+-- | No-op logger (default)
+noLogger :: Logger
+noLogger _ _ = pure ()
+
+-- | Simple stderr logger that filters by minimum level
+stderrLogger :: LogLevel -> Logger
+stderrLogger minLevel level msg
+  | level >= minLevel = TIO.hPutStrLn stderr $ "[" <> T.pack (show level) <> "] " <> msg
+  | otherwise = pure ()
 
 type LLMResult = Either LLMError ChatResponse
 
