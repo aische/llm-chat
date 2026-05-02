@@ -66,13 +66,13 @@ library
         LLM.SSE
     hs-source-dirs:     src
     build-depends:
-        base ^>=4.18,
-        text,
-        aeson,
-        bytestring,
-        http-client,
-        http-types,
-        req >= 3.13.4
+        base           ^>=4.18,
+        text           >=1.2   && <2.2,
+        aeson          >=2.0   && <2.3,
+        bytestring     >=0.11  && <0.13,
+        http-client    >=0.7   && <0.8,
+        http-types     >=0.12  && <0.13,
+        req            >=3.13.4 && <3.14
     default-language:   GHC2021
     default-extensions: OverloadedStrings
 
@@ -82,10 +82,10 @@ executable hello-haskell1
                       Tools.Age
     hs-source-dirs:   app
     build-depends:
-        base ^>=4.18,
-        text,
-        aeson,
+        base           ^>=4.18,
+        text           >=1.2   && <2.2,
+        aeson          >=2.0   && <2.3,
         hello-haskell1,
-        dotenv
+        dotenv         >=0.9   && <0.13
     default-language:   GHC2021
     default-extensions: OverloadedStrings
