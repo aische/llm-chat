@@ -26,8 +26,10 @@ module LLM.Types
   )
 where
 
+import Control.Exception (SomeException, try)
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Text qualified as T
 
 data Role = User | Assistant
   deriving (Show, Eq)
@@ -93,8 +95,11 @@ executeTool :: [Tool] -> ToolCall -> IO ToolResult
 executeTool tools tc = case lookup (tcName tc) toolMap of
   Nothing -> pure $ toolResult tc ("Unknown tool: " <> tcName tc)
   Just exec -> do
-    result <- exec (tcArguments tc)
-    pure $ toolResult tc result
+    result <- try (exec (tcArguments tc))
+    case result of
+      Right text -> pure $ toolResult tc text
+      Left (e :: SomeException) ->
+        pure $ toolResult tc ("Tool error: " <> T.pack (show e))
   where
     toolMap = [(toolName (toolDef t), toolExecute t) | t <- tools]
 

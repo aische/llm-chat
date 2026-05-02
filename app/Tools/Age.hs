@@ -36,6 +36,7 @@ ageSchema =
 getAge :: Value -> IO Text
 getAge args = do
   let name = maybe "unknown" id $ parseMaybe parsePersonName args
+  -- error "Age database is currently unavailable"
   pure $ "Age of " <> name <> ":41 years old."
 
 parsePersonName :: Value -> Parser Text
