@@ -61,11 +61,17 @@ library
         LLM.Types
         LLM.Gemini
         LLM.Claude
+        LLM.OpenAI
+    other-modules:
+        LLM.SSE
     hs-source-dirs:     src
     build-depends:
         base ^>=4.18,
         text,
         aeson,
+        bytestring,
+        http-client,
+        http-types,
         req >= 3.13.4
     default-language:   GHC2021
     default-extensions: OverloadedStrings

@@ -1,8 +1,10 @@
 module LLM.Chat (runChat) where
 
+import Control.Concurrent (threadDelay)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import LLM.Types
+import System.Timeout (timeout)
 
 -- | Run a chat with automatic tool-call handling.
 --
@@ -10,6 +12,7 @@ import LLM.Types
 -- Returns the final assistant text, the full updated conversation, and
 -- accumulated token usage across all rounds, or an error.
 --
+-- Each API call is wrapped with the configured retry and timeout policies.
 -- The tool loop runs until the model stops requesting tools or
 -- 'cfgMaxToolRounds' is reached.
 runChat ::
@@ -37,7 +40,10 @@ runChat client cfg tools conv msg = do
                     reqTemperature = cfgTemperature cfg,
                     reqTools = map toolDef tools
                   }
-          result <- clientChat client request
+          result <-
+            withTimeout (cfgRequestTimeout cfg) $
+              withRetry (cfgRetry cfg) $
+                clientChat client request
           case result of
             Left err -> pure $ Left err
             Right resp ->
@@ -56,3 +62,25 @@ runChat client cfg tools conv msg = do
                             conv'
                               ++ [AssistantTurn (respText resp) []]
                       pure $ Right (respText resp, finalConv, acc')
+
+-- | Wrap an action with a timeout. Returns 'TimeoutError' on expiry.
+withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
+withTimeout Nothing action = action
+withTimeout (Just us) action = do
+  result <- timeout us action
+  pure $ fromMaybe (Left TimeoutError) result
+
+-- | Retry an action with exponential backoff on retryable errors.
+withRetry :: RetryConfig -> IO LLMResult -> IO LLMResult
+withRetry cfg action = go 0
+  where
+    go attempt
+      | attempt >= retryMaxAttempts cfg = action
+      | otherwise = do
+          result <- action
+          case result of
+            Left err
+              | isRetryable err -> do
+                  threadDelay (retryBaseDelay cfg * (2 ^ attempt))
+                  go (attempt + 1)
+            _ -> pure result

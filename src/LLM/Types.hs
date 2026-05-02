@@ -16,8 +16,12 @@ module LLM.Types
     ToolResult (..),
     Usage (..),
     PricingInfo (..),
+    StreamEvent (..),
+    RetryConfig (..),
     defaultChatConfig,
     defaultRequest,
+    defaultRetryConfig,
+    noRetry,
     hasToolCalls,
     getToolCalls,
     executeTool,
@@ -28,6 +32,7 @@ module LLM.Types
     emptyUsage,
     addUsage,
     estimateCost,
+    isRetryable,
   )
 where
 
@@ -80,14 +85,15 @@ data ToolCall = ToolCall
 
 -- | The result of executing a tool, sent back to the model
 data ToolResult = ToolResult
-  { trCallId :: Text,
+  { trCallId :: Text, -- unique call id (matches tcId)
+    trName :: Text, -- function name (matches tcName)
     trContent :: Text
   }
   deriving (Show, Eq)
 
 -- | Smart constructor for tool results
 toolResult :: ToolCall -> Text -> ToolResult
-toolResult tc = ToolResult (tcId tc)
+toolResult tc = ToolResult (tcId tc) (tcName tc)
 
 -- | A tool: its definition (sent to the model) paired with its implementation
 data Tool = Tool
@@ -124,7 +130,9 @@ data ChatConfig = ChatConfig
     cfgSystem :: Maybe Text,
     cfgMaxTokens :: Int,
     cfgTemperature :: Maybe Double,
-    cfgMaxToolRounds :: Int -- safety limit to prevent infinite loops
+    cfgMaxToolRounds :: Int, -- safety limit to prevent infinite loops
+    cfgRequestTimeout :: Maybe Int, -- per-request timeout in microseconds
+    cfgRetry :: RetryConfig
   }
   deriving (Show)
 
@@ -136,8 +144,27 @@ defaultChatConfig model =
       cfgSystem = Nothing,
       cfgMaxTokens = 1024,
       cfgTemperature = Nothing,
-      cfgMaxToolRounds = 10
+      cfgMaxToolRounds = 10,
+      cfgRequestTimeout = Nothing,
+      cfgRetry = defaultRetryConfig
     }
+
+-- | Retry configuration with exponential backoff
+data RetryConfig = RetryConfig
+  { retryMaxAttempts :: Int, -- max retries (0 = no retry)
+    retryBaseDelay :: Int -- base delay in microseconds
+  }
+  deriving (Show)
+
+defaultRetryConfig :: RetryConfig
+defaultRetryConfig =
+  RetryConfig
+    { retryMaxAttempts = 3,
+      retryBaseDelay = 1_000_000 -- 1 second
+    }
+
+noRetry :: RetryConfig
+noRetry = RetryConfig {retryMaxAttempts = 0, retryBaseDelay = 0}
 
 data ChatRequest = ChatRequest
   { reqModel :: Text,
@@ -207,15 +234,30 @@ data ChatResponse = ChatResponse
   }
   deriving (Show)
 
+-- | Events emitted during streaming
+data StreamEvent
+  = StreamDelta Text -- incremental text chunk
+  | StreamToolCall ToolCall -- complete tool call
+  deriving (Show)
+
 data LLMError
   = HttpError Int Text -- status code + raw body
+  | NetworkError Text -- connection / DNS / TLS failure
+  | TimeoutError -- request timed out
   | ParseError Text -- JSON we couldn't make sense of
   | EmptyResponse -- valid JSON, but no content in it
   | ToolLoopExceeded Int -- hit the max tool rounds limit
   deriving (Show)
 
+-- | Whether an error is worth retrying
+isRetryable :: LLMError -> Bool
+isRetryable (HttpError status _) = status `elem` [429, 503, 529]
+isRetryable (NetworkError _) = True
+isRetryable _ = False
+
 type LLMResult = Either LLMError ChatResponse
 
-newtype LLMClient = LLMClient
-  { clientChat :: ChatRequest -> IO LLMResult
+data LLMClient = LLMClient
+  { clientChat :: ChatRequest -> IO LLMResult,
+    clientChatStream :: Maybe (ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult)
   }
