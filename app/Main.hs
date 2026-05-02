@@ -19,47 +19,32 @@ main = do
   let gemini = geminiClient geminiKey
       claude = claudeClient claudeKey
       tools = [weatherTool, ageTool]
-      msgs = [user "What's the weather like in London right now? And how old is Alice?"]
 
-  putStrLn "=== Gemini (with tools) ==="
-  runWithTools gemini "gemini-2.5-flash" tools msgs
+  putStrLn "=== Gemini ==="
+  geminiConv <- demo gemini (defaultChatConfig "gemini-2.5-flash") tools []
+  -- Continue the conversation with the returned history
+  _ <- demo gemini (defaultChatConfig "gemini-2.5-flash") tools geminiConv
 
-  putStrLn "\n=== Claude (with tools) ==="
-  runWithTools claude "claude-haiku-4-5-20251001" tools msgs
+  putStrLn "\n=== Claude ==="
+  claudeConv <- demo claude (defaultChatConfig "claude-haiku-4-5-20251001") tools []
+  _ <- demo claude (defaultChatConfig "claude-haiku-4-5-20251001") tools claudeConv
 
--- | Send a request with tools, execute any tool calls, and print the final answer
-runWithTools :: LLMClient -> T.Text -> [Tool] -> [Message] -> IO ()
-runWithTools client model tools msgs = do
-  let req0 =
-        (defaultRequest model msgs)
-          { reqTools = map toolDef tools
-          }
+  pure ()
 
-  -- Step 1: send the initial request
-  result1 <- clientChat client req0
-  case result1 of
-    Left err -> putStrLn $ "Error: " <> show err
-    Right resp1
-      | hasToolCalls resp1 -> do
-          let calls = getToolCalls resp1
-          putStrLn $ "Model requested " <> show (length calls) <> " tool call(s):"
-          mapM_ (\tc -> TIO.putStrLn $ "  " <> tcName tc <> " " <> T.pack (show (tcArguments tc))) calls
-
-          -- Step 2: execute the tools
-          results <- executeTools tools calls
-
-          -- Step 3: send tool results back
-          let req1 =
-                req0
-                  { reqPendingToolCalls = calls,
-                    reqToolResults = results
-                  }
-          result2 <- clientChat client req1
-          case result2 of
-            Left err -> putStrLn $ "Error: " <> show err
-            Right resp2 -> do
-              putStrLn "Final response:"
-              TIO.putStrLn $ respText resp2
-      | otherwise -> do
-          putStrLn "Model responded directly (no tool call):"
-          TIO.putStrLn $ respText resp1
+-- | Run a single user turn through runChat, print results, return the conversation
+demo :: LLMClient -> ChatConfig -> [Tool] -> Conversation -> IO Conversation
+demo client cfg tools conv = do
+  let msg =
+        if null conv
+          then "How old is Alice? And what's the weather like in London?"
+          else "Thanks! And in Paris?"
+  putStrLn $ "> " <> T.unpack msg
+  result <- runChat client cfg tools conv msg
+  case result of
+    Left err -> do
+      putStrLn $ "Error: " <> show err
+      pure conv
+    Right (text, conv') -> do
+      TIO.putStrLn text
+      putStrLn $ "  (" <> show (length conv') <> " turns in history)"
+      pure conv'

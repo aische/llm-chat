@@ -36,7 +36,7 @@ lenientConfig =
 buildBody :: ChatRequest -> Value
 buildBody r =
   object $
-    [ "contents" .= buildContents r,
+    [ "contents" .= concatMap encodeTurn (reqConversation r),
       "generationConfig" .= genConfig r
     ]
       ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
@@ -46,22 +46,28 @@ buildBody r =
            | not (null (reqTools r))
          ]
 
-buildContents :: ChatRequest -> [Value]
-buildContents r =
-  map encodeMsg (reqMessages r)
-    ++ [ encodeModelFunctionCalls (reqPendingToolCalls r)
-         | not (null (reqPendingToolCalls r))
-       ]
-    ++ [ encodeFunctionResponses (reqToolResults r)
-         | not (null (reqToolResults r))
-       ]
-
-encodeMsg :: Message -> Value
-encodeMsg (Message role content) =
-  object
-    [ "role" .= geminiRole role,
-      "parts" .= [object ["text" .= content]]
-    ]
+encodeTurn :: Turn -> [Value]
+encodeTurn (UserTurn content) =
+  [ object
+      [ "role" .= ("user" :: Text),
+        "parts" .= [object ["text" .= content]]
+      ]
+  ]
+encodeTurn (AssistantTurn text calls) =
+  [ object
+      [ "role" .= ("model" :: Text),
+        "parts" .= (textParts ++ callParts)
+      ]
+  ]
+  where
+    textParts = [object ["text" .= text] | not (T.null text)]
+    callParts = map encodeFunctionCall calls
+encodeTurn (ToolTurn results) =
+  [ object
+      [ "role" .= ("user" :: Text),
+        "parts" .= map encodeFunctionResponse results
+      ]
+  ]
 
 encodeToolDef :: ToolDef -> Value
 encodeToolDef td =
@@ -69,13 +75,6 @@ encodeToolDef td =
     [ "name" .= toolName td,
       "description" .= toolDescription td,
       "parameters" .= toolParameters td
-    ]
-
-encodeModelFunctionCalls :: [ToolCall] -> Value
-encodeModelFunctionCalls tcs =
-  object
-    [ "role" .= ("model" :: Text),
-      "parts" .= map encodeFunctionCall tcs
     ]
 
 encodeFunctionCall :: ToolCall -> Value
@@ -88,13 +87,6 @@ encodeFunctionCall tc =
           ]
     ]
 
-encodeFunctionResponses :: [ToolResult] -> Value
-encodeFunctionResponses trs =
-  object
-    [ "role" .= ("user" :: Text),
-      "parts" .= map encodeFunctionResponse trs
-    ]
-
 encodeFunctionResponse :: ToolResult -> Value
 encodeFunctionResponse tr =
   object
@@ -104,10 +96,6 @@ encodeFunctionResponse tr =
             "response" .= object ["result" .= trContent tr]
           ]
     ]
-
-geminiRole :: Role -> Text
-geminiRole User = "user"
-geminiRole Assistant = "model" -- Gemini calls it "model", not "assistant"
 
 genConfig :: ChatRequest -> Value
 genConfig r =

@@ -36,28 +36,34 @@ buildBody r =
   object $
     [ "model" .= reqModel r,
       "max_tokens" .= reqMaxTokens r,
-      "messages" .= buildMessages r
+      "messages" .= concatMap encodeTurn (reqConversation r)
     ]
       ++ ["system" .= sys | Just sys <- [reqSystem r]]
       ++ ["temperature" .= t | Just t <- [reqTemperature r]]
       ++ ["tools" .= map encodeToolDef (reqTools r) | not (null (reqTools r))]
 
-buildMessages :: ChatRequest -> [Value]
-buildMessages r =
-  map encodeMsg (reqMessages r)
-    ++ [ encodeAssistantToolUse (reqPendingToolCalls r)
-         | not (null (reqPendingToolCalls r))
-       ]
-    ++ [ encodeToolResults (reqToolResults r)
-         | not (null (reqToolResults r))
-       ]
-
-encodeMsg :: Message -> Value
-encodeMsg (Message role content) =
-  object
-    [ "role" .= claudeRole role,
-      "content" .= content
-    ]
+encodeTurn :: Turn -> [Value]
+encodeTurn (UserTurn content) =
+  [ object
+      [ "role" .= ("user" :: Text),
+        "content" .= content
+      ]
+  ]
+encodeTurn (AssistantTurn text calls) =
+  [ object
+      [ "role" .= ("assistant" :: Text),
+        "content" .= (textBlocks ++ toolBlocks)
+      ]
+  ]
+  where
+    textBlocks = [object ["type" .= ("text" :: Text), "text" .= text] | not (T.null text)]
+    toolBlocks = map encodeToolUseBlock calls
+encodeTurn (ToolTurn results) =
+  [ object
+      [ "role" .= ("user" :: Text),
+        "content" .= map encodeToolResult results
+      ]
+  ]
 
 encodeToolDef :: ToolDef -> Value
 encodeToolDef td =
@@ -65,13 +71,6 @@ encodeToolDef td =
     [ "name" .= toolName td,
       "description" .= toolDescription td,
       "input_schema" .= toolParameters td
-    ]
-
-encodeAssistantToolUse :: [ToolCall] -> Value
-encodeAssistantToolUse tcs =
-  object
-    [ "role" .= ("assistant" :: Text),
-      "content" .= map encodeToolUseBlock tcs
     ]
 
 encodeToolUseBlock :: ToolCall -> Value
@@ -83,13 +82,6 @@ encodeToolUseBlock tc =
       "input" .= tcArguments tc
     ]
 
-encodeToolResults :: [ToolResult] -> Value
-encodeToolResults trs =
-  object
-    [ "role" .= ("user" :: Text),
-      "content" .= map encodeToolResult trs
-    ]
-
 encodeToolResult :: ToolResult -> Value
 encodeToolResult tr =
   object
@@ -97,10 +89,6 @@ encodeToolResult tr =
       "tool_use_id" .= trCallId tr,
       "content" .= trContent tr
     ]
-
-claudeRole :: Role -> Text
-claudeRole User = "user"
-claudeRole Assistant = "assistant"
 
 parseResponse :: Value -> LLMResult
 parseResponse v = case parseMaybe go v of

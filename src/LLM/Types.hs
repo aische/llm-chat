@@ -1,7 +1,10 @@
 module LLM.Types
   ( Role (..),
     Message (..),
+    Turn (..),
+    Conversation,
     ContentBlock (..),
+    ChatConfig (..),
     ChatRequest (..),
     ChatResponse (..),
     LLMError (..),
@@ -11,6 +14,7 @@ module LLM.Types
     ToolDef (..),
     ToolCall (..),
     ToolResult (..),
+    defaultChatConfig,
     defaultRequest,
     hasToolCalls,
     getToolCalls,
@@ -40,6 +44,16 @@ user = Message User
 
 assistant :: Text -> Message
 assistant = Message Assistant
+
+-- | A single turn in a conversation
+data Turn
+  = UserTurn Text
+  | AssistantTurn Text [ToolCall] -- text (possibly empty) + any tool calls
+  | ToolTurn [ToolResult]
+  deriving (Show, Eq)
+
+-- | A full conversation history
+type Conversation = [Turn]
 
 -- | A tool definition sent to the model
 data ToolDef = ToolDef
@@ -94,15 +108,34 @@ data ContentBlock
   | ToolCallBlock ToolCall
   deriving (Show, Eq)
 
+-- | Configuration for a chat session
+data ChatConfig = ChatConfig
+  { cfgModel :: Text,
+    cfgSystem :: Maybe Text,
+    cfgMaxTokens :: Int,
+    cfgTemperature :: Maybe Double,
+    cfgMaxToolRounds :: Int -- safety limit to prevent infinite loops
+  }
+  deriving (Show)
+
+-- | Sensible defaults for chat config
+defaultChatConfig :: Text -> ChatConfig
+defaultChatConfig model =
+  ChatConfig
+    { cfgModel = model,
+      cfgSystem = Nothing,
+      cfgMaxTokens = 1024,
+      cfgTemperature = Nothing,
+      cfgMaxToolRounds = 10
+    }
+
 data ChatRequest = ChatRequest
   { reqModel :: Text,
-    reqMessages :: [Message],
+    reqConversation :: Conversation,
     reqSystem :: Maybe Text,
     reqMaxTokens :: Int,
     reqTemperature :: Maybe Double,
-    reqTools :: [ToolDef],
-    reqPendingToolCalls :: [ToolCall], -- assistant's tool calls from prev turn
-    reqToolResults :: [ToolResult]
+    reqTools :: [ToolDef]
   }
   deriving (Show)
 
@@ -110,13 +143,11 @@ defaultRequest :: Text -> [Message] -> ChatRequest
 defaultRequest model msgs =
   ChatRequest
     { reqModel = model,
-      reqMessages = msgs,
+      reqConversation = map (\m -> case msgRole m of User -> UserTurn (msgContent m); Assistant -> AssistantTurn (msgContent m) []) msgs,
       reqSystem = Nothing,
       reqMaxTokens = 1024,
       reqTemperature = Nothing,
-      reqTools = [],
-      reqPendingToolCalls = [],
-      reqToolResults = []
+      reqTools = []
     }
 
 -- | Check whether a response contains tool calls
@@ -140,6 +171,7 @@ data LLMError
   = HttpError Int Text -- status code + raw body
   | ParseError Text -- JSON we couldn't make sense of
   | EmptyResponse -- valid JSON, but no content in it
+  | ToolLoopExceeded Int -- hit the max tool rounds limit
   deriving (Show)
 
 type LLMResult = Either LLMError ChatResponse

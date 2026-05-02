@@ -57,6 +57,7 @@ common warnings
 library
     exposed-modules:
         LLM
+        LLM.Chat
         LLM.Types
         LLM.Gemini
         LLM.Claude
