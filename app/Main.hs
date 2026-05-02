@@ -2,6 +2,7 @@ module Main where
 
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
+import Data.IORef
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM
@@ -34,36 +35,5 @@ main = do
   -- _ <- conversationLoop gemini (defaultChatConfig "gemini-2.0-flash") tools geminiPricing prompts
 
   putStrLn "\n=== Claude ==="
-  _ <- conversationLoop claude (defaultChatConfig "claude-haiku-4-5-20251001") tools claudePricing prompts
+  _ <- streamChatLoop claude (defaultChatConfig "claude-haiku-4-5-20251001") tools claudePricing prompts
   pure ()
-
-conversationLoop :: LLMClient -> ChatConfig -> [Tool] -> PricingInfo -> [T.Text] -> IO Conversation
-conversationLoop client cfg tools pricing = aux emptyUsage []
-  where
-    aux totalUsage conv [] = do
-      putStrLn $
-        "\n  Total: "
-          <> show (usageInputTokens totalUsage)
-          <> " input + "
-          <> show (usageOutputTokens totalUsage)
-          <> " output tokens"
-      printf "  Estimated cost: $%.6f\n" (estimateCost pricing totalUsage)
-      return conv
-    aux totalUsage conv (prompt : rest) = do
-      putStrLn $ "> " <> T.unpack prompt
-      result <- runChat client cfg tools conv prompt
-      case result of
-        Left err -> do
-          putStrLn $ "Error: " <> show err
-          pure conv
-        Right (text, conv', usage) -> do
-          TIO.putStrLn text
-          putStrLn $
-            "  ("
-              <> show (length conv')
-              <> " turns, "
-              <> show (usageInputTokens usage)
-              <> " in + "
-              <> show (usageOutputTokens usage)
-              <> " out tokens)"
-          aux (addUsage totalUsage usage) conv' rest

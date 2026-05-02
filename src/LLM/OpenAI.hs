@@ -7,6 +7,7 @@ import Data.Aeson.Types (Parser, parseMaybe)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.IORef
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -237,8 +238,8 @@ parseOpenAIStream reader callback = do
                 case lookup idx [(i, (i, cid, n, a)) | (i, cid, n, a) <- acc] of
                   Nothing ->
                     -- New tool call
-                    let cid = maybe "" id mId
-                        n = maybe "" id mName
+                    let cid = fromMaybe "" mId
+                        n = fromMaybe "" mName
                      in acc ++ [(idx, cid, n, argChunk)]
                   Just (_, cid, n, a) ->
                     -- Accumulate arguments
