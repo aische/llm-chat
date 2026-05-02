@@ -10,3 +10,4 @@ cabal.project.local~
 .HTF/
 .hpc/
 .env
+dumps/

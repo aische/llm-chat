@@ -67,7 +67,11 @@ geminiChatStream hooks apiKey r callback = do
         else parseGeminiStream (HC.responseBody resp) callback
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> pure r'
+    Right r' -> do
+      case r' of
+        Right resp -> onResponse hooks "gemini" (streamResponseJson resp)
+        _ -> pure ()
+      pure r'
 
 readAll :: HC.BodyReader -> IO [BS.ByteString]
 readAll br = do

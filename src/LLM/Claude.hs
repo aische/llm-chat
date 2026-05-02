@@ -60,7 +60,11 @@ claudeChatStream hooks apiKey r callback = do
         else parseClaudeStream (HC.responseBody resp) callback
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> pure r'
+    Right r' -> do
+      case r' of
+        Right resp -> onResponse hooks "claude" (streamResponseJson resp)
+        _ -> pure ()
+      pure r'
 
 -- Accumulate all chunks from a BodyReader for error messages
 readAll :: HC.BodyReader -> IO [BS.ByteString]

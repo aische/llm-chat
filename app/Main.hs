@@ -24,7 +24,7 @@ main = do
   geminiKey <- T.pack <$> getEnv "GEMINI_API_KEY"
   claudeKey <- T.pack <$> getEnv "CLAUDE_API_KEY"
 
-  let hooks = withStderrLogger Debug noHooks
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
       gemini = geminiClient noHooks geminiKey
       claude = claudeClient hooks claudeKey
       tools = [weatherTool, ageTool]

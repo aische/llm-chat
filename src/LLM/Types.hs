@@ -41,17 +41,19 @@ module LLM.Types
     addUsage,
     estimateCost,
     isRetryable,
+    streamResponseJson,
   )
 where
 
 import Control.Exception (SomeException, try)
-import Data.Aeson (Value)
+import Data.Aeson (ToJSON (..), Value, object, (.=))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
 import System.IO (stderr)
 
@@ -343,10 +345,35 @@ withJsonDump dir h =
 
 dumpJson :: FilePath -> Text -> Text -> Value -> IO ()
 dumpJson dir provider label val = do
+  createDirectoryIfMissing True dir
   ts <- getPOSIXTime
   let tsStr = show (round (ts * 1000) :: Integer)
       name = T.unpack provider <> "-" <> T.unpack label <> "-" <> tsStr <> ".json"
   BSL.writeFile (dir </> name) (encodePretty val)
+
+-- | Build a synthetic JSON summary from a streamed ChatResponse,
+-- used by providers to fire 'onResponse' after streaming completes.
+streamResponseJson :: ChatResponse -> Value
+streamResponseJson r =
+  object
+    [ "text" .= respText r,
+      "content" .= map blockToJson (respContent r),
+      "usage" .= fmap usageToJson (respUsage r)
+    ]
+  where
+    blockToJson (TextBlock t) = object ["type" .= ("text" :: Text), "text" .= t]
+    blockToJson (ToolCallBlock tc) =
+      object
+        [ "type" .= ("tool_call" :: Text),
+          "id" .= tcId tc,
+          "name" .= tcName tc,
+          "arguments" .= tcArguments tc
+        ]
+    usageToJson u =
+      object
+        [ "input_tokens" .= usageInputTokens u,
+          "output_tokens" .= usageOutputTokens u
+        ]
 
 type LLMResult = Either LLMError ChatResponse
 
