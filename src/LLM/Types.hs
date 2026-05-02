@@ -7,11 +7,15 @@ module LLM.Types
     LLMError (..),
     LLMResult,
     LLMClient (..),
+    Tool (..),
     ToolDef (..),
     ToolCall (..),
     ToolResult (..),
     defaultRequest,
     hasToolCalls,
+    getToolCalls,
+    executeTool,
+    executeTools,
     user,
     assistant,
     toolResult,
@@ -64,6 +68,26 @@ data ToolResult = ToolResult
 toolResult :: ToolCall -> Text -> ToolResult
 toolResult tc = ToolResult (tcId tc)
 
+-- | A tool: its definition (sent to the model) paired with its implementation
+data Tool = Tool
+  { toolDef :: ToolDef,
+    toolExecute :: Value -> IO Text -- takes arguments JSON, returns result text
+  }
+
+-- | Execute a single tool call by looking it up in the tool list
+executeTool :: [Tool] -> ToolCall -> IO ToolResult
+executeTool tools tc = case lookup (tcName tc) toolMap of
+  Nothing -> pure $ toolResult tc ("Unknown tool: " <> tcName tc)
+  Just exec -> do
+    result <- exec (tcArguments tc)
+    pure $ toolResult tc result
+  where
+    toolMap = [(toolName (toolDef t), toolExecute t) | t <- tools]
+
+-- | Execute all tool calls from a response
+executeTools :: [Tool] -> [ToolCall] -> IO [ToolResult]
+executeTools tools = mapM (executeTool tools)
+
 -- | A content block in a response — either text or a tool call
 data ContentBlock
   = TextBlock Text
@@ -97,10 +121,14 @@ defaultRequest model msgs =
 
 -- | Check whether a response contains tool calls
 hasToolCalls :: ChatResponse -> Bool
-hasToolCalls = any isToolCall . respContent
+hasToolCalls = not . null . getToolCalls
+
+-- | Extract tool calls from a response
+getToolCalls :: ChatResponse -> [ToolCall]
+getToolCalls = concatMap go . respContent
   where
-    isToolCall (ToolCallBlock _) = True
-    isToolCall _ = False
+    go (ToolCallBlock tc) = [tc]
+    go _ = []
 
 data ChatResponse = ChatResponse
   { respText :: Text,

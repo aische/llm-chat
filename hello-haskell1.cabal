@@ -71,6 +71,8 @@ library
 
 executable hello-haskell1
     main-is:          Main.hs
+    other-modules:    Tools.Weather, 
+                      Tools.Age
     hs-source-dirs:   app
     build-depends:
         base ^>=4.18,
