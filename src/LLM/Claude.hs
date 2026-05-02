@@ -15,11 +15,11 @@ import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req
 import Network.HTTP.Types.Status (statusCode)
 
-claudeClient :: Text -> LLMClient
-claudeClient apiKey =
+claudeClient :: Hooks -> Text -> LLMClient
+claudeClient hooks apiKey =
   LLMClient
-    { clientChat = claudeChat apiKey,
-      clientChatStream = Just (claudeChatStream apiKey)
+    { clientChat = claudeChat hooks apiKey,
+      clientChatStream = Just (claudeChatStream hooks apiKey)
     }
 
 claudeUrl = https "api.anthropic.com" /: "v1" /: "messages"
@@ -28,22 +28,28 @@ claudeOpts apiKey =
   header "x-api-key" (encodeUtf8 apiKey)
     <> header "anthropic-version" "2023-06-01"
 
-claudeChat :: Text -> ChatRequest -> IO LLMResult
-claudeChat apiKey r = do
+claudeChat :: Hooks -> Text -> ChatRequest -> IO LLMResult
+claudeChat hooks apiKey r = do
+  let reqBody = buildBody False r
+  onRequest hooks "claude" reqBody
   result <- try $ runReq lenientConfig $ do
-    resp <- req POST claudeUrl (ReqBodyJson (buildBody False r)) jsonResponse (claudeOpts apiKey)
+    resp <- req POST claudeUrl (ReqBodyJson reqBody) jsonResponse (claudeOpts apiKey)
     let status = responseStatusCode resp
         body = responseBody resp :: Value
-    pure $
-      if status == 200
-        then parseResponse body
-        else Left $ HttpError status (T.pack $ show body)
+    pure (status, body)
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> pure r'
+    Right (status, body) -> do
+      onResponse hooks "claude" body
+      pure $
+        if status == 200
+          then parseResponse body
+          else Left $ HttpError status (T.pack $ show body)
 
-claudeChatStream :: Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-claudeChatStream apiKey r callback = do
+claudeChatStream :: Hooks -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
+claudeChatStream hooks apiKey r callback = do
+  let reqBody = buildBody True r
+  onRequest hooks "claude" reqBody
   result <- try $ runReq lenientConfig $ do
     reqBr POST claudeUrl (ReqBodyJson (buildBody True r)) (claudeOpts apiKey) $ \resp -> do
       let status = statusCode (HC.responseStatus resp)

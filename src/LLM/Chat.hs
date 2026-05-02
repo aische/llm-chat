@@ -29,7 +29,7 @@ runChat ::
   Text ->
   IO (Either LLMError (Text, Conversation, Usage))
 runChat client cfg tools conv msg = do
-  let log = cfgLogger cfg
+  let log = onLog (cfgHooks cfg)
       conv' = conv ++ [UserTurn msg]
   log Info $ "runChat: model=" <> cfgModel cfg <> " tools=" <> T.pack (show (length tools))
   loop log 0 emptyUsage conv'
@@ -119,7 +119,7 @@ streamChat client cfg tools conv msg callback =
   case clientChatStream client of
     Nothing -> runChat client cfg tools conv msg
     Just stream -> do
-      let log = cfgLogger cfg
+      let log = onLog (cfgHooks cfg)
           conv' = conv ++ [UserTurn msg]
       log Info $ "streamChat: model=" <> cfgModel cfg <> " tools=" <> T.pack (show (length tools))
       sLoop log 0 emptyUsage conv'

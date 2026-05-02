@@ -17,22 +17,24 @@ import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req
 import Network.HTTP.Types.Status (statusCode)
 
-geminiClient :: Text -> LLMClient
-geminiClient apiKey =
+geminiClient :: Hooks -> Text -> LLMClient
+geminiClient hooks apiKey =
   LLMClient
-    { clientChat = geminiChat apiKey,
-      clientChatStream = Just (geminiChatStream apiKey)
+    { clientChat = geminiChat hooks apiKey,
+      clientChatStream = Just (geminiChatStream hooks apiKey)
     }
 
-geminiChat :: Text -> ChatRequest -> IO LLMResult
-geminiChat apiKey r = do
+geminiChat :: Hooks -> Text -> ChatRequest -> IO LLMResult
+geminiChat hooks apiKey r = do
+  let reqBody = buildBody r
+  onRequest hooks "gemini" reqBody
   result <- try $ runReq lenientConfig $ do
     let url =
           https "generativelanguage.googleapis.com"
             /: "v1beta"
             /: "models"
             /: (reqModel r <> ":generateContent")
-    resp <- req POST url (ReqBodyJson (buildBody r)) jsonResponse ("key" =: apiKey)
+    resp <- req POST url (ReqBodyJson reqBody) jsonResponse ("key" =: apiKey)
     let status = responseStatusCode resp
         body = responseBody resp :: Value
     pure $
@@ -42,10 +44,14 @@ geminiChat apiKey r = do
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right (Left err) -> pure $ Left err
-    Right (Right body) -> parseResponse body
+    Right (Right body) -> do
+      onResponse hooks "gemini" body
+      parseResponse body
 
-geminiChatStream :: Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-geminiChatStream apiKey r callback = do
+geminiChatStream :: Hooks -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
+geminiChatStream hooks apiKey r callback = do
+  let reqBody = buildBody r
+  onRequest hooks "gemini" reqBody
   result <- try $ runReq lenientConfig $ do
     let url =
           https "generativelanguage.googleapis.com"

@@ -18,7 +18,7 @@ import Network.HTTP.Req
 import Network.HTTP.Types.Status (statusCode)
 
 -- | Create an OpenAI client for api.openai.com
-openAIClient :: Text -> LLMClient
+openAIClient :: Hooks -> Text -> LLMClient
 openAIClient = openAIClientWith (https "api.openai.com") mempty
 
 -- | Create an OpenAI-compatible client with a custom base URL.
@@ -27,39 +27,45 @@ openAIClient = openAIClientWith (https "api.openai.com") mempty
 --
 -- @
 -- -- Together AI
--- openAIClientWith (https "api.together.xyz") mempty apiKey
+-- openAIClientWith (https "api.together.xyz") mempty hooks apiKey
 --
 -- -- Ollama (local)
--- openAIClientWith (http "localhost") (port 11434) ""
+-- openAIClientWith (http "localhost") (port 11434) hooks ""
 --
 -- -- vLLM (local)
--- openAIClientWith (http "localhost") (port 8000) ""
+-- openAIClientWith (http "localhost") (port 8000) hooks ""
 -- @
-openAIClientWith :: Url scheme -> Option scheme -> Text -> LLMClient
-openAIClientWith baseUrl baseOpts apiKey =
+openAIClientWith :: Url scheme -> Option scheme -> Hooks -> Text -> LLMClient
+openAIClientWith baseUrl baseOpts hooks apiKey =
   LLMClient
-    { clientChat = openAIChat baseUrl baseOpts apiKey,
-      clientChatStream = Just (openAIChatStream baseUrl baseOpts apiKey)
+    { clientChat = openAIChat baseUrl baseOpts hooks apiKey,
+      clientChatStream = Just (openAIChatStream baseUrl baseOpts hooks apiKey)
     }
 
-openAIChat :: Url scheme -> Option scheme -> Text -> ChatRequest -> IO LLMResult
-openAIChat baseUrl baseOpts apiKey r = do
+openAIChat :: Url scheme -> Option scheme -> Hooks -> Text -> ChatRequest -> IO LLMResult
+openAIChat baseUrl baseOpts hooks apiKey r = do
+  let reqBody = buildBody False r
+  onRequest hooks "openai" reqBody
   result <- try $ runReq lenientConfig $ do
     let url = baseUrl /: "v1" /: "chat" /: "completions"
         opts = baseOpts <> authHeader apiKey
-    resp <- req POST url (ReqBodyJson (buildBody False r)) jsonResponse opts
+    resp <- req POST url (ReqBodyJson reqBody) jsonResponse opts
     let status = responseStatusCode resp
         body = responseBody resp :: Value
-    pure $
-      if status == 200
-        then parseResponse body
-        else Left $ HttpError status (T.pack $ show body)
+    pure (status, body)
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> pure r'
+    Right (status, body) -> do
+      onResponse hooks "openai" body
+      pure $
+        if status == 200
+          then parseResponse body
+          else Left $ HttpError status (T.pack $ show body)
 
-openAIChatStream :: Url scheme -> Option scheme -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-openAIChatStream baseUrl baseOpts apiKey r callback = do
+openAIChatStream :: Url scheme -> Option scheme -> Hooks -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
+openAIChatStream baseUrl baseOpts hooks apiKey r callback = do
+  let reqBody = buildBody True r
+  onRequest hooks "openai" reqBody
   result <- try $ runReq lenientConfig $ do
     let url = baseUrl /: "v1" /: "chat" /: "completions"
         opts = baseOpts <> authHeader apiKey

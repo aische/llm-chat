@@ -24,15 +24,16 @@ main = do
   geminiKey <- T.pack <$> getEnv "GEMINI_API_KEY"
   claudeKey <- T.pack <$> getEnv "CLAUDE_API_KEY"
 
-  let gemini = geminiClient geminiKey
-      claude = claudeClient claudeKey
+  let hooks = withStderrLogger Debug noHooks
+      gemini = geminiClient noHooks geminiKey
+      claude = claudeClient hooks claudeKey
       tools = [weatherTool, ageTool]
 
   let geminiPricing = PricingInfo {pricePerMillionInput = 0.10, pricePerMillionOutput = 0.40}
-  let claudePricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.00}
-  let claudeConfig =
+      claudePricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.00}
+      claudeConfig =
         (defaultChatConfig "claude-haiku-4-5-20251001")
-          { cfgLogger = stderrLogger Debug
+          { cfgHooks = hooks
           }
 
   -- putStrLn "=== Gemini ==="
