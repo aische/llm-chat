@@ -2,6 +2,7 @@ module Tools.Weather (weatherTool) where
 
 import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import LLM.Types
 
@@ -35,7 +36,7 @@ weatherSchema =
 -- | Dummy implementation — in reality you'd call a weather API
 getWeather :: Value -> IO Text
 getWeather args = do
-  let loc = maybe "unknown" id $ parseMaybe parseLocation args
+  let loc = fromMaybe "unknown" $ parseMaybe parseLocation args
   pure $ "Weather in " <> loc <> ": Partly cloudy, 18°C, light breeze from the west."
 
 parseLocation :: Value -> Parser Text
