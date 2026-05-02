@@ -1,4 +1,4 @@
-module LLM.Claude (claudeClient) where
+module LLM.Claude (claudeClient, parseResponse, parseUsage) where
 
 import Control.Exception (try)
 import Data.Aeson

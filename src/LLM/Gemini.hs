@@ -1,4 +1,4 @@
-module LLM.Gemini (geminiClient) where
+module LLM.Gemini (geminiClient, parseResponse, parseUsage) where
 
 import Control.Applicative ((<|>))
 import Control.Exception (try)

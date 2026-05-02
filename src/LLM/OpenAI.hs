@@ -1,4 +1,4 @@
-module LLM.OpenAI (openAIClient, openAIClientWith) where
+module LLM.OpenAI (openAIClient, openAIClientWith, parseResponse, parseUsage) where
 
 import Control.Applicative ((<|>))
 import Control.Exception (try)

@@ -8,7 +8,7 @@ module LLM
 where
 
 import LLM.Chat
-import LLM.Claude
-import LLM.Gemini
-import LLM.OpenAI
+import LLM.Claude hiding (parseResponse, parseUsage)
+import LLM.Gemini hiding (parseResponse, parseUsage)
+import LLM.OpenAI hiding (parseResponse, parseUsage)
 import LLM.Types
