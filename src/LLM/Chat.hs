@@ -1,13 +1,14 @@
 module LLM.Chat (runChat) where
 
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import LLM.Types
 
 -- | Run a chat with automatic tool-call handling.
 --
 -- Takes a client, config, tools, previous conversation, and a new user message.
--- Returns the final assistant text and the full updated conversation,
--- or an error.
+-- Returns the final assistant text, the full updated conversation, and
+-- accumulated token usage across all rounds, or an error.
 --
 -- The tool loop runs until the model stops requesting tools or
 -- 'cfgMaxToolRounds' is reached.
@@ -17,13 +18,13 @@ runChat ::
   [Tool] ->
   Conversation ->
   Text ->
-  IO (Either LLMError (Text, Conversation))
+  IO (Either LLMError (Text, Conversation, Usage))
 runChat client cfg tools conv msg = do
   let conv' = conv ++ [UserTurn msg]
-  loop 0 conv'
+  loop 0 emptyUsage conv'
   where
-    loop :: Int -> Conversation -> IO (Either LLMError (Text, Conversation))
-    loop rounds conv'
+    loop :: Int -> Usage -> Conversation -> IO (Either LLMError (Text, Conversation, Usage))
+    loop rounds acc conv'
       | rounds >= cfgMaxToolRounds cfg =
           pure $ Left (ToolLoopExceeded rounds)
       | otherwise = do
@@ -39,17 +40,19 @@ runChat client cfg tools conv msg = do
           result <- clientChat client request
           case result of
             Left err -> pure $ Left err
-            Right resp
-              | hasToolCalls resp -> do
-                  let calls = getToolCalls resp
-                  results <- executeTools tools calls
-                  let conv'' =
-                        conv'
-                          ++ [AssistantTurn (respText resp) calls]
-                          ++ [ToolTurn results]
-                  loop (rounds + 1) conv''
-              | otherwise -> do
-                  let finalConv =
-                        conv'
-                          ++ [AssistantTurn (respText resp) []]
-                  pure $ Right (respText resp, finalConv)
+            Right resp ->
+              let acc' = addUsage acc (fromMaybe emptyUsage (respUsage resp))
+               in if hasToolCalls resp
+                    then do
+                      let calls = getToolCalls resp
+                      results <- executeTools tools calls
+                      let conv'' =
+                            conv'
+                              ++ [AssistantTurn (respText resp) calls]
+                              ++ [ToolTurn results]
+                      loop (rounds + 1) acc' conv''
+                    else do
+                      let finalConv =
+                            conv'
+                              ++ [AssistantTurn (respText resp) []]
+                      pure $ Right (respText resp, finalConv, acc')

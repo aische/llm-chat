@@ -110,7 +110,7 @@ parseResponse v = case parseMaybe go v of
     [] -> Left EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in Right (ChatResponse text blocks)
+       in Right (ChatResponse text blocks (parseUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "GeminiResponse" $ \o -> do
@@ -144,3 +144,11 @@ parseResponse v = case parseMaybe go v of
               )
               fc
       tryText <|> tryFunctionCall
+
+parseUsage :: Value -> Maybe Usage
+parseUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
+  u <- o .: "usageMetadata"
+  withObject
+    "usageMetadata"
+    (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount")
+    u

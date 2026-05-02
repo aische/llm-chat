@@ -97,7 +97,7 @@ parseResponse v = case parseMaybe go v of
     [] -> Left EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in Right (ChatResponse text blocks)
+       in Right (ChatResponse text blocks (parseUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "ClaudeResponse" $ \o -> do
@@ -115,3 +115,8 @@ parseResponse v = case parseMaybe go v of
           args <- o .: "input"
           pure $ ToolCallBlock (ToolCall cid name args)
         _ -> fail $ "Unknown content block type: " <> T.unpack typ
+
+parseUsage :: Value -> Maybe Usage
+parseUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
+  u <- o .: "usage"
+  withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens") u
