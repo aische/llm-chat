@@ -30,6 +30,7 @@ main = do
       tools = [weatherTool, ageTool]
 
   let geminiPricing = PricingInfo {pricePerMillionInput = 0.10, pricePerMillionOutput = 0.40}
+      geminiConfig = (defaultChatConfig "gemini-2.0-flash") {cfgHooks = hooks}
       claudePricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.00}
       claudeConfig =
         (defaultChatConfig "claude-haiku-4-5-20251001")
@@ -37,7 +38,7 @@ main = do
           }
 
   -- putStrLn "=== Gemini ==="
-  -- _ <- conversationLoop gemini (defaultChatConfig "gemini-2.0-flash") tools geminiPricing prompts
+  -- _ <- streamChatLoop gemini geminiConfig tools geminiPricing prompts
 
   putStrLn "\n=== Claude ==="
   _ <- streamChatLoop claude claudeConfig tools claudePricing prompts
