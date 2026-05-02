@@ -1,5 +1,6 @@
 module LLM.Gemini (geminiClient) where
 
+import Control.Applicative ((<|>))
 import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
@@ -35,20 +36,73 @@ lenientConfig =
 buildBody :: ChatRequest -> Value
 buildBody r =
   object $
-    [ "contents" .= map encodeMsg (reqMessages r),
+    [ "contents" .= buildContents r,
       "generationConfig" .= genConfig r
     ]
-      ++
-      -- list comprehension as optional field — a nice Haskell idiom
-      [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
-        | Just sys <- [reqSystem r]
-      ]
+      ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
+           | Just sys <- [reqSystem r]
+         ]
+      ++ [ "tools" .= [object ["function_declarations" .= map encodeToolDef (reqTools r)]]
+           | not (null (reqTools r))
+         ]
+
+buildContents :: ChatRequest -> [Value]
+buildContents r =
+  map encodeMsg (reqMessages r)
+    ++ [ encodeModelFunctionCalls (reqPendingToolCalls r)
+         | not (null (reqPendingToolCalls r))
+       ]
+    ++ [ encodeFunctionResponses (reqToolResults r)
+         | not (null (reqToolResults r))
+       ]
 
 encodeMsg :: Message -> Value
 encodeMsg (Message role content) =
   object
     [ "role" .= geminiRole role,
       "parts" .= [object ["text" .= content]]
+    ]
+
+encodeToolDef :: ToolDef -> Value
+encodeToolDef td =
+  object
+    [ "name" .= toolName td,
+      "description" .= toolDescription td,
+      "parameters" .= toolParameters td
+    ]
+
+encodeModelFunctionCalls :: [ToolCall] -> Value
+encodeModelFunctionCalls tcs =
+  object
+    [ "role" .= ("model" :: Text),
+      "parts" .= map encodeFunctionCall tcs
+    ]
+
+encodeFunctionCall :: ToolCall -> Value
+encodeFunctionCall tc =
+  object
+    [ "functionCall"
+        .= object
+          [ "name" .= tcName tc,
+            "args" .= tcArguments tc
+          ]
+    ]
+
+encodeFunctionResponses :: [ToolResult] -> Value
+encodeFunctionResponses trs =
+  object
+    [ "role" .= ("user" :: Text),
+      "parts" .= map encodeFunctionResponse trs
+    ]
+
+encodeFunctionResponse :: ToolResult -> Value
+encodeFunctionResponse tr =
+  object
+    [ "functionResponse"
+        .= object
+          [ "name" .= trCallId tr, -- for Gemini, trCallId stores the function name
+            "response" .= object ["result" .= trContent tr]
+          ]
     ]
 
 geminiRole :: Role -> Text
@@ -64,9 +118,13 @@ genConfig r =
 parseResponse :: Value -> LLMResult
 parseResponse v = case parseMaybe go v of
   Nothing -> Left EmptyResponse
-  Just t -> Right (ChatResponse t)
+  Just blocks -> case blocks of
+    [] -> Left EmptyResponse
+    _ ->
+      let text = T.concat [t | TextBlock t <- blocks]
+       in Right (ChatResponse text blocks)
   where
-    go :: Value -> Parser Text
+    go :: Value -> Parser [ContentBlock]
     go = withObject "GeminiResponse" $ \o -> do
       (cand : _) <- o .: "candidates" :: Parser [Value]
       withObject
@@ -76,9 +134,25 @@ parseResponse v = case parseMaybe go v of
             withObject
               "content"
               ( \cco -> do
-                  (part : _) <- cco .: "parts" :: Parser [Value]
-                  withObject "part" (.: "text") part
+                  parts <- cco .: "parts" :: Parser [Value]
+                  mapM parsePart parts
               )
               cont
         )
         cand
+
+    parsePart :: Value -> Parser ContentBlock
+    parsePart = withObject "part" $ \o -> do
+      let tryText = TextBlock <$> (o .: "text")
+          tryFunctionCall = do
+            fc <- o .: "functionCall"
+            withObject
+              "functionCall"
+              ( \fco -> do
+                  name <- fco .: "name"
+                  args <- fco .:? "args" .!= object []
+                  -- Gemini doesn't provide a call id; use the function name
+                  pure $ ToolCallBlock (ToolCall name name args)
+              )
+              fc
+      tryText <|> tryFunctionCall

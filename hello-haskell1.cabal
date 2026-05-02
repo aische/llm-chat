@@ -75,6 +75,7 @@ executable hello-haskell1
     build-depends:
         base ^>=4.18,
         text,
+        aeson,
         hello-haskell1,
         dotenv
     default-language:   GHC2021

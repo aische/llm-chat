@@ -36,16 +36,66 @@ buildBody r =
   object $
     [ "model" .= reqModel r,
       "max_tokens" .= reqMaxTokens r,
-      "messages" .= map encodeMsg (reqMessages r)
+      "messages" .= buildMessages r
     ]
       ++ ["system" .= sys | Just sys <- [reqSystem r]]
       ++ ["temperature" .= t | Just t <- [reqTemperature r]]
+      ++ ["tools" .= map encodeToolDef (reqTools r) | not (null (reqTools r))]
+
+buildMessages :: ChatRequest -> [Value]
+buildMessages r =
+  map encodeMsg (reqMessages r)
+    ++ [ encodeAssistantToolUse (reqPendingToolCalls r)
+         | not (null (reqPendingToolCalls r))
+       ]
+    ++ [ encodeToolResults (reqToolResults r)
+         | not (null (reqToolResults r))
+       ]
 
 encodeMsg :: Message -> Value
 encodeMsg (Message role content) =
   object
     [ "role" .= claudeRole role,
       "content" .= content
+    ]
+
+encodeToolDef :: ToolDef -> Value
+encodeToolDef td =
+  object
+    [ "name" .= toolName td,
+      "description" .= toolDescription td,
+      "input_schema" .= toolParameters td
+    ]
+
+encodeAssistantToolUse :: [ToolCall] -> Value
+encodeAssistantToolUse tcs =
+  object
+    [ "role" .= ("assistant" :: Text),
+      "content" .= map encodeToolUseBlock tcs
+    ]
+
+encodeToolUseBlock :: ToolCall -> Value
+encodeToolUseBlock tc =
+  object
+    [ "type" .= ("tool_use" :: Text),
+      "id" .= tcId tc,
+      "name" .= tcName tc,
+      "input" .= tcArguments tc
+    ]
+
+encodeToolResults :: [ToolResult] -> Value
+encodeToolResults trs =
+  object
+    [ "role" .= ("user" :: Text),
+      "content" .= map encodeToolResult trs
+    ]
+
+encodeToolResult :: ToolResult -> Value
+encodeToolResult tr =
+  object
+    [ "type" .= ("tool_result" :: Text),
+      "tool_use_id" .= trCallId tr,
+      "content" .= trContent tr
     ]
 
 claudeRole :: Role -> Text
@@ -55,9 +105,25 @@ claudeRole Assistant = "assistant"
 parseResponse :: Value -> LLMResult
 parseResponse v = case parseMaybe go v of
   Nothing -> Left EmptyResponse
-  Just t -> Right (ChatResponse t)
+  Just blocks -> case blocks of
+    [] -> Left EmptyResponse
+    _ ->
+      let text = T.concat [t | TextBlock t <- blocks]
+       in Right (ChatResponse text blocks)
   where
-    go :: Value -> Parser Text
+    go :: Value -> Parser [ContentBlock]
     go = withObject "ClaudeResponse" $ \o -> do
-      (c : _) <- o .: "content" :: Parser [Value]
-      withObject "content_block" (.: "text") c
+      content <- o .: "content" :: Parser [Value]
+      mapM parseBlock content
+
+    parseBlock :: Value -> Parser ContentBlock
+    parseBlock = withObject "content_block" $ \o -> do
+      typ <- o .: "type" :: Parser Text
+      case typ of
+        "text" -> TextBlock <$> o .: "text"
+        "tool_use" -> do
+          cid <- o .: "id"
+          name <- o .: "name"
+          args <- o .: "input"
+          pure $ ToolCallBlock (ToolCall cid name args)
+        _ -> fail $ "Unknown content block type: " <> T.unpack typ
