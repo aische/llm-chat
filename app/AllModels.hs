@@ -1,7 +1,5 @@
 module AllModels (getAllModels, AllModels (..)) where
 
-import Configuration.Dotenv (defaultConfig, loadFile)
-import Control.Exception (SomeException, catch)
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -35,8 +33,6 @@ data AllModels = AllModels
 getAllModels :: Hooks -> IO AllModels
 getAllModels hooks =
   do
-    loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
-
     geminiKey <- T.pack <$> getEnv "GEMINI_API_KEY"
     claudeKey <- T.pack <$> getEnv "CLAUDE_API_KEY"
 
