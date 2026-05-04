@@ -28,6 +28,7 @@ data AllModels = AllModels
     claude_haiku_4_5 :: ModelConfig,
     llama_3_2 :: ModelConfig,
     gpt_5_nano :: ModelConfig,
+    gpt_5_4_nano :: ModelConfig,
     gpt_4_1 :: ModelConfig
   }
 
@@ -47,6 +48,17 @@ getAllModels =
               -- mcModel = "gpt-5.5",
               mcModel = "gpt-5-nano-2025-08-07",
               mcPricing = PricingInfo {pricePerMillionInput = 0.05, pricePerMillionOutput = 0.4},
+              mcMaxTokens = 1024,
+              mcTemperature = Nothing,
+              mcRequestTimeout = Nothing,
+              mcThrottleDelay = Nothing,
+              mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+            }
+        gpt_5_4_nano =
+          ModelConfig
+            { mcGateway = openAI,
+              mcModel = "gpt-5.4-nano-2026-03-17",
+              mcPricing = PricingInfo {pricePerMillionInput = 0.2, pricePerMillionOutput = 1.25},
               mcMaxTokens = 1024,
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
@@ -97,4 +109,4 @@ getAllModels =
               mcThrottleDelay = Nothing,
               mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
             }
-    return $ AllModels gemini_2_5_flash claude_haiku_4_5 llama_3_2 gpt_4_1 gpt_5_nano
+    return $ AllModels gemini_2_5_flash claude_haiku_4_5 llama_3_2 gpt_4_1 gpt_5_4_nano gpt_5_nano
