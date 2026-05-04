@@ -67,9 +67,10 @@ library
         LLM.Providers.Ollama
         LLM.Core.Logger
         LLM.Core.Usage
+        LLM.Core.Utils
     other-modules:
         LLM.Core.SSE
-        LLM.Core.Common
+        LLM.Core.ProviderUtils
     hs-source-dirs:     src
     build-depends:
         base           ^>=4.18,

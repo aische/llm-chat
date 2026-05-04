@@ -17,8 +17,8 @@ import LLM.Core.Types
     LLMError (HttpError, NetworkError),
     LLMResult,
     StreamEvent,
-    streamResponseJson,
   )
+import LLM.Core.Utils (streamResponseJson)
 import Network.HTTP.Req (HttpException)
 
 -- | Typeclass for LLM provider backends.

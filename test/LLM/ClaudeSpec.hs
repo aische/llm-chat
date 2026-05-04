@@ -3,6 +3,7 @@ module LLM.ClaudeSpec (spec) where
 import Data.Aeson (eitherDecodeFileStrict')
 import LLM.Core.Types
 import LLM.Core.Usage (Usage (Usage))
+import LLM.Core.Utils (getToolCalls, hasToolCalls)
 import LLM.Providers.Claude (parseClaudeResponse, parseClaudeUsage)
 import Test.Hspec
 

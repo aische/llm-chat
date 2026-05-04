@@ -1,4 +1,4 @@
-module LLM.Core.Common
+module LLM.Core.ProviderUtils
   ( lenientConfig,
     readAll,
     handleStreamResponse,

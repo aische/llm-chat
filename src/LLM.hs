@@ -1,5 +1,6 @@
 module LLM
   ( module LLM.Core.Types,
+    module LLM.Core.Utils,
     module LLM.Core.LLMProvider,
     module LLM.Core.Chat,
     module LLM.Core.LLMProviderAdapter,
@@ -18,6 +19,7 @@ import LLM.Core.LLMProviderAdapter
 import LLM.Core.Logger
 import LLM.Core.Types
 import LLM.Core.Usage
+import LLM.Core.Utils
 import LLM.Providers.Claude
 import LLM.Providers.Gemini
 import LLM.Providers.Ollama

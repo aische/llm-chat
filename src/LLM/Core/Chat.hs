@@ -19,12 +19,14 @@ import LLM.Core.Types
     ToolContext (..),
     ToolResult (trContent, trName),
     Turn (AssistantTurn, ToolTurn, UserTurn),
-    executeTools,
+  )
+import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
+import LLM.Core.Utils
+  ( executeTools,
     getToolCalls,
     hasToolCalls,
     isRetryable,
   )
-import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
 import System.Timeout (timeout)
 
 -- | Run a non-streaming chat with automatic tool-call handling.

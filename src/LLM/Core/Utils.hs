@@ -1,0 +1,88 @@
+module LLM.Core.Utils
+  ( hasToolCalls,
+    getToolCalls,
+    executeTool,
+    executeTools,
+    toolResult,
+    isRetryable,
+    streamResponseJson,
+  )
+where
+
+import Control.Exception (SomeException (SomeException), try)
+import Data.Aeson (Value, object, (.=))
+import Data.Text (Text)
+import Data.Text qualified as T
+import LLM.Core.Types
+  ( ChatResponse (..),
+    ContentBlock (..),
+    LLMError (..),
+    Tool (..),
+    ToolCall (..),
+    ToolContext (..),
+    ToolDef (..),
+    ToolResult (..),
+  )
+import LLM.Core.Usage (Usage (..))
+
+-- | Smart constructor for tool results
+toolResult :: ToolCall -> Text -> ToolResult
+toolResult tc = ToolResult (tcId tc) (tcName tc)
+
+-- | Execute a single tool call by looking it up in the tool list
+executeTool :: ToolContext -> [Tool] -> ToolCall -> IO ToolResult
+executeTool ctx tools tc = case lookup (tcName tc) toolMap of
+  Nothing -> pure $ toolResult tc ("Unknown tool: " <> tcName tc)
+  Just exec -> do
+    result <- try (exec ctx (tcArguments tc))
+    case result of
+      Right text -> pure $ toolResult tc text
+      Left (e :: SomeException) ->
+        pure $ toolResult tc ("Tool error: " <> T.pack (show e))
+  where
+    toolMap = [(toolName (toolDef t), toolExecute t) | t <- tools]
+
+-- | Execute all tool calls from a response
+executeTools :: ToolContext -> [Tool] -> [ToolCall] -> IO [ToolResult]
+executeTools ctx tools = mapM (executeTool ctx tools)
+
+-- | Check whether a response contains tool calls
+hasToolCalls :: ChatResponse -> Bool
+hasToolCalls = not . null . getToolCalls
+
+-- | Extract tool calls from a response
+getToolCalls :: ChatResponse -> [ToolCall]
+getToolCalls = concatMap go . respContent
+  where
+    go (ToolCallBlock tc) = [tc]
+    go _ = []
+
+-- | Whether an error is worth retrying
+isRetryable :: LLMError -> Bool
+isRetryable (HttpError status _) = status `elem` [429, 503, 529]
+isRetryable (NetworkError _) = True
+isRetryable _ = False
+
+-- | Build a synthetic JSON summary from a streamed ChatResponse,
+-- used by providers to fire 'onResponse' after streaming completes.
+streamResponseJson :: ChatResponse -> Value
+streamResponseJson r =
+  object
+    [ "text" .= respText r,
+      "content" .= map blockToJson (respContent r),
+      "usage" .= fmap usageToJson (respUsage r)
+    ]
+  where
+    blockToJson (TextBlock t) = object ["type" .= ("text" :: Text), "text" .= t]
+    blockToJson (ToolCallBlock tc) =
+      object
+        [ "type" .= ("tool_call" :: Text),
+          "id" .= tcId tc,
+          "name" .= tcName tc,
+          "arguments" .= tcArguments tc
+        ]
+    usageToJson u =
+      object
+        [ "input_tokens" .= usageInputTokens u,
+          "output_tokens" .= usageOutputTokens u
+        ]

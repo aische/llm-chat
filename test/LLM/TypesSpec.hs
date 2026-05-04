@@ -6,11 +6,13 @@ import LLM.Core.Types
     ContentBlock (TextBlock, ToolCallBlock),
     LLMError (EmptyResponse, HttpError, NetworkError),
     ToolCall (ToolCall),
-    getToolCalls,
+  )
+import LLM.Core.Usage (PricingInfo (..), Usage (..), addUsage, emptyUsage, estimateCost, pricePerMillionInput, pricePerMillionOutput, usageInputTokens, usageOutputTokens, usageTotalCost)
+import LLM.Core.Utils
+  ( getToolCalls,
     hasToolCalls,
     isRetryable,
   )
-import LLM.Core.Usage (PricingInfo (..), Usage (..), addUsage, emptyUsage, estimateCost, pricePerMillionInput, pricePerMillionOutput, usageInputTokens, usageOutputTokens, usageTotalCost)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec

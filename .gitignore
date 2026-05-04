@@ -13,3 +13,4 @@ cabal.project.local~
 dumps/
 .mydocs/
 .github/
+.vscode/
