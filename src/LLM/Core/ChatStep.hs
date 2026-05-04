@@ -1,0 +1,149 @@
+{-# LANGUAGE LambdaCase #-}
+
+module LLM.Core.ChatStep
+  ( ChatStep (..),
+    buildChatStep,
+    mkRequest,
+    windowOffset,
+  )
+where
+
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
+import Data.Text qualified as T
+import LLM.Core.LLMProvider (ChatEnv (..), ModelConfig (..))
+import LLM.Core.Logger (LogLevel (..))
+import LLM.Core.Types
+  ( ChatRequest (..),
+    ChatResponse (respText, respUsage),
+    Conversation,
+    LLMError (Aborted, ToolLoopExceeded),
+    LLMResult,
+    Tool (toolDef),
+    ToolCall (tcName),
+    ToolResult (trContent, trName),
+    Turn (AssistantTurn, ToolTurn, UserTurn),
+  )
+import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
+import LLM.Core.Utils (getToolCalls, hasToolCalls)
+
+-- | A reified chat program. Each constructor is an effect the loop
+-- needs, paired with a continuation that accepts the result.
+-- The program is fully pure — interpreters decide how to execute effects.
+data ChatStep
+  = -- | Check whether the caller wants to abort.
+    CheckAbort (Bool -> ChatStep)
+  | -- | Emit a log message, then continue.
+    Log LogLevel Text ChatStep
+  | -- | Wait @n@ milliseconds, then continue.
+    Throttle Int ChatStep
+  | -- | Send a request to the LLM. The interpreter decides streaming
+    -- vs non-streaming, retry policy, and timeout.
+    CallLLM ChatRequest (LLMResult -> ChatStep)
+  | -- | Execute tool calls. Passes the full conversation and accumulated
+    -- usage so the interpreter can build a 'ToolContext'.
+    ExecTools [ToolCall] Conversation Usage (Either LLMError [ToolResult] -> ChatStep)
+  | -- | Terminal: the loop is done.
+    Done (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+
+-- | Build a pure 'ChatStep' program from a 'ChatEnv' and 'ModelConfig'.
+-- This replaces the old monolithic @chatLoop@ — same logic, zero IO.
+buildChatStep :: ChatEnv -> ModelConfig -> Int -> Usage -> Conversation -> ChatStep
+buildChatStep env mc rounds acc conv
+  | rounds >= envMaxToolRounds env =
+      Log Error ("Tool loop exceeded: " <> tshow rounds <> " rounds") $
+        Done (Left (ToolLoopExceeded rounds, conv, acc))
+  | otherwise =
+      CheckAbort $ \aborted ->
+        if aborted
+          then
+            Log Info "Aborted before API call" $
+              Done (Left (Aborted, conv, acc))
+          else
+            let request = mkRequest env mc conv
+             in Log Debug ("API request: model=" <> mcModel mc <> " round=" <> tshow rounds <> " turns=" <> tshow (length (reqConversation request))) $
+                  maybeThrottle (mcThrottleDelay mc) $
+                    CallLLM request $ \case
+                      Left err ->
+                        Log Error ("API error: " <> tshow err) $
+                          Done (Left (err, conv, acc))
+                      Right resp ->
+                        let responseUsage = fromMaybe emptyUsage (respUsage resp)
+                            cost = estimateCost (mcPricing mc) responseUsage
+                            acc' = addUsage acc (responseUsage {usageTotalCost = cost})
+                         in if hasToolCalls resp
+                              then
+                                let calls = getToolCalls resp
+                                 in Log Info ("Tool calls: " <> T.intercalate ", " (map tcName calls)) $
+                                      ExecTools calls conv acc' $ \case
+                                        Left _ ->
+                                          Log Info "Aborted during tool execution" $
+                                            Done (Left (Aborted, conv, acc'))
+                                        Right results ->
+                                          Log Debug ("Tool results: " <> T.intercalate ", " [trName r <> "=" <> T.take 100 (trContent r) | r <- results]) $
+                                            let conv' =
+                                                  conv
+                                                    ++ [AssistantTurn (respText resp) calls]
+                                                    ++ [ToolTurn results]
+                                             in buildChatStep env mc (rounds + 1) acc' conv'
+                              else
+                                Log Info (logResponse resp) $
+                                  let finalConv = conv ++ [AssistantTurn (respText resp) []]
+                                   in Done (Right (respText resp, finalConv, acc'))
+
+-- Helpers --
+
+maybeThrottle :: Maybe Int -> ChatStep -> ChatStep
+maybeThrottle Nothing next = next
+maybeThrottle (Just d) next = Throttle d next
+
+tshow :: (Show a) => a -> Text
+tshow = T.pack . show
+
+logResponse :: ChatResponse -> Text
+logResponse resp =
+  "Response: "
+    <> T.take 100 (respText resp)
+    <> maybe
+      ""
+      ( \u ->
+          " usage="
+            <> tshow (usageInputTokens u)
+            <> "+"
+            <> tshow (usageOutputTokens u)
+      )
+      (respUsage resp)
+  where
+    usageInputTokens = LLM.Core.Usage.usageInputTokens
+    usageOutputTokens = LLM.Core.Usage.usageOutputTokens
+
+-- | Build a ChatRequest from the model config and a conversation.
+-- When 'envContextWindow' is set, only the last N user messages (and their
+-- associated replies) are sent to the model.
+mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
+mkRequest env mc conv =
+  ChatRequest
+    { reqModel = mcModel mc,
+      reqConversation = drop offset conv,
+      reqSystem = envSystem env,
+      reqMaxTokens = mcMaxTokens mc,
+      reqTemperature = mcTemperature mc,
+      reqTools = map toolDef (envTools env)
+    }
+  where
+    offset = windowOffset (envContextWindow env) conv
+
+-- | Compute the index where the visible window starts.
+windowOffset :: Maybe Int -> Conversation -> Int
+windowOffset Nothing _ = 0
+windowOffset (Just n) conv = findNthUserFromEnd n conv
+
+findNthUserFromEnd :: Int -> Conversation -> Int
+findNthUserFromEnd n conv = go (length conv - 1) n
+  where
+    go idx remaining
+      | idx < 0 = 0
+      | remaining <= 0 = idx + 1
+      | otherwise = case conv !! idx of
+          UserTurn _ -> go (idx - 1) (remaining - 1)
+          _ -> go (idx - 1) remaining

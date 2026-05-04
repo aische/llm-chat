@@ -4,6 +4,7 @@ module LLM
     module LLM.Core.Utils,
     module LLM.Core.LLMProvider,
     module LLM.Core.Chat,
+    module LLM.Core.ChatStep,
     module LLM.Core.LLMProviderAdapter,
     module LLM.Providers.Gemini,
     module LLM.Providers.Claude,
@@ -16,6 +17,7 @@ where
 
 import LLM.Core.Abort
 import LLM.Core.Chat
+import LLM.Core.ChatStep
 import LLM.Core.LLMProvider
 import LLM.Core.LLMProviderAdapter
 import LLM.Core.Logger
