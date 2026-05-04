@@ -20,7 +20,7 @@ import LLM.Core.Types
     Turn (UserTurn),
   )
 import LLM.Core.Usage (Usage, emptyUsage)
-import LLM.Core.Utils (executeToolsWithAbort, isRetryable)
+import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withTimeout)
 import System.Timeout (timeout)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
@@ -125,13 +125,6 @@ runStepIO hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
               }
       results <- executeToolsWithAbort abortSig ctx tools (esCalls step)
       go (esCont step results)
-
--- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
-withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
-withTimeout Nothing action = action
-withTimeout (Just ms) action = do
-  result <- timeout (ms * 1000) action
-  pure $ fromMaybe (Left TimeoutError) result
 
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult

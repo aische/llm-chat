@@ -6,12 +6,14 @@ module LLM.Core.Utils
     executeToolsWithAbort,
     toolResult,
     isRetryable,
+    withTimeout,
     streamResponseJson,
   )
 where
 
 import Control.Exception (SomeException (SomeException), try)
 import Data.Aeson (Value, object, (.=))
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
@@ -19,6 +21,7 @@ import LLM.Core.Types
   ( ChatResponse (..),
     ContentBlock (..),
     LLMError (..),
+    LLMResult,
     Tool (..),
     ToolCall (..),
     ToolContext (..),
@@ -26,6 +29,7 @@ import LLM.Core.Types
     ToolResult (..),
   )
 import LLM.Core.Usage (Usage (..))
+import System.Timeout (timeout)
 
 -- | Smart constructor for tool results
 toolResult :: ToolCall -> Text -> ToolResult
@@ -79,6 +83,13 @@ isRetryable :: LLMError -> Bool
 isRetryable (HttpError status _) = status `elem` [429, 503, 529]
 isRetryable (NetworkError _) = True
 isRetryable _ = False
+
+-- | Wrap an action with a timeout (ms).
+withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
+withTimeout Nothing action = action
+withTimeout (Just ms) action = do
+  result <- timeout (ms * 1000) action
+  pure $ fromMaybe (Left TimeoutError) result
 
 -- | Build a synthetic JSON summary from a streamed ChatResponse,
 -- used by providers to fire 'onResponse' after streaming completes.

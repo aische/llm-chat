@@ -36,7 +36,7 @@ import LLM.Core.Types
     Turn (AssistantTurn, ToolTurn),
   )
 import LLM.Core.Usage (Usage, emptyUsage)
-import LLM.Core.Utils (executeToolsWithAbort, isRetryable)
+import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withTimeout)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
 import System.Timeout (timeout)
@@ -186,13 +186,6 @@ runStepServer store sid hooks abortSig tools ctxWindow retryPolicy reqTimeout ca
         Left _ ->
           pure () -- aborted, terminal state handled by Done
       go (esCont step results)
-
--- | Wrap an action with a timeout (ms).
-withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
-withTimeout Nothing action = action
-withTimeout (Just ms) action = do
-  result <- timeout (ms * 1000) action
-  pure $ fromMaybe (Left TimeoutError) result
 
 -- | Retry on retryable errors.
 withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
