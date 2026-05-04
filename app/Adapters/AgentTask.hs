@@ -21,8 +21,8 @@ import LLM
     Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     fileStore,
     resumeSession,
-    runStepServer,
     safeHooks,
+    sessionChatStepInterpreter,
     streamChatWith,
   )
 import System.Environment (getArgs, getProgName)
@@ -78,7 +78,7 @@ showStatus sid = do
 runOrResume :: ChatEnv -> SessionId -> Maybe Text -> IO ()
 runOrResume env sid mPrompt = do
   let store = fileStore sessionsDir
-      interp = runStepServer store sid -- partially applied = ChatStepInterpreter
+      interp = sessionChatStepInterpreter store sid -- partially applied = ChatStepInterpreter
   mState <- loadSession store sid
   case (mState, mPrompt) of
     -- Already completed
@@ -99,29 +99,26 @@ runOrResume env sid mPrompt = do
       -- streamChatWith would prepend a new UserTurn, so we use the
       -- interpreter directly with a reconstructed ChatStep.
       let mc = envModel env
-      case resumeSession store sid env mc of
-        -- resumeSession is IO, need to run it
-        resumeAction -> do
-          mStep <- resumeAction
-          case mStep of
-            Just step -> do
-              putStrLn $ "[Running agent task: " <> T.unpack sid <> "]"
-              let hooks = safeHooks (envHooks env)
-                  call req = providerChatStream (mcGateway mc) hooks req $ \case
-                    StreamDelta txt -> TIO.putStr txt
-                    StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
-              result <-
-                interp
-                  hooks
-                  (envAbortSignal env)
-                  (envTools env)
-                  (envContextWindow env)
-                  (mcRetry mc)
-                  (mcRequestTimeout mc)
-                  call
-                  step
-              printResult result
-            Nothing -> putStrLn "Nothing to resume."
+      mStep <- resumeSession store sid env mc
+      case mStep of
+        Just step -> do
+          putStrLn $ "[Running agent task: " <> T.unpack sid <> "]"
+          let hooks = safeHooks (envHooks env)
+              call req = providerChatStream (mcGateway mc) hooks req $ \case
+                StreamDelta txt -> TIO.putStr txt
+                StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
+          result <-
+            interp
+              hooks
+              (envAbortSignal env)
+              (envTools env)
+              (envContextWindow env)
+              (mcRetry mc)
+              (mcRequestTimeout mc)
+              call
+              step
+          printResult result
+        Nothing -> putStrLn "Nothing to resume."
 
     -- No session, need a prompt
     (Nothing, Just prompt) -> runNew interp prompt

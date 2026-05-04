@@ -6,7 +6,7 @@ module LLM.Core.Session
     SessionStatus (..),
     Store (..),
     fileStore,
-    runStepServer,
+    sessionChatStepInterpreter,
     resumeSession,
   )
 where
@@ -117,8 +117,8 @@ resumeSession store sid env mc = do
 -- session state at checkpoint boundaries (before/after tool execution
 -- and at terminal states). If the process crashes, 'resumeSession'
 -- reconstructs the program from the last checkpoint.
-runStepServer :: Store -> SessionId -> ChatStepInterpreter
-runStepServer store sid hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
+sessionChatStepInterpreter :: Store -> SessionId -> ChatStepInterpreter
+sessionChatStepInterpreter store sid hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
   where
     go (Done result) = do
       -- Persist terminal state

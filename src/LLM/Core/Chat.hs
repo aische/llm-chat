@@ -1,7 +1,7 @@
 module LLM.Core.Chat
   ( runChatSimple,
     streamChatSimple,
-    runStepIO,
+    simpleChatStepInterpreter,
   )
 where
 
@@ -26,7 +26,7 @@ import LLM.Core.Types
     Turn (UserTurn),
   )
 import LLM.Core.Usage (Usage, emptyUsage)
-import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withTimeout, withRetry)
+import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withRetry, withTimeout)
 import System.Timeout (timeout)
 
 -- | Run a non-streaming chat. Uses the standard in-memory interpreter.
@@ -35,7 +35,7 @@ runChatSimple ::
   Conversation ->
   Text ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-runChatSimple = runChatWith runStepIO
+runChatSimple = runChatWith simpleChatStepInterpreter
 
 -- | Like 'runChatSimple', but streams text deltas via a callback.
 streamChatSimple ::
@@ -44,12 +44,12 @@ streamChatSimple ::
   Text ->
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamChatSimple = streamChatWith runStepIO
+streamChatSimple = streamChatWith simpleChatStepInterpreter
 
 -- | Standard IO interpreter for 'ChatStep'. Executes effects directly:
 -- logging, throttling, LLM calls (with retry/timeout), and tool execution.
-runStepIO :: ChatStepInterpreter
-runStepIO hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
+simpleChatStepInterpreter :: ChatStepInterpreter
+simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
   where
     go (Done result) = pure result
     go (Log _level msg next) = do
@@ -80,4 +80,3 @@ runStepIO hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
               }
       results <- executeToolsWithAbort abortSig ctx tools (esCalls step)
       go (esCont step results)
-
