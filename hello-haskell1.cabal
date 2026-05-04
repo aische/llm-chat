@@ -103,6 +103,7 @@ executable hello-haskell1
                       Tools.FsConfig,
                       AllModels,
                       Adapters.StreamChatLoop,
+                      Adapters.SessionChat,
                       Adapters.Repl
     hs-source-dirs:   app
     build-depends:
