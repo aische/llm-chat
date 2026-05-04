@@ -1,4 +1,4 @@
-module LLM.Providers.OpenAI (OpenAI, openAI, openAIWith, openAIProvider, openAIProviderWith, parseOpenAIResponse, parseOpenAIUsage) where
+module LLM.Providers.OpenAI (OpenAI, openAI, openAIWith, openAIProvider, openAIProviderWith, parseOpenAIResponse, parseOpenAIUsage, buildMessages, encodeToolDef, parseOpenAIStream) where
 
 import Control.Applicative ((<|>))
 import Data.Aeson
@@ -131,7 +131,7 @@ openAIBuildBody :: Bool -> ChatRequest -> Value
 openAIBuildBody stream r =
   object $
     [ "model" .= reqModel r,
-      "max_tokens" .= reqMaxTokens r,
+      "max_completion_tokens" .= reqMaxTokens r,
       "messages" .= buildMessages r
     ]
       ++ ["temperature" .= t | Just t <- [reqTemperature r]]
