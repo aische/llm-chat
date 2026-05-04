@@ -4,6 +4,7 @@ module LLM
     module LLM.Core.Utils,
     module LLM.Core.LLMProvider,
     module LLM.Core.Chat,
+    module LLM.Core.ChatSimple,
     module LLM.Core.ChatStep,
     module LLM.Core.Session,
     module LLM.Core.LLMProviderAdapter,
@@ -18,6 +19,7 @@ where
 
 import LLM.Core.Abort
 import LLM.Core.Chat
+import LLM.Core.ChatSimple
 import LLM.Core.ChatStep
 import LLM.Core.LLMProvider
 import LLM.Core.LLMProviderAdapter

@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Adapters.AgentTask (agentTask) where
 
 import Data.Text (Text)
@@ -5,8 +7,8 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM
   ( ChatEnv (..),
-    ChatStep (..),
     Conversation (..),
+    Hooks (..),
     LLMProvider (..),
     ModelConfig (..),
     SessionId,
@@ -17,14 +19,12 @@ import LLM
     ToolResult (trName),
     Turn (..),
     Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
-    buildChatStep,
-    emptyUsage,
     fileStore,
     resumeSession,
     runStepServer,
     safeHooks,
+    streamChatWith,
   )
-import LLM.Core.Logger (Hooks (..), LogLevel (..))
 import System.Environment (getArgs, getProgName)
 import System.IO (BufferMode (NoBuffering), hSetBuffering, stdout)
 import Text.Printf (printf)
@@ -78,64 +78,70 @@ showStatus sid = do
 runOrResume :: ChatEnv -> SessionId -> Maybe Text -> IO ()
 runOrResume env sid mPrompt = do
   let store = fileStore sessionsDir
-      mc = envModel env
-      hooks = safeHooks (envHooks env)
-
-  -- Try to resume an existing session first
-  mStep <- resumeSession store sid env mc
-  step <- case (mStep, mPrompt) of
-    (Just s, _) -> do
-      putStrLn $ "[Resuming session " <> T.unpack sid <> " from checkpoint]"
-      pure s
-    (Nothing, Just prompt) -> do
-      -- Check if session already completed
-      mState <- loadSession store sid
-      case mState of
-        Just (SessionState _ _ _ (Completed answer)) -> do
-          putStrLn "[Session already completed]"
-          TIO.putStrLn answer
-          fail "Session already completed"
-        Just (SessionState _ _ _ (Failed err)) -> do
-          putStrLn $ "[Session previously failed: " <> show err <> "]"
-          putStrLn "[Starting fresh with new prompt]"
-          newSession env prompt
-        _ -> newSession env prompt
-    (Nothing, Nothing) -> do
-      putStrLn "No session to resume and no prompt given."
-      fail "Nothing to do"
-
-  -- Run with the server interpreter (checkpoints at every tool round)
-  let call = providerChat (mcGateway mc) hooks
-  putStrLn $ "[Running agent task: " <> T.unpack sid <> "]"
-  result <-
-    runStepServer
-      store
-      sid
-      hooks
-      (envAbortSignal env)
-      (envTools env)
-      (envContextWindow env)
-      (mcRetry mc)
-      (mcRequestTimeout mc)
-      call
-      step
-
-  -- Print result
-  case result of
-    Left (err, _conv, usage) -> do
-      putStrLn $ "\n[Agent failed: " <> show err <> "]"
-      printUsage usage
-    Right (answer, conv, usage) -> do
-      putStrLn "\n[Agent completed]"
+      interp = runStepServer store sid -- partially applied = StepInterpreter
+  mState <- loadSession store sid
+  case (mState, mPrompt) of
+    -- Already completed
+    (Just (SessionState _ _ _ (Completed answer)), _) -> do
+      putStrLn "[Session already completed]"
       TIO.putStrLn answer
-      printUsage usage
-      printToolSummary conv
 
-newSession :: ChatEnv -> Text -> IO ChatStep
-newSession env prompt = do
-  let mc = envModel env
-      conv = Conversation [UserTurn prompt]
-  pure $ buildChatStep env mc 0 emptyUsage conv
+    -- Previously failed, start fresh with new prompt
+    (Just (SessionState _ _ _ (Failed err)), Just prompt) -> do
+      putStrLn $ "[Session previously failed: " <> show err <> ", starting fresh]"
+      runNew interp prompt
+
+    -- Suspended or Running (interrupted) — resume
+    (Just (SessionState conv usage _ _), _) -> do
+      putStrLn $ "[Resuming session " <> T.unpack sid <> " from checkpoint]"
+      -- Resume: the conversation already has the user message from the
+      -- original run. We need to re-enter the tool loop mid-turn.
+      -- streamChatWith would prepend a new UserTurn, so we use the
+      -- interpreter directly with a reconstructed ChatStep.
+      let mc = envModel env
+      case resumeSession store sid env mc of
+        -- resumeSession is IO, need to run it
+        resumeAction -> do
+          mStep <- resumeAction
+          case mStep of
+            Just step -> do
+              putStrLn $ "[Running agent task: " <> T.unpack sid <> "]"
+              let hooks = safeHooks (envHooks env)
+                  call req = providerChatStream (mcGateway mc) hooks req $ \case
+                    StreamDelta txt -> TIO.putStr txt
+                    StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
+              result <-
+                interp
+                  hooks
+                  (envAbortSignal env)
+                  (envTools env)
+                  (envContextWindow env)
+                  (mcRetry mc)
+                  (mcRequestTimeout mc)
+                  call
+                  step
+              printResult result
+            Nothing -> putStrLn "Nothing to resume."
+
+    -- No session, need a prompt
+    (Nothing, Just prompt) -> runNew interp prompt
+    (Nothing, Nothing) -> putStrLn "No session to resume and no prompt given."
+  where
+    runNew interp prompt = do
+      putStrLn $ "[Running agent task: " <> T.unpack sid <> "]"
+      result <- streamChatWith interp env (Conversation []) prompt $ \case
+        StreamDelta txt -> TIO.putStr txt
+        StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
+      printResult result
+
+    printResult result = case result of
+      Left (err, _, usage) -> do
+        putStrLn $ "\n[Agent failed: " <> show err <> "]"
+        printUsage usage
+      Right (_, conv, usage) -> do
+        putStrLn "\n[Agent completed]"
+        printUsage usage
+        printToolSummary conv
 
 printUsage :: Usage -> IO ()
 printUsage usage =

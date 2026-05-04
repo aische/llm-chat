@@ -12,7 +12,7 @@ import LLM
     Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
     emptyUsage,
-    streamChat,
+    streamChatSimple,
   )
 import System.Exit (exitSuccess)
 import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdin, stdout)
@@ -39,7 +39,7 @@ loop env totalUsage conv = do
           putStrLn "(conversation cleared)"
           loop env emptyUsage (Conversation [])
         Chat msg -> do
-          result <- streamChat env conv msg $ \case
+          result <- streamChatSimple env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt
             StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
           case result of

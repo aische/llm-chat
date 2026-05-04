@@ -36,7 +36,7 @@ import LLM
     geminiProvider,
     noHooks,
     ollamaProvider,
-    streamChat,
+    streamChatSimple,
     withJsonDump,
     withStderrLogger,
   )
@@ -77,7 +77,7 @@ streamChatLoop env = aux emptyUsage (Conversation [])
     aux totalUsage conv (prompt : rest) = do
       putStrLn $ "> " <> T.unpack prompt
       firstChunkRef <- newIORef True
-      result <- streamChat env conv prompt $ \case
+      result <- streamChatSimple env conv prompt $ \case
         StreamDelta txt -> do
           _ <- readIORef firstChunkRef
           writeIORef firstChunkRef False

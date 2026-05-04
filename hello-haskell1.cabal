@@ -59,6 +59,7 @@ library
         LLM
         LLM.Core.Abort
         LLM.Core.Chat
+        LLM.Core.ChatSimple
         LLM.Core.ChatStep
         LLM.Core.LLMProvider
         LLM.Core.Types

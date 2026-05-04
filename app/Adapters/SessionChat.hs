@@ -16,7 +16,7 @@ import LLM
     Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
     emptyUsage,
-    streamChat,
+    streamChatSimple,
   )
 import System.Directory (doesFileExist)
 import System.Environment (getArgs, getProgName)
@@ -84,7 +84,7 @@ sessionChat env = do
     promptParts -> do
       let prompt = T.pack (unwords promptParts)
       sf <- loadSessionFile
-      result <- streamChat env (sfConversation sf) prompt $ \case
+      result <- streamChatSimple env (sfConversation sf) prompt $ \case
         StreamDelta txt -> TIO.putStr txt
         StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
       case result of
