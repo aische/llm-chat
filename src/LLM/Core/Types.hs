@@ -18,6 +18,7 @@ where
 import Control.Exception (SomeException, try)
 import Data.Aeson (Value)
 import Data.Text (Text)
+import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Usage (Usage, usageInputTokens, usageOutputTokens)
 
 -- | A single turn in a conversation
@@ -41,9 +42,10 @@ data ToolContext = ToolContext
     -- | Index into 'tcConversation' where the visible window starts.
     -- Everything before this index is hidden from the model.
     -- A @get_history@ tool can use this to serve paginated history.
-    tcWindowOffset :: Int
+    tcWindowOffset :: Int,
+    -- | Optional abort signal; tools can check this to bail out early.
+    tcAbortSignal :: Maybe AbortSignal
   }
-  deriving (Show, Eq)
 
 -- | A tool definition sent to the model
 data ToolDef = ToolDef
@@ -113,6 +115,7 @@ data LLMError
   | ParseError Text -- JSON we couldn't make sense of
   | EmptyResponse -- valid JSON, but no content in it
   | ToolLoopExceeded Int -- hit the max tool rounds limit
+  | Aborted -- user cancelled the request
   deriving (Show, Eq)
 
 type LLMResult = Either LLMError ChatResponse

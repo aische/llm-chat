@@ -1,5 +1,6 @@
 module LLM
-  ( module LLM.Core.Types,
+  ( module LLM.Core.Abort,
+    module LLM.Core.Types,
     module LLM.Core.Utils,
     module LLM.Core.LLMProvider,
     module LLM.Core.Chat,
@@ -13,6 +14,7 @@ module LLM
   )
 where
 
+import LLM.Core.Abort
 import LLM.Core.Chat
 import LLM.Core.LLMProvider
 import LLM.Core.LLMProviderAdapter

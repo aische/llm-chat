@@ -8,6 +8,7 @@ where
 
 import Control.Retry (RetryPolicyM)
 import Data.Text (Text)
+import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Logger (Hooks, noHooks)
 import LLM.Core.Types
   ( ChatRequest,
@@ -52,7 +53,8 @@ data ChatEnv = ChatEnv
     envTools :: [Tool],
     envMaxToolRounds :: Int,
     envContextWindow :: Maybe Int, -- max recent turns sent to the model; Nothing = all
-    envHooks :: Hooks
+    envHooks :: Hooks,
+    envAbortSignal :: Maybe AbortSignal
   }
 
 -- | Sensible defaults — single model, no fallback.
@@ -65,5 +67,6 @@ defaultChatEnv mc =
       envTools = [],
       envMaxToolRounds = 10,
       envContextWindow = Nothing,
-      envHooks = noHooks
+      envHooks = noHooks,
+      envAbortSignal = Nothing
     }

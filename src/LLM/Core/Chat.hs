@@ -5,13 +5,14 @@ import Control.Retry (RetryPolicyM, RetryStatus (..), retrying, rsIterNumber)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import LLM.Core.Abort (AbortSignal, isAborted)
 import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
 import LLM.Core.Logger (Hooks (..), LogLevel (..), Logger, safeHooks)
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation,
-    LLMError (NetworkError, TimeoutError, ToolLoopExceeded),
+    LLMError (Aborted, NetworkError, TimeoutError, ToolLoopExceeded),
     LLMResult,
     StreamEvent,
     Tool (toolDef),
@@ -22,7 +23,7 @@ import LLM.Core.Types
   )
 import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
 import LLM.Core.Utils
-  ( executeTools,
+  ( executeToolsWithAbort,
     getToolCalls,
     hasToolCalls,
     isRetryable,
@@ -81,6 +82,7 @@ withFallback env conv tryModel = go (envModel env : envFallbacks env) conv empty
       onLog (envHooks env) Info $ "Trying model: " <> mcModel mc <> " via " <> providerName (mcGateway mc)
       result <- tryModel mc c u
       case result of
+        Left (Aborted, c', u') -> pure $ Left (Aborted, c', u')
         Left (err, c', u') -> do
           onLog (envHooks env) Warn $ "Falling back from " <> mcModel mc <> ": " <> T.pack (show err)
           go rest c' u'
@@ -103,71 +105,95 @@ chatLoop env mc call rounds acc conv
       onLog (envHooks env) Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"
       pure $ Left (ToolLoopExceeded rounds, conv, acc)
   | otherwise = do
-      let request = mkRequest env mc conv
-          log = onLog (envHooks env)
-      log Debug $
-        "API request: model="
-          <> mcModel mc
-          <> " round="
-          <> T.pack (show rounds)
-          <> " turns="
-          <> T.pack (show (length (reqConversation request)))
-      case mcThrottleDelay mc of
-        Just d -> do
-          log Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
-          threadDelay (d * 1000)
-        Nothing -> pure ()
-      result <-
-        withTimeout (mcRequestTimeout mc) $
-          withRetry (mcRetry mc) log $
-            call request
-      case result of
-        Left err -> do
-          log Error $ "API error: " <> T.pack (show err)
-          pure $ Left (err, conv, acc)
-        Right resp ->
-          let responseUsage = fromMaybe emptyUsage (respUsage resp)
-              cost = estimateCost (mcPricing mc) responseUsage
-              acc' = addUsage acc (responseUsage {usageTotalCost = cost})
-           in if hasToolCalls resp
-                then do
-                  let calls = getToolCalls resp
-                  log Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
-                  let offset = windowOffset (envContextWindow env) conv
-                      ctx = ToolContext {tcConversation = conv, tcUsage = acc', tcWindowOffset = offset}
-                  results <- executeTools ctx (envTools env) calls
-                  log Debug $
-                    "Tool results: "
-                      <> T.intercalate
-                        ", "
-                        [trName r <> "=" <> T.take 100 (trContent r) | r <- results]
-                  let conv' =
-                        conv
-                          ++ [AssistantTurn (respText resp) calls]
-                          ++ [ToolTurn results]
-                  chatLoop env mc call (rounds + 1) acc' conv'
-                else do
-                  log Info $
-                    "Response: "
-                      <> T.take 100 (respText resp)
-                      <> maybe
-                        ""
-                        ( \u ->
-                            " usage="
-                              <> T.pack (show (usageInputTokens u))
-                              <> "+"
-                              <> T.pack (show (usageOutputTokens u))
-                        )
-                        (respUsage resp)
-                  let finalConv =
-                        conv
-                          ++ [AssistantTurn (respText resp) []]
-                  pure $ Right (respText resp, finalConv, acc')
+      aborted <- checkAbort env
+      if aborted
+        then do
+          onLog (envHooks env) Info "Aborted before API call"
+          pure $ Left (Aborted, conv, acc)
+        else do
+          let request = mkRequest env mc conv
+              log = onLog (envHooks env)
+          log Debug $
+            "API request: model="
+              <> mcModel mc
+              <> " round="
+              <> T.pack (show rounds)
+              <> " turns="
+              <> T.pack (show (length (reqConversation request)))
+          case mcThrottleDelay mc of
+            Just d -> do
+              log Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
+              threadDelay (d * 1000)
+            Nothing -> pure ()
+          result <-
+            withTimeout (mcRequestTimeout mc) $
+              withRetry (mcRetry mc) log $
+                call request
+          case result of
+            Left err -> do
+              log Error $ "API error: " <> T.pack (show err)
+              pure $ Left (err, conv, acc)
+            Right resp ->
+              let responseUsage = fromMaybe emptyUsage (respUsage resp)
+                  cost = estimateCost (mcPricing mc) responseUsage
+                  acc' = addUsage acc (responseUsage {usageTotalCost = cost})
+               in if hasToolCalls resp
+                    then do
+                      let calls = getToolCalls resp
+                      log Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
+                      let offset = windowOffset (envContextWindow env) conv
+                          ctx =
+                            ToolContext
+                              { tcConversation = conv,
+                                tcUsage = acc',
+                                tcWindowOffset = offset,
+                                tcAbortSignal = envAbortSignal env
+                              }
+                      toolResults <- executeToolsWithAbort (envAbortSignal env) ctx (envTools env) calls
+                      case toolResults of
+                        Left _ -> do
+                          log Info "Aborted during tool execution"
+                          pure $ Left (Aborted, conv, acc')
+                        Right results -> do
+                          log Debug $
+                            "Tool results: "
+                              <> T.intercalate
+                                ", "
+                                [trName r <> "=" <> T.take 100 (trContent r) | r <- results]
+                          let conv' =
+                                conv
+                                  ++ [AssistantTurn (respText resp) calls]
+                                  ++ [ToolTurn results]
+                          chatLoop env mc call (rounds + 1) acc' conv'
+                    else do
+                      log Info $
+                        "Response: "
+                          <> T.take 100 (respText resp)
+                          <> maybe
+                            ""
+                            ( \u ->
+                                " usage="
+                                  <> T.pack (show (usageInputTokens u))
+                                  <> "+"
+                                  <> T.pack (show (usageOutputTokens u))
+                            )
+                            (respUsage resp)
+                      let finalConv =
+                            conv
+                              ++ [AssistantTurn (respText resp) []]
+                      pure $ Right (respText resp, finalConv, acc')
 
 -- | Build a ChatRequest from the model config and a conversation.
 -- When 'envContextWindow' is set, only the last N user messages (and their
 -- associated replies) are sent to the model.
 mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
+
+-- | Check whether the abort signal has been fired.
+checkAbort :: ChatEnv -> IO Bool
+checkAbort env = case envAbortSignal env of
+  Nothing -> pure False
+  Just sig -> isAborted sig
+
 mkRequest env mc conv =
   ChatRequest
     { reqModel = mcModel mc,

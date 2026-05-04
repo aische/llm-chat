@@ -2,6 +2,7 @@ module LLM.ChatSpec (spec) where
 
 import Control.Retry (limitRetries)
 import Data.Aeson (object, (.=))
+import LLM.Core.Abort (abort, newAbortSignal)
 import LLM.Core.Chat (runChat)
 import LLM.Core.LLMProvider
   ( ChatEnv (..),
@@ -13,7 +14,7 @@ import LLM.Core.Types
   ( ChatRequest (reqConversation),
     ChatResponse (ChatResponse),
     ContentBlock (TextBlock, ToolCallBlock),
-    LLMError (HttpError, NetworkError, ToolLoopExceeded),
+    LLMError (Aborted, HttpError, NetworkError, ToolLoopExceeded),
     Tool (..),
     ToolCall (ToolCall),
     ToolDef (ToolDef, toolDescription, toolName, toolParameters),
@@ -168,3 +169,54 @@ spec = describe "Chat" $ do
       case result of
         Left (HttpError 400 _, _, _) -> pure ()
         other -> expectationFailure $ "Expected HttpError 400 from last model, got: " <> show other
+
+    it "returns Aborted when signal is fired before the call" $ do
+      let gw = mockGateway (ChatResponse "Hi!" [TextBlock "Hi!"] Nothing)
+      sig <- newAbortSignal
+      abort sig
+      let e = (env gw) {envAbortSignal = Just sig}
+      result <- runChat e [] "hello"
+      case result of
+        Left (Aborted, _, _) -> pure ()
+        other -> expectationFailure $ "Expected Aborted, got: " <> show other
+
+    it "returns Aborted during tool execution" $ do
+      sig <- newAbortSignal
+      let slowTool =
+            Tool
+              { toolDef =
+                  ToolDef
+                    { toolName = "slow",
+                      toolDescription = "A slow tool",
+                      toolParameters = object ["type" .= ("object" :: String)]
+                    },
+                toolExecute = \_ _ -> do
+                  abort sig -- abort while executing
+                  pure "done"
+              }
+          -- Gateway that always asks for two tool calls
+          twoCallGw =
+            LLMProvider
+              { providerName = "mock-two",
+                providerChat = \_ _ ->
+                  let tc1 = ToolCall "c1" "slow" (object [])
+                      tc2 = ToolCall "c2" "slow" (object [])
+                   in pure $ Right (ChatResponse "" [ToolCallBlock tc1, ToolCallBlock tc2] Nothing),
+                providerChatStream = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
+              }
+          e = (env twoCallGw) {envTools = [slowTool], envAbortSignal = Just sig}
+      result <- runChat e [] "go"
+      case result of
+        Left (Aborted, _, _) -> pure ()
+        other -> expectationFailure $ "Expected Aborted during tools, got: " <> show other
+
+    it "does not fall back on Aborted" $ do
+      let gw = mockGateway (ChatResponse "Hi!" [TextBlock "Hi!"] Nothing)
+          okGw = mockGateway (ChatResponse "Fallback" [TextBlock "Fallback"] Nothing)
+      sig <- newAbortSignal
+      abort sig
+      let e = (defaultChatEnv (mockModel gw)) {envFallbacks = [mockModel okGw], envAbortSignal = Just sig}
+      result <- runChat e [] "hello"
+      case result of
+        Left (Aborted, _, _) -> pure ()
+        other -> expectationFailure $ "Expected Aborted (no fallback), got: " <> show other

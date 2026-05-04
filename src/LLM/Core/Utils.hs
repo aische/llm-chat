@@ -3,6 +3,7 @@ module LLM.Core.Utils
     getToolCalls,
     executeTool,
     executeTools,
+    executeToolsWithAbort,
     toolResult,
     isRetryable,
     streamResponseJson,
@@ -13,6 +14,7 @@ import Control.Exception (SomeException (SomeException), try)
 import Data.Aeson (Value, object, (.=))
 import Data.Text (Text)
 import Data.Text qualified as T
+import LLM.Core.Abort (AbortSignal, isAborted)
 import LLM.Core.Types
   ( ChatResponse (..),
     ContentBlock (..),
@@ -45,6 +47,21 @@ executeTool ctx tools tc = case lookup (tcName tc) toolMap of
 -- | Execute all tool calls from a response
 executeTools :: ToolContext -> [Tool] -> [ToolCall] -> IO [ToolResult]
 executeTools ctx tools = mapM (executeTool ctx tools)
+
+-- | Execute tool calls one at a time, checking the abort signal between each.
+-- Returns @Left Aborted@ if the signal fires before all calls finish.
+executeToolsWithAbort :: Maybe AbortSignal -> ToolContext -> [Tool] -> [ToolCall] -> IO (Either LLMError [ToolResult])
+executeToolsWithAbort Nothing ctx tools tcs = Right <$> executeTools ctx tools tcs
+executeToolsWithAbort (Just sig) ctx tools tcs = go [] tcs
+  where
+    go acc [] = pure (Right (reverse acc))
+    go acc (tc : rest) = do
+      aborted <- isAborted sig
+      if aborted
+        then pure (Left Aborted)
+        else do
+          r <- executeTool ctx tools tc
+          go (r : acc) rest
 
 -- | Check whether a response contains tool calls
 hasToolCalls :: ChatResponse -> Bool
