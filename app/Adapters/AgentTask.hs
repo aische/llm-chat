@@ -78,7 +78,7 @@ showStatus sid = do
 runOrResume :: ChatEnv -> SessionId -> Maybe Text -> IO ()
 runOrResume env sid mPrompt = do
   let store = fileStore sessionsDir
-      interp = runStepServer store sid -- partially applied = StepInterpreter
+      interp = runStepServer store sid -- partially applied = ChatStepInterpreter
   mState <- loadSession store sid
   case (mState, mPrompt) of
     -- Already completed

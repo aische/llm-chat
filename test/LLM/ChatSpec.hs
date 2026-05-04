@@ -3,7 +3,7 @@ module LLM.ChatSpec (spec) where
 import Control.Retry (limitRetries)
 import Data.Aeson (object, (.=))
 import LLM.Core.Abort (abort, newAbortSignal)
-import LLM.Core.ChatSimple (runChatSimple)
+import LLM.Core.Chat (runChatSimple)
 import LLM.Core.LLMProvider
   ( ChatEnv (..),
     LLMProvider (..),
