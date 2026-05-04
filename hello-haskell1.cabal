@@ -68,6 +68,7 @@ library
         LLM.Providers.OpenAI
         LLM.Providers.Ollama
         LLM.Core.Logger
+        LLM.Core.Session
         LLM.Core.Usage
         LLM.Core.Utils
     other-modules:

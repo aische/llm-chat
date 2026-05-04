@@ -112,8 +112,10 @@ runStepIO hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
           withRetry retryPolicy (onLog hooks) $
             call req
       go (k result)
-    go (ExecTools calls conv usage k) = do
-      let offset = windowOffset (Just (fromMaybe maxBound ctxWindow)) conv
+    go step@ExecTools {} = do
+      let conv = esConv step
+          usage = esUsage step
+          offset = windowOffset (Just (fromMaybe maxBound ctxWindow)) conv
           ctx =
             ToolContext
               { tcConversation = conv,
@@ -121,8 +123,8 @@ runStepIO hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
                 tcWindowOffset = offset,
                 tcAbortSignal = abortSig
               }
-      results <- executeToolsWithAbort abortSig ctx tools calls
-      go (k results)
+      results <- executeToolsWithAbort abortSig ctx tools (esCalls step)
+      go (esCont step results)
 
 -- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
 withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult

@@ -41,9 +41,16 @@ data ChatStep
   | -- | Send a request to the LLM. The interpreter decides streaming
     -- vs non-streaming, retry policy, and timeout.
     CallLLM ChatRequest (LLMResult -> ChatStep)
-  | -- | Execute tool calls. Passes the full conversation and accumulated
-    -- usage so the interpreter can build a 'ToolContext'.
-    ExecTools [ToolCall] Conversation Usage (Either LLMError [ToolResult] -> ChatStep)
+  | -- | Execute tool calls. Carries enough context for interpreters
+    -- to build a 'ToolContext' and to checkpoint/resume the session.
+    ExecTools
+      { esRound :: Int, -- current round number
+        esCalls :: [ToolCall], -- tool calls to execute
+        esRespText :: Text, -- assistant's text from this round
+        esConv :: Conversation, -- conversation before this round
+        esUsage :: Usage, -- accumulated usage including this LLM call
+        esCont :: Either LLMError [ToolResult] -> ChatStep
+      }
   | -- | Terminal: the loop is done.
     Done (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 
@@ -76,19 +83,26 @@ buildChatStep env mc rounds acc conv
                               then
                                 let calls = getToolCalls resp
                                  in Log Info ("Tool calls: " <> T.intercalate ", " (map tcName calls)) $
-                                      ExecTools calls conv acc' $ \case
-                                        Left _ ->
-                                          Log Info "Aborted during tool execution" $
-                                            Done (Left (Aborted, conv, acc'))
-                                        Right results ->
-                                          Log Debug ("Tool results: " <> T.intercalate ", " [trName r <> "=" <> T.take 100 (trContent r) | r <- results]) $
-                                            let conv' =
-                                                  Conversation
-                                                    ( unConversation conv
-                                                        ++ [AssistantTurn (respText resp) calls]
-                                                        ++ [ToolTurn results]
-                                                    )
-                                             in buildChatStep env mc (rounds + 1) acc' conv'
+                                      ExecTools
+                                        { esRound = rounds,
+                                          esCalls = calls,
+                                          esRespText = respText resp,
+                                          esConv = conv,
+                                          esUsage = acc',
+                                          esCont = \case
+                                            Left _ ->
+                                              Log Info "Aborted during tool execution" $
+                                                Done (Left (Aborted, conv, acc'))
+                                            Right results ->
+                                              Log Debug ("Tool results: " <> T.intercalate ", " [trName r <> "=" <> T.take 100 (trContent r) | r <- results]) $
+                                                let conv' =
+                                                      Conversation
+                                                        ( unConversation conv
+                                                            ++ [AssistantTurn (respText resp) calls]
+                                                            ++ [ToolTurn results]
+                                                        )
+                                                 in buildChatStep env mc (rounds + 1) acc' conv'
+                                        }
                               else
                                 Log Info (logResponse resp) $
                                   let finalConv = Conversation (unConversation conv ++ [AssistantTurn (respText resp) []])

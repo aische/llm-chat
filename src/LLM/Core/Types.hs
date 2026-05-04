@@ -136,6 +136,10 @@ data LLMError
   | EmptyResponse -- valid JSON, but no content in it
   | ToolLoopExceeded Int -- hit the max tool rounds limit
   | Aborted -- user cancelled the request
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance ToJSON LLMError
+
+instance FromJSON LLMError
 
 type LLMResult = Either LLMError ChatResponse
