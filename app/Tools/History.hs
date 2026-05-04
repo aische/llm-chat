@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Types
-  ( Conversation,
+  ( Conversation (..),
     Tool (..),
     ToolCall (tcName),
     ToolContext (tcConversation, tcWindowOffset),
@@ -59,12 +59,12 @@ historySchema =
 getHistory :: ToolContext -> Value -> IO Text
 getHistory ctx args = do
   let chunkIdx = fromMaybe 0 $ parseMaybe parseChunk args
-      hidden = take (tcWindowOffset ctx) (tcConversation ctx)
+      hidden = take (tcWindowOffset ctx) (unConversation $ tcConversation ctx)
   if null hidden
     then pure "(no earlier history)"
     else do
       let -- Count user messages in the visible window to determine page size
-          nUserMessages = countUserTurns (drop (tcWindowOffset ctx) (tcConversation ctx))
+          nUserMessages = countUserTurns (drop (tcWindowOffset ctx) (unConversation $ tcConversation ctx))
           -- Chunk the hidden prefix into pages of N user messages each
           chunks = chunkBackward nUserMessages hidden
       if chunkIdx < 0 || chunkIdx >= length chunks
@@ -72,7 +72,7 @@ getHistory ctx args = do
         else pure $ formatChunk (chunks !! chunkIdx)
 
 -- | Count the number of 'UserTurn's in a conversation.
-countUserTurns :: Conversation -> Int
+countUserTurns :: [Turn] -> Int
 countUserTurns = length . filter isUserTurn
 
 isUserTurn :: Turn -> Bool
@@ -83,7 +83,7 @@ isUserTurn _ = False
 -- backward from the end. Each page starts at a 'UserTurn'.
 -- Chunk 0 is the most recent page, chunk 1 the one before, etc.
 -- The oldest chunk (highest index) may contain fewer than @n@ user messages.
-chunkBackward :: Int -> Conversation -> [Conversation]
+chunkBackward :: Int -> [Turn] -> [[Turn]]
 chunkBackward _ [] = []
 chunkBackward n conv = reverse (go (length conv) [])
   where
@@ -96,7 +96,7 @@ chunkBackward n conv = reverse (go (length conv) [])
 -- | Find the start index for a page containing @n@ user messages,
 -- scanning backward from the end of the given prefix.
 -- Returns 0 if fewer than @n@ user messages remain.
-findNthUserBack :: Int -> Conversation -> Int
+findNthUserBack :: Int -> [Turn] -> Int
 findNthUserBack n conv = go (length conv - 1) n
   where
     go idx remaining
@@ -111,7 +111,7 @@ slice :: Int -> Int -> [a] -> [a]
 slice start end = take (end - start) . drop start
 
 -- | Format a chunk of conversation turns as readable text.
-formatChunk :: Conversation -> Text
+formatChunk :: [Turn] -> Text
 formatChunk = T.intercalate "\n" . map formatTurn
 
 formatTurn :: Turn -> Text

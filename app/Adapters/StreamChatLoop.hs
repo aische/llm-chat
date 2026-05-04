@@ -9,7 +9,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM
   ( ChatEnv (..),
-    Conversation,
+    Conversation (Conversation, unConversation),
     LogLevel (Debug),
     ModelConfig
       ( ModelConfig,
@@ -62,7 +62,7 @@ streamChatLoopMain env = do
 -- | Interactive streaming loop — runs a list of prompts, printing
 -- streamed deltas and usage stats as it goes.
 streamChatLoop :: ChatEnv -> [Text] -> IO Conversation
-streamChatLoop env = aux emptyUsage []
+streamChatLoop env = aux emptyUsage (Conversation [])
   where
     aux totalUsage conv [] = do
       putStrLn $
@@ -91,7 +91,7 @@ streamChatLoop env = aux emptyUsage []
           putStrLn ""
           putStrLn $
             "  ("
-              <> show (length conv')
+              <> show (length $ unConversation conv')
               <> " turns, "
               <> show (usageInputTokens usage)
               <> " in + "

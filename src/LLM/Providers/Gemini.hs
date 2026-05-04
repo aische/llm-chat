@@ -34,6 +34,7 @@ import LLM.Core.Types
       ),
     ChatResponse (ChatResponse),
     ContentBlock (..),
+    Conversation (unConversation),
     LLMError (EmptyResponse),
     LLMResult,
     StreamEvent (..),
@@ -179,7 +180,7 @@ geminiBuildBody :: ChatRequest -> Value
 geminiBuildBody r =
   object $
     [ "_model" .= reqModel r,
-      "contents" .= concatMap encodeTurn (reqConversation r),
+      "contents" .= concatMap encodeTurn (unConversation $ reqConversation r),
       "generationConfig" .= genConfig r
     ]
       ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]

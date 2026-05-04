@@ -14,6 +14,7 @@ import LLM.Core.Types
   ( ChatRequest (reqConversation),
     ChatResponse (ChatResponse),
     ContentBlock (TextBlock, ToolCallBlock),
+    Conversation (..),
     LLMError (Aborted, HttpError, NetworkError, ToolLoopExceeded),
     Tool (..),
     ToolCall (ToolCall),
@@ -53,7 +54,7 @@ mockToolGateway =
   LLMProvider
     { providerName = "mock-tool",
       providerChat = \_ req ->
-        if any isToolTurn (reqConversation req)
+        if any isToolTurn (unConversation $ reqConversation req)
           then pure $ Right (ChatResponse "The weather is sunny." [TextBlock "The weather is sunny."] (Just (Usage 80 15 0)))
           else
             let tc = ToolCall "call_1" "get_weather" (object ["location" .= ("London" :: String)])
@@ -101,29 +102,29 @@ spec = describe "Chat" $ do
   describe "runChat" $ do
     it "returns text for a simple response" $ do
       let gw = mockGateway (ChatResponse "Hi there!" [TextBlock "Hi there!"] (Just (Usage 10 5 0)))
-      result <- runChat (env gw) [] "hello"
+      result <- runChat (env gw) (Conversation []) "hello"
       case result of
         Right (text, conv, usage) -> do
           text `shouldBe` "Hi there!"
-          length conv `shouldBe` 2 -- UserTurn + AssistantTurn
+          length (unConversation conv) `shouldBe` 2 -- UserTurn + AssistantTurn
           usage `shouldBe` Usage 10 5 0
         Left err -> expectationFailure $ show err
 
     it "propagates errors" $ do
       let gw = mockErrorGateway (HttpError 500 "internal error")
-      result <- runChat (env gw) [] "hello"
+      result <- runChat (env gw) (Conversation []) "hello"
       case result of
         Left (HttpError 500 _, _, _) -> pure ()
         other -> expectationFailure $ "Expected HttpError 500, got: " <> show other
 
     it "handles tool call loop" $ do
       let e = (env mockToolGateway) {envTools = [weatherTool]}
-      result <- runChat e [] "weather in london?"
+      result <- runChat e (Conversation []) "weather in london?"
       case result of
         Right (text, conv, usage) -> do
           text `shouldBe` "The weather is sunny."
           -- UserTurn + AssistantTurn(tool call) + ToolTurn + AssistantTurn(final)
-          length conv `shouldBe` 4
+          length (unConversation conv) `shouldBe` 4
           usage `shouldBe` Usage 130 25 0 -- 50+80 input, 10+15 output
         Left err -> expectationFailure $ show err
 
@@ -138,7 +139,7 @@ spec = describe "Chat" $ do
                 providerChatStream = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
               }
           limitedEnv = (env infiniteToolGateway) {envMaxToolRounds = 2, envTools = [weatherTool]}
-      result <- runChat limitedEnv [] "test"
+      result <- runChat limitedEnv (Conversation []) "test"
       case result of
         Left (ToolLoopExceeded 2, _, _) -> pure ()
         other -> expectationFailure $ "Expected ToolLoopExceeded 2, got: " <> show other
@@ -147,7 +148,7 @@ spec = describe "Chat" $ do
       let failGw = mockErrorGateway (HttpError 503 "service unavailable")
           okGw = mockGateway (ChatResponse "Fallback worked!" [TextBlock "Fallback worked!"] (Just (Usage 10 5 0)))
           e = (defaultChatEnv (mockModel failGw)) {envFallbacks = [mockModel okGw]}
-      result <- runChat e [] "hello"
+      result <- runChat e (Conversation []) "hello"
       case result of
         Right (text, _, _) -> text `shouldBe` "Fallback worked!"
         Left err -> expectationFailure $ "Expected fallback success, got: " <> show err
@@ -156,7 +157,7 @@ spec = describe "Chat" $ do
       let failGw = mockErrorGateway (HttpError 400 "bad request")
           okGw = mockGateway (ChatResponse "Fallback worked!" [TextBlock "Fallback worked!"] (Just (Usage 10 5 0)))
           e = (defaultChatEnv (mockModel failGw)) {envFallbacks = [mockModel okGw]}
-      result <- runChat e [] "hello"
+      result <- runChat e (Conversation []) "hello"
       case result of
         Right (text, _, _) -> text `shouldBe` "Fallback worked!"
         Left err -> expectationFailure $ "Expected fallback success, got: " <> show err
@@ -165,7 +166,7 @@ spec = describe "Chat" $ do
       let failGw1 = mockErrorGateway (HttpError 503 "service unavailable")
           failGw2 = mockErrorGateway (HttpError 400 "bad request")
           e = (defaultChatEnv (mockModel failGw1)) {envFallbacks = [mockModel failGw2]}
-      result <- runChat e [] "hello"
+      result <- runChat e (Conversation []) "hello"
       case result of
         Left (HttpError 400 _, _, _) -> pure ()
         other -> expectationFailure $ "Expected HttpError 400 from last model, got: " <> show other
@@ -175,7 +176,7 @@ spec = describe "Chat" $ do
       sig <- newAbortSignal
       abort sig
       let e = (env gw) {envAbortSignal = Just sig}
-      result <- runChat e [] "hello"
+      result <- runChat e (Conversation []) "hello"
       case result of
         Left (Aborted, _, _) -> pure ()
         other -> expectationFailure $ "Expected Aborted, got: " <> show other
@@ -205,7 +206,7 @@ spec = describe "Chat" $ do
                 providerChatStream = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
               }
           e = (env twoCallGw) {envTools = [slowTool], envAbortSignal = Just sig}
-      result <- runChat e [] "go"
+      result <- runChat e (Conversation []) "go"
       case result of
         Left (Aborted, _, _) -> pure ()
         other -> expectationFailure $ "Expected Aborted during tools, got: " <> show other
@@ -216,7 +217,7 @@ spec = describe "Chat" $ do
       sig <- newAbortSignal
       abort sig
       let e = (defaultChatEnv (mockModel gw)) {envFallbacks = [mockModel okGw], envAbortSignal = Just sig}
-      result <- runChat e [] "hello"
+      result <- runChat e (Conversation []) "hello"
       case result of
         Left (Aborted, _, _) -> pure ()
         other -> expectationFailure $ "Expected Aborted (no fallback), got: " <> show other

@@ -7,7 +7,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM
   ( ChatEnv,
-    Conversation,
+    Conversation (..),
     StreamEvent (..),
     Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
@@ -22,7 +22,7 @@ repl :: ChatEnv -> IO ()
 repl env = do
   hSetBuffering stdout NoBuffering
   putStrLn "Type a message (or /quit to exit, /clear to reset conversation)."
-  loop env emptyUsage []
+  loop env emptyUsage (Conversation [])
 
 loop :: ChatEnv -> Usage -> Conversation -> IO ()
 loop env totalUsage conv = do
@@ -37,7 +37,7 @@ loop env totalUsage conv = do
         Quit -> printSummary totalUsage
         Clear -> do
           putStrLn "(conversation cleared)"
-          loop env emptyUsage []
+          loop env emptyUsage (Conversation [])
         Chat msg -> do
           result <- streamChat env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt
@@ -51,7 +51,7 @@ loop env totalUsage conv = do
               let totalUsage' = addUsage totalUsage usage
               printf
                 "  (%d turns, %d in + %d out tokens, $%.4f)\n"
-                (length conv')
+                (length $ unConversation conv')
                 (usageInputTokens usage)
                 (usageOutputTokens usage)
                 (usageTotalCost usage)

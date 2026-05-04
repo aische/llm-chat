@@ -30,6 +30,7 @@ import LLM.Core.Types
       ),
     ChatResponse (ChatResponse),
     ContentBlock (..),
+    Conversation (unConversation),
     LLMError (EmptyResponse),
     LLMResult,
     StreamEvent (..),
@@ -195,7 +196,7 @@ claudeBuildBody stream r =
   object $
     [ "model" .= reqModel r,
       "max_tokens" .= reqMaxTokens r,
-      "messages" .= concatMap encodeTurn (reqConversation r)
+      "messages" .= concatMap encodeTurn (unConversation $ reqConversation r)
     ]
       ++ ["system" .= sys | Just sys <- [reqSystem r]]
       ++ ["temperature" .= t | Just t <- [reqTemperature r]]

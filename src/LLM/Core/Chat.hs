@@ -11,7 +11,7 @@ import LLM.Core.Logger (Hooks (..), LogLevel (..), Logger, safeHooks)
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
-    Conversation,
+    Conversation (..),
     LLMError (Aborted, NetworkError, TimeoutError, ToolLoopExceeded),
     LLMResult,
     StreamEvent,
@@ -38,7 +38,7 @@ runChat ::
   Text ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 runChat unsafeEnv conv msg = do
-  let conv' = conv ++ [UserTurn msg]
+  let conv' = Conversation (unConversation conv ++ [UserTurn msg])
       env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv' $ \mc c u ->
@@ -53,7 +53,7 @@ streamChat ::
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamChat unsafeEnv conv msg callback = do
-  let conv' = conv ++ [UserTurn msg]
+  let conv' = Conversation (unConversation conv ++ [UserTurn msg])
       env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       log = onLog (envHooks env)
   log Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
@@ -119,7 +119,7 @@ chatLoop env mc call rounds acc conv
               <> " round="
               <> T.pack (show rounds)
               <> " turns="
-              <> T.pack (show (length (reqConversation request)))
+              <> T.pack (show (length (unConversation (reqConversation request))))
           case mcThrottleDelay mc of
             Just d -> do
               log Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
@@ -161,9 +161,9 @@ chatLoop env mc call rounds acc conv
                                 ", "
                                 [trName r <> "=" <> T.take 100 (trContent r) | r <- results]
                           let conv' =
-                                conv
-                                  ++ [AssistantTurn (respText resp) calls]
-                                  ++ [ToolTurn results]
+                                withConversation
+                                  conv
+                                  (++ [AssistantTurn (respText resp) calls, ToolTurn results])
                           chatLoop env mc call (rounds + 1) acc' conv'
                     else do
                       log Info $
@@ -179,9 +179,11 @@ chatLoop env mc call rounds acc conv
                             )
                             (respUsage resp)
                       let finalConv =
-                            conv
-                              ++ [AssistantTurn (respText resp) []]
+                            withConversation conv (++ [AssistantTurn (respText resp) []])
                       pure $ Right (respText resp, finalConv, acc')
+
+withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
+withConversation (Conversation turns) f = Conversation (f turns)
 
 -- | Build a ChatRequest from the model config and a conversation.
 -- When 'envContextWindow' is set, only the last N user messages (and their
@@ -197,7 +199,7 @@ checkAbort env = case envAbortSignal env of
 mkRequest env mc conv =
   ChatRequest
     { reqModel = mcModel mc,
-      reqConversation = drop offset conv,
+      reqConversation = withConversation conv (drop offset),
       reqSystem = envSystem env,
       reqMaxTokens = mcMaxTokens mc,
       reqTemperature = mcTemperature mc,
@@ -218,12 +220,12 @@ windowOffset (Just n) conv = findNthUserFromEnd n conv
 -- | Find the index of the Nth 'UserTurn' from the end of a conversation.
 -- Returns 0 if there are fewer than @n@ user messages.
 findNthUserFromEnd :: Int -> Conversation -> Int
-findNthUserFromEnd n conv = go (length conv - 1) n
+findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
   where
     go idx remaining
       | idx < 0 = 0
       | remaining <= 0 = idx + 1
-      | otherwise = case conv !! idx of
+      | otherwise = case unConversation conv !! idx of
           UserTurn _ -> go (idx - 1) (remaining - 1)
           _ -> go (idx - 1) remaining
 
