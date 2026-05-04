@@ -11,12 +11,13 @@ where
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHC.Generics ((:.:) (unComp1))
 import LLM.Core.LLMProvider (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Logger (LogLevel (..))
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
-    Conversation,
+    Conversation (..),
     LLMError (Aborted, ToolLoopExceeded),
     LLMResult,
     Tool (toolDef),
@@ -61,7 +62,7 @@ buildChatStep env mc rounds acc conv
               Done (Left (Aborted, conv, acc))
           else
             let request = mkRequest env mc conv
-             in Log Debug ("API request: model=" <> mcModel mc <> " round=" <> tshow rounds <> " turns=" <> tshow (length (reqConversation request))) $
+             in Log Debug ("API request: model=" <> mcModel mc <> " round=" <> tshow rounds <> " turns=" <> tshow (length (unConversation $ reqConversation request))) $
                   maybeThrottle (mcThrottleDelay mc) $
                     CallLLM request $ \case
                       Left err ->
@@ -82,13 +83,15 @@ buildChatStep env mc rounds acc conv
                                         Right results ->
                                           Log Debug ("Tool results: " <> T.intercalate ", " [trName r <> "=" <> T.take 100 (trContent r) | r <- results]) $
                                             let conv' =
-                                                  conv
-                                                    ++ [AssistantTurn (respText resp) calls]
-                                                    ++ [ToolTurn results]
+                                                  Conversation
+                                                    ( unConversation conv
+                                                        ++ [AssistantTurn (respText resp) calls]
+                                                        ++ [ToolTurn results]
+                                                    )
                                              in buildChatStep env mc (rounds + 1) acc' conv'
                               else
                                 Log Info (logResponse resp) $
-                                  let finalConv = conv ++ [AssistantTurn (respText resp) []]
+                                  let finalConv = Conversation (unConversation conv ++ [AssistantTurn (respText resp) []])
                                    in Done (Right (respText resp, finalConv, acc'))
 
 -- Helpers --
@@ -124,7 +127,7 @@ mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
 mkRequest env mc conv =
   ChatRequest
     { reqModel = mcModel mc,
-      reqConversation = drop offset conv,
+      reqConversation = Conversation (drop offset $ unConversation conv),
       reqSystem = envSystem env,
       reqMaxTokens = mcMaxTokens mc,
       reqTemperature = mcTemperature mc,
@@ -139,11 +142,11 @@ windowOffset Nothing _ = 0
 windowOffset (Just n) conv = findNthUserFromEnd n conv
 
 findNthUserFromEnd :: Int -> Conversation -> Int
-findNthUserFromEnd n conv = go (length conv - 1) n
+findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
   where
     go idx remaining
       | idx < 0 = 0
       | remaining <= 0 = idx + 1
-      | otherwise = case conv !! idx of
+      | otherwise = case unConversation conv !! idx of
           UserTurn _ -> go (idx - 1) (remaining - 1)
           _ -> go (idx - 1) remaining

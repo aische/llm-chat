@@ -11,7 +11,7 @@ import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
 import LLM.Core.Logger (Hooks (..), LogLevel (..), Logger, safeHooks)
 import LLM.Core.Types
   ( ChatRequest,
-    Conversation,
+    Conversation (..),
     LLMError (Aborted, NetworkError, TimeoutError),
     LLMResult,
     StreamEvent,
@@ -31,7 +31,7 @@ runChat ::
   Text ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 runChat unsafeEnv conv msg = do
-  let conv' = conv ++ [UserTurn msg]
+  let conv' = Conversation (unConversation conv ++ [UserTurn msg])
       env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv' $ \mc c u ->
@@ -47,7 +47,7 @@ streamChat ::
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamChat unsafeEnv conv msg callback = do
-  let conv' = conv ++ [UserTurn msg]
+  let conv' = Conversation (unConversation conv ++ [UserTurn msg])
       env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv' $ \mc c u ->

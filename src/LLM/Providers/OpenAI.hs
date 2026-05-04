@@ -36,6 +36,7 @@ import LLM.Core.Types
       ),
     ChatResponse (ChatResponse),
     ContentBlock (..),
+    Conversation (unConversation),
     LLMError (EmptyResponse),
     LLMResult,
     StreamEvent (..),
@@ -142,7 +143,7 @@ openAIBuildBody stream r =
 buildMessages :: ChatRequest -> [Value]
 buildMessages r =
   maybe [] (\sys -> [object ["role" .= ("system" :: Text), "content" .= sys]]) (reqSystem r)
-    ++ concatMap encodeTurn (reqConversation r)
+    ++ concatMap encodeTurn (unConversation $ reqConversation r)
 
 encodeTurn :: Turn -> [Value]
 encodeTurn (UserTurn content) =

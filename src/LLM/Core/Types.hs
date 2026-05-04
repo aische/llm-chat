@@ -1,6 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module LLM.Core.Types
   ( Turn (..),
-    Conversation,
+    Conversation (..),
     ToolContext (..),
     ContentBlock (..),
     ChatRequest (..),
@@ -16,8 +18,9 @@ module LLM.Core.Types
 where
 
 import Control.Exception (SomeException, try)
-import Data.Aeson (Value)
+import Data.Aeson (FromJSON, ToJSON, Value)
 import Data.Text (Text)
+import GHC.Generics (Generic)
 import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Usage (Usage, usageInputTokens, usageOutputTokens)
 
@@ -26,10 +29,19 @@ data Turn
   = UserTurn Text
   | AssistantTurn Text [ToolCall] -- text (possibly empty) + any tool calls
   | ToolTurn [ToolResult]
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance ToJSON Turn
+
+instance FromJSON Turn
 
 -- | A full conversation history
-type Conversation = [Turn]
+newtype Conversation = Conversation {unConversation :: [Turn]}
+  deriving (Show, Eq, Generic)
+
+instance ToJSON Conversation
+
+instance FromJSON Conversation
 
 -- | Context passed to tool implementations during execution.
 -- Provides read access to the full (unwindowed) conversation and
@@ -61,7 +73,11 @@ data ToolCall = ToolCall
     tcName :: Text,
     tcArguments :: Value
   }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance ToJSON ToolCall
+
+instance FromJSON ToolCall
 
 -- | The result of executing a tool, sent back to the model
 data ToolResult = ToolResult
@@ -69,7 +85,11 @@ data ToolResult = ToolResult
     trName :: Text, -- function name (matches tcName)
     trContent :: Text
   }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance ToJSON ToolResult
+
+instance FromJSON ToolResult
 
 -- | A tool: its definition (sent to the model) paired with its implementation.
 -- 'toolExecute' receives a 'ToolContext' (full conversation + usage) and
