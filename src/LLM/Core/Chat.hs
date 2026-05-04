@@ -26,7 +26,7 @@ import LLM.Core.Types
     Turn (UserTurn),
   )
 import LLM.Core.Usage (Usage, emptyUsage)
-import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withTimeout)
+import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withTimeout, withRetry)
 import System.Timeout (timeout)
 
 -- | Run a non-streaming chat. Uses the standard in-memory interpreter.
@@ -81,19 +81,3 @@ runStepIO hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
       results <- executeToolsWithAbort abortSig ctx tools (esCalls step)
       go (esCont step results)
 
--- | Retry an action using the retry package's policy (exponential backoff + jitter).
-withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
-withRetry policy log action =
-  retrying
-    policy
-    ( \status result -> case result of
-        Left err | isRetryable err -> do
-          log Warn $
-            "Retryable error (attempt "
-              <> T.pack (show (rsIterNumber status + 1))
-              <> "): "
-              <> T.pack (show err)
-          pure True
-        _ -> pure False
-    )
-    (const action)

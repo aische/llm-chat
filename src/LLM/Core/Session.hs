@@ -24,6 +24,7 @@ import LLM.Core.ChatStep
     buildChatStep,
     windowOffset,
   )
+import LLM.Core.ChatStepInterpreter (ChatStepInterpreter)
 import LLM.Core.LLMProvider (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Logger (Hooks (..), LogLevel (..), Logger)
 import LLM.Core.Types
@@ -36,7 +37,7 @@ import LLM.Core.Types
     Turn (AssistantTurn, ToolTurn),
   )
 import LLM.Core.Usage (Usage, emptyUsage)
-import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withTimeout)
+import LLM.Core.Utils (executeToolsWithAbort, isRetryable, withRetry, withTimeout)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
 import System.Timeout (timeout)
@@ -116,18 +117,7 @@ resumeSession store sid env mc = do
 -- session state at checkpoint boundaries (before/after tool execution
 -- and at terminal states). If the process crashes, 'resumeSession'
 -- reconstructs the program from the last checkpoint.
-runStepServer ::
-  Store ->
-  SessionId ->
-  Hooks ->
-  Maybe AbortSignal ->
-  [Tool] ->
-  Maybe Int ->
-  RetryPolicyM IO ->
-  Maybe Int ->
-  (ChatRequest -> IO LLMResult) ->
-  ChatStep ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+runStepServer :: Store -> SessionId -> ChatStepInterpreter
 runStepServer store sid hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
   where
     go (Done result) = do
@@ -186,20 +176,3 @@ runStepServer store sid hooks abortSig tools ctxWindow retryPolicy reqTimeout ca
         Left _ ->
           pure () -- aborted, terminal state handled by Done
       go (esCont step results)
-
--- | Retry on retryable errors.
-withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
-withRetry policy log action =
-  retrying
-    policy
-    ( \status result -> case result of
-        Left err | isRetryable err -> do
-          log Warn $
-            "Retryable error (attempt "
-              <> T.pack (show (rsIterNumber status + 1))
-              <> "): "
-              <> T.pack (show err)
-          pure True
-        _ -> pure False
-    )
-    (const action)

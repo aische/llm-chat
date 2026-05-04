@@ -6,17 +6,20 @@ module LLM.Core.Utils
     executeToolsWithAbort,
     toolResult,
     isRetryable,
+    withRetry,
     withTimeout,
     streamResponseJson,
   )
 where
 
 import Control.Exception (SomeException (SomeException), try)
+import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
 import Data.Aeson (Value, object, (.=))
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
+import LLM.Core.Logger (LogLevel (Warn), Logger)
 import LLM.Core.Types
   ( ChatResponse (..),
     ContentBlock (..),
@@ -83,6 +86,23 @@ isRetryable :: LLMError -> Bool
 isRetryable (HttpError status _) = status `elem` [429, 503, 529]
 isRetryable (NetworkError _) = True
 isRetryable _ = False
+
+-- | Retry an action using the retry package's policy (exponential backoff + jitter).
+withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
+withRetry policy log action =
+  retrying
+    policy
+    ( \status result -> case result of
+        Left err | isRetryable err -> do
+          log Warn $
+            "Retryable error (attempt "
+              <> T.pack (show (rsIterNumber status + 1))
+              <> "): "
+              <> T.pack (show err)
+          pure True
+        _ -> pure False
+    )
+    (const action)
 
 -- | Wrap an action with a timeout (ms).
 withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
