@@ -6,7 +6,6 @@ import Data.Text qualified as T
 import LLM
   ( ChatEnv,
     Conversation,
-    Hooks,
     LogLevel (Debug),
     ModelConfig (..),
     PricingInfo (..),
@@ -17,7 +16,6 @@ import LLM
     defaultChatEnv,
     emptyUsage,
     geminiProvider,
-    noHooks,
     ollamaProvider,
     withJsonDump,
     withStderrLogger,
@@ -30,8 +28,8 @@ data AllModels = AllModels
     llama_3_2 :: ModelConfig
   }
 
-getAllModels :: Hooks -> IO AllModels
-getAllModels hooks =
+getAllModels :: IO AllModels
+getAllModels =
   do
     geminiKey <- T.pack <$> getEnv "GEMINI_API_KEY"
     claudeKey <- T.pack <$> getEnv "CLAUDE_API_KEY"

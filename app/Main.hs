@@ -21,10 +21,10 @@ main :: IO ()
 main = do
   loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
   userProjectPath <- getEnv "USER_PROJECT_PATH"
-  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  AllModels {gemini_2_5_flash, claude_haiku_4_5, llama_3_2} <- getAllModels hooks
+  AllModels {gemini_2_5_flash, claude_haiku_4_5, llama_3_2} <- getAllModels
   fsConfig <- mkFsConfig userProjectPath
-  let tools =
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+      tools =
         [ weatherTool,
           ageTool,
           historyTool,
