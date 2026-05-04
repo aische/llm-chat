@@ -1,3 +1,0 @@
-packages: .
-
-constraints: tls >= 1.7 && < 1.9
