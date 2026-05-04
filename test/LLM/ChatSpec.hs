@@ -1,41 +1,84 @@
 module LLM.ChatSpec (spec) where
 
+import Control.Retry (limitRetries)
 import Data.Aeson (object, (.=))
-import LLM.Chat (runChat)
-import LLM.Types
+import LLM.Core.Chat (runChat)
+import LLM.Core.LLMProvider
+  ( ChatEnv (..),
+    LLMProvider (..),
+    ModelConfig (..),
+    defaultChatEnv,
+  )
+import LLM.Core.Types
+  ( ChatRequest (reqConversation),
+    ChatResponse (ChatResponse),
+    ContentBlock (TextBlock, ToolCallBlock),
+    LLMError (HttpError, NetworkError, ToolLoopExceeded),
+    Tool (..),
+    ToolCall (ToolCall),
+    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
+    Turn (ToolTurn),
+  )
+import LLM.Core.Usage (PricingInfo (..), Usage (Usage))
 import Test.Hspec
+  ( Spec,
+    describe,
+    expectationFailure,
+    it,
+    shouldBe,
+  )
 
--- | A mock client that returns a fixed response
-mockClient :: ChatResponse -> LLMClient
-mockClient resp =
-  LLMClient
-    { clientChat = \_ -> pure (Right resp),
-      clientChatStream = Nothing
+-- | A mock gateway that returns a fixed response
+mockGateway :: ChatResponse -> LLMProvider
+mockGateway resp =
+  LLMProvider
+    { providerName = "mock",
+      providerChat = \_ _ -> pure (Right resp),
+      providerChatStream = \_ _ _ -> pure (Right resp)
     }
 
--- | A mock client that returns an error
-mockErrorClient :: LLMError -> LLMClient
-mockErrorClient err =
-  LLMClient
-    { clientChat = \_ -> pure (Left err),
-      clientChatStream = Nothing
+-- | A mock gateway that returns an error
+mockErrorGateway :: LLMError -> LLMProvider
+mockErrorGateway err =
+  LLMProvider
+    { providerName = "mock-error",
+      providerChat = \_ _ -> pure (Left err),
+      providerChatStream = \_ _ _ -> pure (Left err)
     }
 
--- | A mock client that calls a tool, then responds with text
-mockToolClient :: LLMClient
-mockToolClient =
-  LLMClient
-    { clientChat = \req ->
+-- | A mock gateway that calls a tool, then responds with text
+mockToolGateway :: LLMProvider
+mockToolGateway =
+  LLMProvider
+    { providerName = "mock-tool",
+      providerChat = \_ req ->
         if any isToolTurn (reqConversation req)
-          then pure $ Right (ChatResponse "The weather is sunny." [TextBlock "The weather is sunny."] (Just (Usage 80 15)))
+          then pure $ Right (ChatResponse "The weather is sunny." [TextBlock "The weather is sunny."] (Just (Usage 80 15 0)))
           else
             let tc = ToolCall "call_1" "get_weather" (object ["location" .= ("London" :: String)])
-             in pure $ Right (ChatResponse "" [ToolCallBlock tc] (Just (Usage 50 10))),
-      clientChatStream = Nothing
+             in pure $ Right (ChatResponse "" [ToolCallBlock tc] (Just (Usage 50 10 0))),
+      providerChatStream = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
     }
   where
     isToolTurn (ToolTurn _) = True
     isToolTurn _ = False
+
+zeroPricing :: PricingInfo
+zeroPricing = PricingInfo 0 0
+
+-- | Wrap a gateway in a ModelConfig with test defaults
+mockModel :: LLMProvider -> ModelConfig
+mockModel gw =
+  ModelConfig
+    { mcGateway = gw,
+      mcModel = "test-model",
+      mcPricing = zeroPricing,
+      mcMaxTokens = 1024,
+      mcTemperature = Nothing,
+      mcRequestTimeout = Nothing,
+      mcThrottleDelay = Nothing,
+      mcRetry = limitRetries 0
+    }
 
 weatherTool :: Tool
 weatherTool =
@@ -46,53 +89,82 @@ weatherTool =
             toolDescription = "Get weather",
             toolParameters = object ["type" .= ("object" :: String)]
           },
-      toolExecute = \_ -> pure "Sunny, 22°C"
+      toolExecute = \_ _ -> pure "Sunny, 22°C"
     }
 
-cfg :: ChatConfig
-cfg = (defaultChatConfig "test-model") {cfgRetry = noRetry}
+env :: LLMProvider -> ChatEnv
+env gw = defaultChatEnv (mockModel gw)
 
 spec :: Spec
 spec = describe "Chat" $ do
   describe "runChat" $ do
     it "returns text for a simple response" $ do
-      let client = mockClient (ChatResponse "Hi there!" [TextBlock "Hi there!"] (Just (Usage 10 5)))
-      result <- runChat client cfg [] [] "hello"
+      let gw = mockGateway (ChatResponse "Hi there!" [TextBlock "Hi there!"] (Just (Usage 10 5 0)))
+      result <- runChat (env gw) [] "hello"
       case result of
         Right (text, conv, usage) -> do
           text `shouldBe` "Hi there!"
           length conv `shouldBe` 2 -- UserTurn + AssistantTurn
-          usage `shouldBe` Usage 10 5
+          usage `shouldBe` Usage 10 5 0
         Left err -> expectationFailure $ show err
 
     it "propagates errors" $ do
-      let client = mockErrorClient (HttpError 500 "internal error")
-      result <- runChat client cfg [] [] "hello"
+      let gw = mockErrorGateway (HttpError 500 "internal error")
+      result <- runChat (env gw) [] "hello"
       case result of
-        Left (HttpError 500 _) -> pure ()
+        Left (HttpError 500 _, _, _) -> pure ()
         other -> expectationFailure $ "Expected HttpError 500, got: " <> show other
 
     it "handles tool call loop" $ do
-      result <- runChat mockToolClient cfg [weatherTool] [] "weather in london?"
+      let e = (env mockToolGateway) {envTools = [weatherTool]}
+      result <- runChat e [] "weather in london?"
       case result of
         Right (text, conv, usage) -> do
           text `shouldBe` "The weather is sunny."
           -- UserTurn + AssistantTurn(tool call) + ToolTurn + AssistantTurn(final)
           length conv `shouldBe` 4
-          usage `shouldBe` Usage 130 25 -- 50+80 input, 10+15 output
+          usage `shouldBe` Usage 130 25 0 -- 50+80 input, 10+15 output
         Left err -> expectationFailure $ show err
 
     it "respects maxToolRounds" $ do
-      -- A client that always returns tool calls
-      let infiniteToolClient =
-            LLMClient
-              { clientChat = \_ ->
+      -- A gateway that always returns tool calls
+      let infiniteToolGateway =
+            LLMProvider
+              { providerName = "mock-infinite",
+                providerChat = \_ _ ->
                   let tc = ToolCall "call_1" "get_weather" (object [])
                    in pure $ Right (ChatResponse "" [ToolCallBlock tc] Nothing),
-                clientChatStream = Nothing
+                providerChatStream = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
               }
-          limitedCfg = cfg {cfgMaxToolRounds = 2}
-      result <- runChat infiniteToolClient limitedCfg [weatherTool] [] "test"
+          limitedEnv = (env infiniteToolGateway) {envMaxToolRounds = 2, envTools = [weatherTool]}
+      result <- runChat limitedEnv [] "test"
       case result of
-        Left (ToolLoopExceeded 2) -> pure ()
+        Left (ToolLoopExceeded 2, _, _) -> pure ()
         other -> expectationFailure $ "Expected ToolLoopExceeded 2, got: " <> show other
+
+    it "falls back to next model on retryable error" $ do
+      let failGw = mockErrorGateway (HttpError 503 "service unavailable")
+          okGw = mockGateway (ChatResponse "Fallback worked!" [TextBlock "Fallback worked!"] (Just (Usage 10 5 0)))
+          e = (defaultChatEnv (mockModel failGw)) {envFallbacks = [mockModel okGw]}
+      result <- runChat e [] "hello"
+      case result of
+        Right (text, _, _) -> text `shouldBe` "Fallback worked!"
+        Left err -> expectationFailure $ "Expected fallback success, got: " <> show err
+
+    it "falls back on non-retryable error too" $ do
+      let failGw = mockErrorGateway (HttpError 400 "bad request")
+          okGw = mockGateway (ChatResponse "Fallback worked!" [TextBlock "Fallback worked!"] (Just (Usage 10 5 0)))
+          e = (defaultChatEnv (mockModel failGw)) {envFallbacks = [mockModel okGw]}
+      result <- runChat e [] "hello"
+      case result of
+        Right (text, _, _) -> text `shouldBe` "Fallback worked!"
+        Left err -> expectationFailure $ "Expected fallback success, got: " <> show err
+
+    it "returns error from last model when all fail" $ do
+      let failGw1 = mockErrorGateway (HttpError 503 "service unavailable")
+          failGw2 = mockErrorGateway (HttpError 400 "bad request")
+          e = (defaultChatEnv (mockModel failGw1)) {envFallbacks = [mockModel failGw2]}
+      result <- runChat e [] "hello"
+      case result of
+        Left (HttpError 400 _, _, _) -> pure ()
+        other -> expectationFailure $ "Expected HttpError 400 from last model, got: " <> show other

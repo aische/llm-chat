@@ -1,8 +1,17 @@
 module LLM.TypesSpec (spec) where
 
 import Data.Aeson (object, (.=))
-import LLM.Types
-import Test.Hspec
+import LLM.Core.Types
+  ( ChatResponse (ChatResponse),
+    ContentBlock (TextBlock, ToolCallBlock),
+    LLMError (EmptyResponse, HttpError, NetworkError),
+    ToolCall (ToolCall),
+    getToolCalls,
+    hasToolCalls,
+    isRetryable,
+  )
+import LLM.Core.Usage (PricingInfo (..), Usage (..), addUsage, emptyUsage, estimateCost, pricePerMillionInput, pricePerMillionOutput, usageInputTokens, usageOutputTokens, usageTotalCost)
+import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Types" $ do
@@ -12,20 +21,20 @@ spec = describe "Types" $ do
       usageOutputTokens emptyUsage `shouldBe` 0
 
     it "addUsage sums token counts" $ do
-      let u1 = Usage 10 20
-          u2 = Usage 30 40
-      addUsage u1 u2 `shouldBe` Usage 40 60
+      let u1 = Usage 10 20 0
+          u2 = Usage 30 40 0
+      addUsage u1 u2 `shouldBe` Usage 40 60 0
 
     it "addUsage is associative" $ do
-      let u1 = Usage 1 2
-          u2 = Usage 3 4
-          u3 = Usage 5 6
+      let u1 = Usage 1 2 0
+          u2 = Usage 3 4 0
+          u3 = Usage 5 6 0
       addUsage (addUsage u1 u2) u3 `shouldBe` addUsage u1 (addUsage u2 u3)
 
   describe "estimateCost" $ do
     it "calculates cost in dollars from per-million pricing" $ do
       let pricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.0}
-          usage = Usage 1_000_000 1_000_000
+          usage = Usage 1_000_000 1_000_000 0
       estimateCost pricing usage `shouldBe` 6.0
 
     it "returns 0 for zero usage" $ do

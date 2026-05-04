@@ -1,76 +1,82 @@
-module LLM.Claude (claudeClient, parseResponse, parseUsage) where
+{-# LANGUAGE DataKinds #-}
 
-import Control.Exception (try)
+module LLM.Providers.Claude (Claude (..), claudeProvider, parseClaudeResponse, parseClaudeUsage) where
+
 import Data.Aeson
+  ( KeyValue ((.=)),
+    Value (String),
+    decodeStrict',
+    object,
+    withObject,
+    (.:),
+  )
 import Data.Aeson.Types (Parser, parseMaybe)
-import Data.ByteString qualified as BS
-import Data.ByteString.Lazy qualified as BSL
-import Data.IORef
+import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import LLM.SSE
-import LLM.Types
+import Data.Text.Encoding (encodeUtf8)
+import LLM.Core.Common (handleStreamResponse, lenientConfig)
+import LLM.Core.LLMProvider (LLMProvider)
+import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.SSE (SSEEvent (sseData, sseEvent), readSSEEvents)
+import LLM.Core.Types
+  ( ChatRequest
+      ( reqConversation,
+        reqMaxTokens,
+        reqModel,
+        reqSystem,
+        reqTemperature,
+        reqTools
+      ),
+    ChatResponse (ChatResponse),
+    ContentBlock (..),
+    LLMError (EmptyResponse),
+    LLMResult,
+    StreamEvent (..),
+    ToolCall (..),
+    ToolDef (toolDescription, toolName, toolParameters),
+    ToolResult (trCallId, trContent),
+    Turn (..),
+  )
+import LLM.Core.Usage (Usage (..), emptyUsage)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req
-import Network.HTTP.Types.Status (statusCode)
 
-claudeClient :: Hooks -> Text -> LLMClient
-claudeClient hooks apiKey =
-  LLMClient
-    { clientChat = claudeChat hooks apiKey,
-      clientChatStream = Just (claudeChatStream hooks apiKey)
-    }
+-- | Claude provider configuration
+newtype Claude = Claude
+  { claudeApiKey :: Text
+  }
 
+instance LLMProviderAdapter Claude where
+  providerAdapterName _ = "claude"
+
+  buildBody _ = claudeBuildBody
+
+  sendRequest (Claude apiKey) body =
+    runReq lenientConfig $ do
+      resp <- req POST claudeUrl (ReqBodyJson body) jsonResponse (claudeOpts apiKey)
+      pure (responseStatusCode resp, responseBody resp)
+
+  sendStreamRequest (Claude apiKey) body callback =
+    runReq lenientConfig $
+      reqBr POST claudeUrl (ReqBodyJson body) (claudeOpts apiKey) $ \resp ->
+        handleStreamResponse resp (`parseClaudeStream` callback)
+
+  parseResponse _ = pure . parseClaudeResponse
+
+-- Internal helpers
+
+claudeUrl :: Url 'Https
 claudeUrl = https "api.anthropic.com" /: "v1" /: "messages"
 
+claudeOpts :: Text -> Option 'Https
 claudeOpts apiKey =
   header "x-api-key" (encodeUtf8 apiKey)
     <> header "anthropic-version" "2023-06-01"
 
-claudeChat :: Hooks -> Text -> ChatRequest -> IO LLMResult
-claudeChat hooks apiKey r = do
-  let reqBody = buildBody False r
-  onRequest hooks "claude" reqBody
-  result <- try $ runReq lenientConfig $ do
-    resp <- req POST claudeUrl (ReqBodyJson reqBody) jsonResponse (claudeOpts apiKey)
-    let status = responseStatusCode resp
-        body = responseBody resp :: Value
-    pure (status, body)
-  case result of
-    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right (status, body) -> do
-      onResponse hooks "claude" body
-      pure $
-        if status == 200
-          then parseResponse body
-          else Left $ HttpError status (T.pack $ show body)
-
-claudeChatStream :: Hooks -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-claudeChatStream hooks apiKey r callback = do
-  let reqBody = buildBody True r
-  onRequest hooks "claude" reqBody
-  result <- try $ runReq lenientConfig $ do
-    reqBr POST claudeUrl (ReqBodyJson (buildBody True r)) (claudeOpts apiKey) $ \resp -> do
-      let status = statusCode (HC.responseStatus resp)
-      if status /= 200
-        then do
-          chunks <- readAll (HC.responseBody resp)
-          pure $ Left $ HttpError status (decodeUtf8 (BS.concat chunks))
-        else parseClaudeStream (HC.responseBody resp) callback
-  case result of
-    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> do
-      case r' of
-        Right resp -> onResponse hooks "claude" (streamResponseJson resp)
-        _ -> pure ()
-      pure r'
-
--- Accumulate all chunks from a BodyReader for error messages
-readAll :: HC.BodyReader -> IO [BS.ByteString]
-readAll br = do
-  chunk <- HC.brRead br
-  if BS.null chunk then pure [] else (chunk :) <$> readAll br
+-- | Create an LLMClient from Claude credentials
+claudeProvider :: Text -> LLMProvider
+claudeProvider apiKey = toProvider (Claude apiKey)
 
 parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMResult
 parseClaudeStream reader callback = do
@@ -99,7 +105,7 @@ parseClaudeStream reader callback = do
             -- Try text delta
             case parseMaybe parseTextDelta v of
               Just txt -> do
-                modifyIORef' blocksRef (++ [TextBlock txt])
+                modifyIORef' blocksRef (TextBlock txt :)
                 callback (StreamDelta txt)
               Nothing -> pure ()
             -- Try tool input delta
@@ -116,7 +122,7 @@ parseClaudeStream reader callback = do
                   Just v -> v
                   Nothing -> String jsonStr
                 tc = ToolCall cid name args
-            modifyIORef' blocksRef (++ [ToolCallBlock tc])
+            modifyIORef' blocksRef (ToolCallBlock tc :)
             callback (StreamToolCall tc)
             writeIORef toolAccRef Nothing
           _ -> writeIORef toolAccRef Nothing
@@ -127,7 +133,7 @@ parseClaudeStream reader callback = do
             Nothing -> pure ()
           Nothing -> pure ()
       _ -> pure () -- message_stop, ping, etc.
-  blocks <- readIORef blocksRef
+  blocks <- reverse <$> readIORef blocksRef
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
@@ -184,14 +190,8 @@ parseInputJsonDelta = withObject "delta_event" $ \o -> do
     )
     d
 
-lenientConfig :: HttpConfig
-lenientConfig =
-  defaultHttpConfig
-    { httpConfigCheckResponse = \_ _ _ -> Nothing
-    }
-
-buildBody :: Bool -> ChatRequest -> Value
-buildBody stream r =
+claudeBuildBody :: Bool -> ChatRequest -> Value
+claudeBuildBody stream r =
   object $
     [ "model" .= reqModel r,
       "max_tokens" .= reqMaxTokens r,
@@ -250,14 +250,14 @@ encodeToolResult tr =
       "content" .= trContent tr
     ]
 
-parseResponse :: Value -> LLMResult
-parseResponse v = case parseMaybe go v of
+parseClaudeResponse :: Value -> LLMResult
+parseClaudeResponse v = case parseMaybe go v of
   Nothing -> Left EmptyResponse
   Just blocks -> case blocks of
     [] -> Left EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in Right (ChatResponse text blocks (parseUsage v))
+       in Right (ChatResponse text blocks (parseClaudeUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "ClaudeResponse" $ \o -> do
@@ -276,7 +276,7 @@ parseResponse v = case parseMaybe go v of
           pure $ ToolCallBlock (ToolCall cid name args)
         _ -> fail $ "Unknown content block type: " <> T.unpack typ
 
-parseUsage :: Value -> Maybe Usage
-parseUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
+parseClaudeUsage :: Value -> Maybe Usage
+parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
   u <- o .: "usage"
-  withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens") u
+  withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens" <*> pure 0) u

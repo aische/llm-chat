@@ -1,16 +1,17 @@
 module LLM.OpenAISpec (spec) where
 
 import Data.Aeson (eitherDecodeFileStrict')
-import LLM.OpenAI (parseResponse, parseUsage)
-import LLM.Types
+import LLM.Core.Types
+import LLM.Core.Usage (Usage (Usage))
+import LLM.Providers.OpenAI (parseOpenAIResponse, parseOpenAIUsage)
 import Test.Hspec
 
 spec :: Spec
 spec = describe "OpenAI" $ do
-  describe "parseResponse" $ do
+  describe "parseOpenAIResponse" $ do
     it "parses a text response" $ do
       Right val <- eitherDecodeFileStrict' "test/fixtures/openai-text.json"
-      case parseResponse val of
+      case parseOpenAIResponse val of
         Right resp -> do
           respText resp `shouldBe` "Hello! How can I help you today?"
           hasToolCalls resp `shouldBe` False
@@ -18,7 +19,7 @@ spec = describe "OpenAI" $ do
 
     it "parses a tool_calls response" $ do
       Right val <- eitherDecodeFileStrict' "test/fixtures/openai-tool-use.json"
-      case parseResponse val of
+      case parseOpenAIResponse val of
         Right resp -> do
           hasToolCalls resp `shouldBe` True
           let [tc] = getToolCalls resp
@@ -26,7 +27,7 @@ spec = describe "OpenAI" $ do
           tcId tc `shouldBe` "call_abc123"
         Left err -> expectationFailure $ "Parse failed: " <> show err
 
-  describe "parseUsage" $ do
+  describe "parseOpenAIUsage" $ do
     it "extracts token counts" $ do
       Right val <- eitherDecodeFileStrict' "test/fixtures/openai-text.json"
-      parseUsage val `shouldBe` Just (Usage 15 9)
+      parseOpenAIUsage val `shouldBe` Just (Usage 15 9 0)

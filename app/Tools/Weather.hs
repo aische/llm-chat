@@ -4,7 +4,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import LLM.Types
+import LLM.Core.Types
 
 weatherTool :: Tool
 weatherTool =
@@ -15,7 +15,7 @@ weatherTool =
             toolDescription = "Get the current weather for a given location",
             toolParameters = weatherSchema
           },
-      toolExecute = getWeather
+      toolExecute = const getWeather
     }
 
 weatherSchema :: Value

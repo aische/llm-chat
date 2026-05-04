@@ -1,109 +1,134 @@
-module LLM.OpenAI (openAIClient, openAIClientWith, parseResponse, parseUsage) where
+module LLM.Providers.OpenAI (OpenAI, openAI, openAIWith, openAIProvider, openAIProviderWith, parseOpenAIResponse, parseOpenAIUsage) where
 
 import Control.Applicative ((<|>))
-import Control.Exception (try)
 import Data.Aeson
+  ( KeyValue ((.=)),
+    Object,
+    Value (String),
+    decodeStrict',
+    encode,
+    object,
+    withObject,
+    (.!=),
+    (.:),
+    (.:?),
+  )
 import Data.Aeson.Types (Parser, parseMaybe)
-import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
-import Data.IORef
+import Data.Foldable (forM_)
+import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import LLM.SSE
-import LLM.Types
+import LLM.Core.Common (handleStreamResponse, lenientConfig)
+import LLM.Core.LLMProvider (LLMProvider)
+import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
+import LLM.Core.Types
+  ( ChatRequest
+      ( reqConversation,
+        reqMaxTokens,
+        reqModel,
+        reqSystem,
+        reqTemperature,
+        reqTools
+      ),
+    ChatResponse (ChatResponse),
+    ContentBlock (..),
+    LLMError (EmptyResponse),
+    LLMResult,
+    StreamEvent (..),
+    ToolCall (..),
+    ToolDef (toolDescription, toolName, toolParameters),
+    ToolResult (trCallId, trContent),
+    Turn (..),
+  )
+import LLM.Core.Usage (Usage (..))
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req
-import Network.HTTP.Types.Status (statusCode)
+  ( Option,
+    POST (POST),
+    ReqBodyJson (ReqBodyJson),
+    Url,
+    header,
+    https,
+    jsonResponse,
+    req,
+    reqBr,
+    responseBody,
+    responseStatusCode,
+    runReq,
+    (/:),
+  )
 
--- | Create an OpenAI client for api.openai.com
-openAIClient :: Hooks -> Text -> LLMClient
-openAIClient = openAIClientWith (https "api.openai.com") mempty
+-- | OpenAI provider configuration.
+-- Uses an existential to support both Http and Https schemes.
+data OpenAI = forall scheme. OpenAI
+  { openAIBaseUrl :: Url scheme,
+    openAIBaseOpts :: Option scheme,
+    openAIApiKey :: Text
+  }
 
--- | Create an OpenAI-compatible client with a custom base URL.
+-- | Create an OpenAI provider for api.openai.com
+openAI :: Text -> OpenAI
+openAI = OpenAI (https "api.openai.com") mempty
+
+-- | Create an OpenAI-compatible provider with a custom base URL.
 --
 -- Examples:
 --
 -- @
 -- -- Together AI
--- openAIClientWith (https "api.together.xyz") mempty hooks apiKey
+-- openAIWith (https "api.together.xyz") mempty apiKey
 --
 -- -- Ollama (local)
--- openAIClientWith (http "localhost") (port 11434) hooks ""
+-- openAIWith (http "localhost") (port 11434) ""
 --
 -- -- vLLM (local)
--- openAIClientWith (http "localhost") (port 8000) hooks ""
+-- openAIWith (http "localhost") (port 8000) ""
 -- @
-openAIClientWith :: Url scheme -> Option scheme -> Hooks -> Text -> LLMClient
-openAIClientWith baseUrl baseOpts hooks apiKey =
-  LLMClient
-    { clientChat = openAIChat baseUrl baseOpts hooks apiKey,
-      clientChatStream = Just (openAIChatStream baseUrl baseOpts hooks apiKey)
-    }
+openAIWith :: Url scheme -> Option scheme -> Text -> OpenAI
+openAIWith = OpenAI
 
-openAIChat :: Url scheme -> Option scheme -> Hooks -> Text -> ChatRequest -> IO LLMResult
-openAIChat baseUrl baseOpts hooks apiKey r = do
-  let reqBody = buildBody False r
-  onRequest hooks "openai" reqBody
-  result <- try $ runReq lenientConfig $ do
-    let url = baseUrl /: "v1" /: "chat" /: "completions"
-        opts = baseOpts <> authHeader apiKey
-    resp <- req POST url (ReqBodyJson reqBody) jsonResponse opts
-    let status = responseStatusCode resp
-        body = responseBody resp :: Value
-    pure (status, body)
-  case result of
-    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right (status, body) -> do
-      onResponse hooks "openai" body
-      pure $
-        if status == 200
-          then parseResponse body
-          else Left $ HttpError status (T.pack $ show body)
+instance LLMProviderAdapter OpenAI where
+  providerAdapterName _ = "openai"
 
-openAIChatStream :: Url scheme -> Option scheme -> Hooks -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-openAIChatStream baseUrl baseOpts hooks apiKey r callback = do
-  let reqBody = buildBody True r
-  onRequest hooks "openai" reqBody
-  result <- try $ runReq lenientConfig $ do
-    let url = baseUrl /: "v1" /: "chat" /: "completions"
-        opts = baseOpts <> authHeader apiKey
-    reqBr POST url (ReqBodyJson (buildBody True r)) opts $ \resp -> do
-      let status = statusCode (HC.responseStatus resp)
-      if status /= 200
-        then do
-          chunks <- readAll (HC.responseBody resp)
-          pure $ Left $ HttpError status (decodeUtf8 (BS.concat chunks))
-        else parseOpenAIStream (HC.responseBody resp) callback
-  case result of
-    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> do
-      case r' of
-        Right resp -> onResponse hooks "openai" (streamResponseJson resp)
-        _ -> pure ()
-      pure r'
+  buildBody _ = openAIBuildBody
+
+  sendRequest (OpenAI baseUrl baseOpts apiKey) body =
+    runReq lenientConfig $ do
+      let url = baseUrl /: "v1" /: "chat" /: "completions"
+          opts = baseOpts <> authHeader apiKey
+      resp <- req POST url (ReqBodyJson body) jsonResponse opts
+      pure (responseStatusCode resp, responseBody resp)
+
+  sendStreamRequest (OpenAI baseUrl baseOpts apiKey) body callback =
+    runReq lenientConfig $ do
+      let url = baseUrl /: "v1" /: "chat" /: "completions"
+          opts = baseOpts <> authHeader apiKey
+      reqBr POST url (ReqBodyJson body) opts $ \resp ->
+        handleStreamResponse resp (`parseOpenAIStream` callback)
+
+  parseResponse _ = pure . parseOpenAIResponse
+
+-- | Create an OpenAI client for api.openai.com
+openAIProvider :: Text -> LLMProvider
+openAIProvider apiKey = toProvider (openAI apiKey)
+
+-- | Create an OpenAI-compatible client with a custom base URL.
+openAIProviderWith :: Url scheme -> Option scheme -> Text -> LLMProvider
+openAIProviderWith baseUrl baseOpts apiKey = toProvider (openAIWith baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme
 authHeader apiKey
   | T.null apiKey = mempty
   | otherwise = header "Authorization" ("Bearer " <> encodeUtf8 apiKey)
 
-lenientConfig :: HttpConfig
-lenientConfig =
-  defaultHttpConfig
-    { httpConfigCheckResponse = \_ _ _ -> Nothing
-    }
-
-readAll :: HC.BodyReader -> IO [BS.ByteString]
-readAll br = do
-  chunk <- HC.brRead br
-  if BS.null chunk then pure [] else (chunk :) <$> readAll br
-
 -- Request body
 
-buildBody :: Bool -> ChatRequest -> Value
-buildBody stream r =
+openAIBuildBody :: Bool -> ChatRequest -> Value
+openAIBuildBody stream r =
   object $
     [ "model" .= reqModel r,
       "max_tokens" .= reqMaxTokens r,
@@ -169,14 +194,14 @@ encodeToolResult tr =
 
 -- Response parsing
 
-parseResponse :: Value -> LLMResult
-parseResponse v = case parseMaybe go v of
+parseOpenAIResponse :: Value -> LLMResult
+parseOpenAIResponse v = case parseMaybe go v of
   Nothing -> Left EmptyResponse
   Just blocks -> case blocks of
     [] -> Left EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in Right (ChatResponse text blocks (parseUsage v))
+       in Right (ChatResponse text blocks (parseOpenAIUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "OpenAIResponse" $ \o -> do
@@ -215,10 +240,10 @@ parseResponse v = case parseMaybe go v of
         )
         fn
 
-parseUsage :: Value -> Maybe Usage
-parseUsage = parseMaybe $ withObject "OpenAIResponse" $ \o -> do
+parseOpenAIUsage :: Value -> Maybe Usage
+parseOpenAIUsage = parseMaybe $ withObject "OpenAIResponse" $ \o -> do
   u <- o .: "usage"
-  withObject "usage" (\uo -> Usage <$> uo .: "prompt_tokens" <*> uo .: "completion_tokens") u
+  withObject "usage" (\uo -> Usage <$> uo .: "prompt_tokens" <*> uo .: "completion_tokens" <*> pure 0) u
 
 -- Streaming
 
@@ -238,7 +263,7 @@ parseOpenAIStream reader callback = do
           -- Text deltas
           case parseMaybe parseStreamTextDelta v of
             Just txt | not (T.null txt) -> do
-              modifyIORef' blocksRef (++ [TextBlock txt])
+              modifyIORef' blocksRef (TextBlock txt :)
               callback (StreamDelta txt)
             _ -> pure ()
           -- Tool call deltas
@@ -264,7 +289,7 @@ parseOpenAIStream reader callback = do
                       Just a -> a
                       Nothing -> String argsStr
                     tc = ToolCall cid name args
-                modifyIORef' blocksRef (++ [ToolCallBlock tc])
+                modifyIORef' blocksRef (ToolCallBlock tc :)
                 callback (StreamToolCall tc)
               writeIORef toolAccRef []
             _ -> pure ()
@@ -279,16 +304,14 @@ parseOpenAIStream reader callback = do
           Just a -> a
           Nothing -> String argsStr
         tc = ToolCall cid name args
-    modifyIORef' blocksRef (++ [ToolCallBlock tc])
+    modifyIORef' blocksRef (ToolCallBlock tc :)
     callback (StreamToolCall tc)
-  blocks <- readIORef blocksRef
+  blocks <- reverse <$> readIORef blocksRef
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
     then pure $ Left EmptyResponse
     else pure $ Right (ChatResponse text blocks usage)
-  where
-    forM_ xs f = mapM_ f xs
 
 parseStreamTextDelta :: Value -> Parser Text
 parseStreamTextDelta = withObject "chunk" $ \o -> do
@@ -335,4 +358,4 @@ parseFinishReason = withObject "chunk" $ \o -> do
 parseStreamUsage :: Value -> Parser Usage
 parseStreamUsage = withObject "chunk" $ \o -> do
   u <- o .: "usage"
-  withObject "usage" (\uo -> Usage <$> uo .: "prompt_tokens" <*> uo .: "completion_tokens") u
+  withObject "usage" (\uo -> Usage <$> uo .: "prompt_tokens" <*> uo .: "completion_tokens" <*> pure 0) u

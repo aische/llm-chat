@@ -11,3 +11,5 @@ cabal.project.local~
 .hpc/
 .env
 dumps/
+.mydocs/
+.github/

@@ -1,10 +1,10 @@
-module LLM.SSE (SSEEvent (..), readSSEEvents) where
+module LLM.Core.SSE (SSEEvent (..), readSSEEvents) where
 
 import Control.Monad (unless)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BC
-import Data.IORef
+import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
 

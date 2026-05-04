@@ -2,9 +2,9 @@ module Tools.Age (ageTool) where
 
 import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
-import Data.Text (Text)
-import LLM.Types
 import Data.Maybe (fromMaybe)
+import Data.Text (Text, toLower)
+import LLM.Core.Types
 
 ageTool :: Tool
 ageTool =
@@ -15,7 +15,7 @@ ageTool =
             toolDescription = "Get the age of a given person",
             toolParameters = ageSchema
           },
-      toolExecute = getAge
+      toolExecute = const getAge
     }
 
 ageSchema :: Value
@@ -38,7 +38,12 @@ getAge :: Value -> IO Text
 getAge args = do
   let name = fromMaybe "unknown" $ parseMaybe parsePersonName args
   -- error "Age database is currently unavailable"
-  pure $ "Age of " <> name <> ":41 years old."
+  if toLower name == "alice"
+    then pure "Alice is 30 years old."
+    else
+      if toLower name == "bob"
+        then pure "Bob is 25 years old."
+        else pure $ name <> " is 41 years old."
 
 parsePersonName :: Value -> Parser Text
 parsePersonName = withObject "args" (.: "person")

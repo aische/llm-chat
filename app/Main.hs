@@ -1,45 +1,42 @@
 module Main where
 
-import Configuration.Dotenv (defaultConfig, loadFile)
-import Control.Exception (SomeException, catch)
-import Data.IORef
-import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
-import LLM
-import System.Environment (getEnv)
-import Text.Printf (printf)
+import Adapters.Repl (repl)
+-- import Adapters.StreamChatLoop (streamChatLoopMain)
+import AllModels (AllModels (..), getAllModels)
+import LLM.Core.LLMProvider (ChatEnv (..), defaultChatEnv)
+import LLM.Core.Logger (LogLevel (..), noHooks, withJsonDump, withStderrLogger)
 import Tools.Age (ageTool)
+import Tools.FsConfig (mkFsConfig)
+import Tools.History (historyTool)
+import Tools.Readdir (readdirTool)
+import Tools.Readfile (readfileTool)
+import Tools.ReplaceInFile (replaceInFileTool)
 import Tools.Weather (weatherTool)
-
-prompts =
-  [ "how old is alice?",
-    "how's the weather in london?",
-    "and in paris?"
-  ]
+import Tools.Writefile (writefileTool)
 
 main :: IO ()
 main = do
-  loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
-
-  geminiKey <- T.pack <$> getEnv "GEMINI_API_KEY"
-  claudeKey <- T.pack <$> getEnv "CLAUDE_API_KEY"
-
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-      gemini = geminiClient hooks geminiKey
-      claude = claudeClient hooks claudeKey
-      tools = [weatherTool, ageTool]
-
-  let geminiPricing = PricingInfo {pricePerMillionInput = 0.10, pricePerMillionOutput = 0.40}
-      geminiConfig = (defaultChatConfig "gemini-2.0-flash") {cfgHooks = hooks}
-      claudePricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.00}
-      claudeConfig =
-        (defaultChatConfig "claude-haiku-4-5-20251001")
-          { cfgHooks = hooks
+  AllModels {gemini_2_5_flash, claude_haiku_4_5, llama_3_2} <- getAllModels hooks
+  fsConfig <- mkFsConfig "/Users/daniel/Desktop/hask-llm-data"
+  let tools =
+        [ weatherTool,
+          ageTool,
+          historyTool,
+          readfileTool fsConfig,
+          writefileTool fsConfig,
+          replaceInFileTool fsConfig,
+          readdirTool fsConfig
+        ]
+      claudeEnv :: ChatEnv
+      claudeEnv =
+        (defaultChatEnv claude_haiku_4_5)
+          { envFallbacks = [gemini_2_5_flash, llama_3_2],
+            envHooks = hooks,
+            envTools = tools,
+            envContextWindow = Just 3,
+            envSystem = Just "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to."
           }
 
-  -- putStrLn "=== Gemini ==="
-  -- _ <- streamChatLoop gemini geminiConfig tools geminiPricing prompts
-
-  putStrLn "\n=== Claude ==="
-  _ <- streamChatLoop claude claudeConfig tools claudePricing prompts
-  pure ()
+  -- streamChatLoopMain claudeEnv
+  repl claudeEnv

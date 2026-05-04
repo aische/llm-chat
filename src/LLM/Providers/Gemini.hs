@@ -1,82 +1,111 @@
-module LLM.Gemini (geminiClient, parseResponse, parseUsage) where
+module LLM.Providers.Gemini (Gemini (..), geminiProvider, parseGeminiResponse, parseGeminiUsage) where
 
 import Control.Applicative ((<|>))
-import Control.Exception (try)
 import Data.Aeson
+  ( KeyValue ((.=)),
+    Value (Object),
+    decodeStrict',
+    object,
+    withObject,
+    (.!=),
+    (.:),
+    (.:?),
+  )
+import Data.Aeson.KeyMap qualified as KM
 import Data.Aeson.Types (Parser, parseMaybe)
-import Data.ByteString qualified as BS
-import Data.ByteString.Lazy qualified as BSL
-import Data.IORef
+import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Text.Encoding (encodeUtf8)
 import Data.Unique (hashUnique, newUnique)
-import LLM.SSE
-import LLM.Types
+import LLM.Core.Common (handleStreamResponse, lenientConfig)
+import LLM.Core.LLMProvider (LLMProvider)
+import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
+import LLM.Core.Types
+  ( ChatRequest
+      ( reqConversation,
+        reqMaxTokens,
+        reqModel,
+        reqSystem,
+        reqTemperature,
+        reqTools
+      ),
+    ChatResponse (ChatResponse),
+    ContentBlock (..),
+    LLMError (EmptyResponse),
+    LLMResult,
+    StreamEvent (..),
+    ToolCall (..),
+    ToolDef (toolDescription, toolName, toolParameters),
+    ToolResult (trContent, trName),
+    Turn (..),
+  )
+import LLM.Core.Usage (Usage (..))
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req
-import Network.HTTP.Types.Status (statusCode)
+  ( POST (POST),
+    ReqBodyJson (ReqBodyJson),
+    https,
+    jsonResponse,
+    req,
+    reqBr,
+    responseBody,
+    responseStatusCode,
+    runReq,
+    (/:),
+    (=:),
+  )
 
-geminiClient :: Hooks -> Text -> LLMClient
-geminiClient hooks apiKey =
-  LLMClient
-    { clientChat = geminiChat hooks apiKey,
-      clientChatStream = Just (geminiChatStream hooks apiKey)
-    }
+-- | Gemini provider configuration
+newtype Gemini = Gemini
+  { geminiApiKey :: Text
+  }
 
-geminiChat :: Hooks -> Text -> ChatRequest -> IO LLMResult
-geminiChat hooks apiKey r = do
-  let reqBody = buildBody r
-  onRequest hooks "gemini" reqBody
-  result <- try $ runReq lenientConfig $ do
-    let url =
-          https "generativelanguage.googleapis.com"
-            /: "v1beta"
-            /: "models"
-            /: (reqModel r <> ":generateContent")
-    resp <- req POST url (ReqBodyJson reqBody) jsonResponse ("key" =: apiKey)
-    let status = responseStatusCode resp
-        body = responseBody resp :: Value
-    pure $
-      if status == 200
-        then Right body
-        else Left $ HttpError status (T.pack $ show body)
-  case result of
-    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right (Left err) -> pure $ Left err
-    Right (Right body) -> do
-      onResponse hooks "gemini" body
-      parseResponse body
+instance LLMProviderAdapter Gemini where
+  providerAdapterName _ = "gemini"
 
-geminiChatStream :: Hooks -> Text -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-geminiChatStream hooks apiKey r callback = do
-  let reqBody = buildBody r
-  onRequest hooks "gemini" reqBody
-  result <- try $ runReq lenientConfig $ do
-    let url =
-          https "generativelanguage.googleapis.com"
-            /: "v1beta"
-            /: "models"
-            /: (reqModel r <> ":streamGenerateContent")
-    reqBr POST url (ReqBodyJson (buildBody r)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp -> do
-      let status = statusCode (HC.responseStatus resp)
-      if status /= 200
-        then do
-          chunks <- readAll (HC.responseBody resp)
-          pure $ Left $ HttpError status (decodeUtf8 (BS.concat chunks))
-        else parseGeminiStream (HC.responseBody resp) callback
-  case result of
-    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
-    Right r' -> do
-      case r' of
-        Right resp -> onResponse hooks "gemini" (streamResponseJson resp)
-        _ -> pure ()
-      pure r'
+  buildBody _ _ = geminiBuildBody
 
-readAll :: HC.BodyReader -> IO [BS.ByteString]
-readAll br = do
-  chunk <- HC.brRead br
-  if BS.null chunk then pure [] else (chunk :) <$> readAll br
+  sendRequest (Gemini apiKey) body =
+    runReq lenientConfig $ do
+      -- For non-streaming we need the model name from the body to construct the URL.
+      -- We extract it from the request body JSON since the typeclass only passes Value.
+      let model = extractModel body
+          url =
+            https "generativelanguage.googleapis.com"
+              /: "v1beta"
+              /: "models"
+              /: (model <> ":generateContent")
+      resp <- req POST url (ReqBodyJson (stripModel body)) jsonResponse ("key" =: apiKey)
+      pure (responseStatusCode resp, responseBody resp)
+
+  sendStreamRequest (Gemini apiKey) body callback =
+    runReq lenientConfig $ do
+      let model = extractModel body
+          url =
+            https "generativelanguage.googleapis.com"
+              /: "v1beta"
+              /: "models"
+              /: (model <> ":streamGenerateContent")
+      reqBr POST url (ReqBodyJson (stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
+        handleStreamResponse resp (`parseGeminiStream` callback)
+
+  parseResponse _ = parseGeminiResponse
+
+-- | Create an LLMClient from Gemini credentials
+geminiProvider :: Text -> LLMProvider
+geminiProvider apiKey = toProvider (Gemini apiKey)
+
+-- | Extract model name stashed in the request body by geminiBuildBody.
+extractModel :: Value -> Text
+extractModel v = fromMaybe "gemini-2.0-flash" (parseMaybe (withObject "body" (.: "_model")) v)
+
+-- | Remove the internal '_model' field before sending to the API.
+stripModel :: Value -> Value
+stripModel (Object o) = Object (KM.delete "_model" o)
+stripModel v = v
 
 parseGeminiStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMResult
 parseGeminiStream reader callback = do
@@ -90,13 +119,13 @@ parseGeminiStream reader callback = do
         case parseMaybe parseChunkParts v of
           Just parts -> do
             newBlocks <- mapM (assignToolId callback) parts
-            modifyIORef' blocksRef (++ newBlocks)
+            modifyIORef' blocksRef (newBlocks ++)
           Nothing -> pure ()
         -- Check for usage metadata (usually in the last chunk)
         case parseMaybe parseUsageMetadata v of
           Just u -> writeIORef usageRef (Just u)
           Nothing -> pure ()
-  blocks <- readIORef blocksRef
+  blocks <- reverse <$> readIORef blocksRef
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
@@ -143,20 +172,14 @@ parseGeminiStream reader callback = do
       u <- o .: "usageMetadata"
       withObject
         "usageMetadata"
-        (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount")
+        (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount" <*> pure 0)
         u
 
--- Don't let req throw on non-2xx; we handle it ourselves
-lenientConfig :: HttpConfig
-lenientConfig =
-  defaultHttpConfig
-    { httpConfigCheckResponse = \_ _ _ -> Nothing
-    }
-
-buildBody :: ChatRequest -> Value
-buildBody r =
+geminiBuildBody :: ChatRequest -> Value
+geminiBuildBody r =
   object $
-    [ "contents" .= concatMap encodeTurn (reqConversation r),
+    [ "_model" .= reqModel r,
+      "contents" .= concatMap encodeTurn (reqConversation r),
       "generationConfig" .= genConfig r
     ]
       ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
@@ -234,8 +257,8 @@ genConfig r =
     ("maxOutputTokens" .= reqMaxTokens r)
       : ["temperature" .= t | Just t <- [reqTemperature r]]
 
-parseResponse :: Value -> IO LLMResult
-parseResponse v = case parseMaybe go v of
+parseGeminiResponse :: Value -> IO LLMResult
+parseGeminiResponse v = case parseMaybe go v of
   Nothing -> pure $ Left EmptyResponse
   Just blocks -> do
     blocks' <- mapM normalizeBlock blocks
@@ -243,7 +266,7 @@ parseResponse v = case parseMaybe go v of
       [] -> pure $ Left EmptyResponse
       _ ->
         let text = T.concat [t | TextBlock t <- blocks']
-         in pure $ Right (ChatResponse text blocks' (parseUsage v))
+         in pure $ Right (ChatResponse text blocks' (parseGeminiUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "GeminiResponse" $ \o -> do
@@ -278,10 +301,10 @@ parseResponse v = case parseMaybe go v of
               fc
       tryText <|> tryFunctionCall
 
-parseUsage :: Value -> Maybe Usage
-parseUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
+parseGeminiUsage :: Value -> Maybe Usage
+parseGeminiUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
   u <- o .: "usageMetadata"
   withObject
     "usageMetadata"
-    (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount")
+    (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount" <*> pure 0)
     u
