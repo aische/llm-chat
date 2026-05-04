@@ -104,6 +104,7 @@ executable hello-haskell1
                       AllModels,
                       Adapters.StreamChatLoop,
                       Adapters.SessionChat,
+                      Adapters.AgentTask,
                       Adapters.Repl
     hs-source-dirs:   app
     build-depends:
