@@ -1,18 +1,20 @@
-module LLM.Core.Chat (runChat, streamChat) where
+module LLM.Core.Chat (runChat, streamChat, generateObject) where
 
 import Control.Concurrent (threadDelay)
 import Control.Retry (RetryPolicyM, RetryStatus (..), retrying, rsIterNumber)
+import Data.Aeson (Value)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
 import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
-import LLM.Core.Logger 
+import LLM.Core.Logger
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, NetworkError, TimeoutError, ToolLoopExceeded),
+    LLMRes (ResError, ResOk),
     LLMResult (..),
     StreamEvent,
     Tool (toolDef),
@@ -79,14 +81,64 @@ streamChatConversation unsafeEnv conv callback = do
     let call req = providerChatStream (mcProvider mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
 
+generateObject ::
+  ChatEnv ->
+  Value ->
+  Conversation ->
+  Text ->
+  IO (Either (LLMError, Conversation, Usage) Value)
+generateObject unsafeEnv schema conv msg = generateObjectConversation unsafeEnv schema conv'
+  where
+    conv' = withConversation conv (++ [UserTurn msg])
+
+generateObjectConversation ::
+  ChatEnv ->
+  Value ->
+  Conversation ->
+  IO (Either (LLMError, Conversation, Usage) Value)
+generateObjectConversation unsafeEnv schema conv = do
+  let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
+  onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
+  withFallback env conv $ \mc c u ->
+    let call = providerGenerateObject (mcProvider mc) (envHooks env) schema
+        log = onLog (envHooks env)
+        request = mkRequest env mc conv
+     in do
+          case mcThrottleDelay mc of
+            Just d -> do
+              log Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
+              threadDelay (d * 1000)
+            Nothing -> pure ()
+          result <-
+            withTimeout (mcRequestTimeout mc) $
+              withRetry (mcRetry mc) log $
+                call request
+          case result of
+            ResError err -> do
+              log Error $ "API error: " <> T.pack (show err)
+              pure $ Left (err, conv, u)
+            ResOk value -> pure $ Right value
+
+-- let responseUsage = fromMaybe emptyUsage (respUsage resp)
+--     cost = estimateCost (mcPricing mc) responseUsage
+--     acc' = addUsage acc (responseUsage {usageTotalCost = cost})
+--   in pure $ Right ()
+
+--  in chatLoop env mc call 0 u c
+
 -- | Try each 'ModelConfig' in order. Falls back on retryable errors.
 -- On fallback, the next model continues from the partial conversation
 -- and accumulated usage of the failed model, rather than starting over.
 withFallback ::
   ChatEnv ->
   Conversation ->
-  (ModelConfig -> Conversation -> Usage -> IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))) ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  (ModelConfig -> Conversation -> Usage -> IO (Either (LLMError, Conversation, Usage) a)) ->
+  IO (Either (LLMError, Conversation, Usage) a)
+-- withFallback ::
+--   ChatEnv ->
+--   Conversation ->
+--   (ModelConfig -> Conversation -> Usage -> IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))) ->
+--   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 withFallback env conv tryModel = go (envModel env : envFallbacks env) conv emptyUsage
   where
     go [] c u = pure $ Left (NetworkError "all models failed", c, u)
@@ -151,7 +203,7 @@ chatLoop env mc call rounds acc conv
             ResError err -> do
               log Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, acc)
-            ResChat resp ->
+            ResOk resp ->
               let responseUsage = fromMaybe emptyUsage (respUsage resp)
                   cost = estimateCost (mcPricing mc) responseUsage
                   acc' = addUsage acc (responseUsage {usageTotalCost = cost})

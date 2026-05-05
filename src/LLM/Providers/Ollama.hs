@@ -24,6 +24,8 @@ import LLM.Core.Types
         reqTools
       ),
     LLMError (EmptyResponse),
+    LLMObjectResult,
+    LLMRes (ResError, ResOk),
     LLMResult (..),
   )
 import LLM.Providers.OpenAI (buildMessages, encodeToolDef, openAIBuildBody, openAIBuildBodyPairs, parseOpenAIResponse, parseOpenAIStream)
@@ -88,7 +90,7 @@ instance LLMProviderAdapter Ollama where
     Nothing -> pure $ ResError EmptyResponse
     Just contentStr -> case decodeStrict' (encodeUtf8 contentStr) of
       Nothing -> pure $ ResError EmptyResponse
-      Just obj -> pure $ ResObject obj
+      Just obj -> pure $ ResOk obj
     where
       parseObject :: Value -> Parser Text
       parseObject = withObject "OpenAIObjectResponse" $ \o -> do

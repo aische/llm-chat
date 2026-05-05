@@ -14,6 +14,7 @@ import LLM.Core.Logger (Hooks, noHooks)
 import LLM.Core.Types
   ( ChatRequest,
     LLMResult,
+    LLMObjectResult,
     StreamEvent,
     Tool,
   )
@@ -29,7 +30,7 @@ data LLMProvider = LLMProvider
   { providerName :: Text,
     providerChat :: Hooks -> ChatRequest -> IO LLMResult,
     providerChatStream :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult,
-    providerGenerateObject :: Hooks -> ChatRequest -> Value -> IO LLMResult
+    providerGenerateObject :: Hooks -> Value -> ChatRequest  -> IO LLMObjectResult
   }
 
 -- | Infrastructure-level configuration for a specific model.

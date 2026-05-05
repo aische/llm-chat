@@ -15,6 +15,8 @@ import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
   ( ChatRequest,
     LLMError (HttpError, NetworkError),
+    LLMObjectResult (..),
+    LLMRes (ResError, ResOk),
     LLMResult (..),
     StreamEvent,
   )
@@ -50,7 +52,7 @@ class LLMProviderAdapter a where
   sendObjectRequest :: a -> Value -> IO (Int, Value)
 
   -- | Parse a complete JSON response body for object generation.
-  parseObjectResponse :: a -> Value -> IO LLMResult
+  parseObjectResponse :: a -> Value -> IO LLMObjectResult
 
 -- | Generic non-streaming chat via the typeclass.
 genericChat :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> IO LLMResult
@@ -67,8 +69,8 @@ genericChat p hooks r = do
         else pure $ ResError $ HttpError status (T.pack $ show respBody)
 
 -- | Generic object generation via the typeclass.
-genericGenerateObject :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> Value -> IO LLMResult
-genericGenerateObject p hooks r schema = do
+genericGenerateObject :: (LLMProviderAdapter a) => a -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
+genericGenerateObject p hooks schema r = do
   let body = buildObjectBody p r schema
   onRequest hooks (providerAdapterName p) body
   result <- try (sendObjectRequest p body)
@@ -90,7 +92,7 @@ genericStreamChat p hooks r callback = do
     Left e -> pure $ ResError $ NetworkError (T.pack (show (e :: HttpException)))
     Right r' -> do
       case r' of
-        ResChat resp -> onResponse hooks (providerAdapterName p) (streamResponseJson resp)
+        ResOk resp -> onResponse hooks (providerAdapterName p) (streamResponseJson resp)
         _ -> pure ()
       pure r'
 

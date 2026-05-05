@@ -32,6 +32,8 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (EmptyResponse),
+    LLMObjectResult,
+    LLMRes (ResError, ResOk),
     LLMResult (..),
     StreamEvent (..),
     ToolCall (..),
@@ -145,7 +147,7 @@ parseClaudeStream reader callback = do
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
     then pure $ ResError EmptyResponse
-    else pure $ ResChat (ChatResponse text blocks (Just usage))
+    else pure $ ResOk (ChatResponse text blocks (Just usage))
 
 -- Parsers for streaming events
 parseMessageStartUsage :: Value -> Parser Int
@@ -264,7 +266,7 @@ parseClaudeResponse v = case parseMaybe go v of
     [] -> ResError EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in ResChat (ChatResponse text blocks (parseClaudeUsage v))
+       in ResOk (ChatResponse text blocks (parseClaudeUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "ClaudeResponse" $ \o -> do
@@ -288,12 +290,12 @@ parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
   u <- o .: "usage"
   withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens" <*> pure 0) u
 
-parseClaudeObjectResponse :: Value -> IO LLMResult
+parseClaudeObjectResponse :: Value -> IO LLMObjectResult
 parseClaudeObjectResponse v = case parseMaybe go v of
   Nothing -> pure $ ResError EmptyResponse
   Just text -> case decodeStrict' (encodeUtf8 text) of
     Nothing -> pure $ ResError EmptyResponse
-    Just obj -> pure $ ResObject obj
+    Just obj -> pure $ ResOk obj
   where
     go :: Value -> Parser Text
     go = withObject "ClaudeResponse" $ \o -> do

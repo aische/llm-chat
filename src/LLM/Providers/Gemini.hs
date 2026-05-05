@@ -38,6 +38,8 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
+    LLMObjectResult,
+    LLMRes (ResError, ResOk),
     LLMResult (..),
     StreamEvent (..),
     ToolCall (..),
@@ -95,9 +97,13 @@ instance LLMProviderAdapter Gemini where
       reqBr POST url (ReqBodyJson (stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
         handleStreamResponse resp (`parseGeminiStream` callback)
 
+  parseResponse :: Gemini -> Value -> IO LLMResult
   parseResponse _ = parseGeminiResponse
 
-  buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseMimeType" .= ("application/json" :: Text), "responseSchema" .= schema]])
+  buildObjectBody :: Gemini -> ChatRequest -> Value -> Value
+  buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseSchema" .= schema]])
+
+  -- buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseMimeType" .= ("application/json" :: Text), "responseSchema" .= schema]])
 
   sendObjectRequest = sendRequest
 
@@ -139,7 +145,7 @@ parseGeminiStream reader callback = do
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
     then pure $ ResError EmptyResponse
-    else pure $ ResChat (ChatResponse text blocks usage)
+    else pure $ ResOk (ChatResponse text blocks usage)
   where
     assignToolId :: (StreamEvent -> IO ()) -> ContentBlock -> IO ContentBlock
     assignToolId cb (TextBlock t) = do
@@ -277,7 +283,7 @@ parseGeminiResponse v = case parseMaybe go v of
       [] -> pure $ ResError EmptyResponse
       _ ->
         let text = T.concat [t | TextBlock t <- blocks']
-         in pure $ ResChat (ChatResponse text blocks' (parseGeminiUsage v))
+         in pure $ ResOk (ChatResponse text blocks' (parseGeminiUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "GeminiResponse" $ \o -> do
@@ -320,12 +326,12 @@ parseGeminiUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
     (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount" <*> pure 0)
     u
 
-parseGeminiObjectResponse :: Value -> IO LLMResult
+parseGeminiObjectResponse :: Value -> IO LLMObjectResult
 parseGeminiObjectResponse v = case parseMaybe go v of
   Nothing -> pure $ ResError EmptyResponse
   Just text -> case decodeStrict' (encodeUtf8 text) of
     Nothing -> pure $ ResError EmptyResponse
-    Just obj -> pure $ ResObject obj
+    Just obj -> pure $ ResOk obj
   where
     go :: Value -> Parser Text
     go = withObject "GeminiObjectResponse" $ \o -> do

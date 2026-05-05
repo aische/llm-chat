@@ -7,8 +7,13 @@ import Adapters.SessionChat (sessionChat)
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
+import Data.Aeson (Value, object, (.=))
+import Data.Text (Text)
+import LLM.Core.Chat (generateObject)
 import LLM.Core.LLMProvider (ChatEnv (..), defaultChatEnv)
 import LLM.Core.Logger (LogLevel (..), noHooks, withJsonDump, withStderrLogger)
+import LLM.Core.Types (Conversation (Conversation), LLMRes (ResError, ResOk))
+import LLM.Core.Utils (emptyConversation)
 import System.Environment (getEnv)
 import Tools.Age (ageTool)
 import Tools.FsConfig (mkFsConfig)
@@ -74,4 +79,30 @@ main = do
 
   -- streamChatLoopMain claudeEnv
   -- repl llama_Env
-  sessionChat llama_Env
+  -- sessionChat llama_Env
+  -- print 0
+  x <- generateObject claudeEnv mySchema emptyConversation "write a poem about berlin"
+  case x of
+    Left e -> print e
+    Right v -> print v
+  pure ()
+
+mySchema :: Value
+mySchema =
+  object
+    [ "type" .= ("object" :: Text),
+      "properties"
+        .= object
+          [ "title"
+              .= object
+                [ "type" .= ("string" :: Text),
+                  "description" .= ("City name, e.g. London" :: Text)
+                ],
+            "poem"
+              .= object
+                [ "type" .= ("string" :: Text),
+                  "description" .= ("A poem about the city (4 lines)" :: Text)
+                ]
+          ],
+      "required" .= (["title", "poem"] :: [Text])
+    ]

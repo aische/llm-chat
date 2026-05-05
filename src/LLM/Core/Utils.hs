@@ -1,5 +1,6 @@
 module LLM.Core.Utils
   ( withConversation,
+    emptyConversation,
     hasToolCalls,
     getToolCalls,
     executeTool,
@@ -25,6 +26,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (..),
+    LLMRes (ResError),
     LLMResult (..),
     Tool (..),
     ToolCall (..),
@@ -38,6 +40,9 @@ import System.Directory.Internal.Prelude (fromMaybe, timeout)
 
 withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
 withConversation (Conversation turns) f = Conversation (f turns)
+
+emptyConversation :: Conversation
+emptyConversation = Conversation []
 
 -- | Smart constructor for tool results
 toolResult :: ToolCall -> Text -> ToolResult
@@ -93,7 +98,7 @@ isRetryable (NetworkError _) = True
 isRetryable _ = False
 
 -- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
-withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
+withTimeout :: Maybe Int -> IO (LLMRes a) -> IO (LLMRes a)
 withTimeout Nothing action = action
 withTimeout (Just us) action = do
   result <- timeout (us * 1000) action
@@ -101,7 +106,7 @@ withTimeout (Just us) action = do
 
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 -- The policy controls max attempts, delays, and jitter.
-withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
+withRetry :: RetryPolicyM IO -> Logger -> IO (LLMRes a) -> IO (LLMRes a)
 withRetry policy log action =
   retrying
     policy

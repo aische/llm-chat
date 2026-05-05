@@ -7,7 +7,7 @@ where
 
 import Data.ByteString qualified as BS
 import Data.Text.Encoding (decodeUtf8)
-import LLM.Core.Types (LLMError (HttpError), LLMResult (..))
+import LLM.Core.Types (LLMError (HttpError), LLMResult (..), LLMRes (ResError))
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req (HttpConfig, defaultHttpConfig, httpConfigCheckResponse)
 import Network.HTTP.Types.Status (statusCode)
