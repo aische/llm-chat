@@ -7,6 +7,7 @@ module LLM.Core.LLMProvider
 where
 
 import Control.Retry (RetryPolicyM)
+import Data.Aeson (Value)
 import Data.Text (Text)
 import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Logger (Hooks, noHooks)
@@ -27,7 +28,8 @@ import LLM.Core.Usage (PricingInfo (..))
 data LLMProvider = LLMProvider
   { providerName :: Text,
     providerChat :: Hooks -> ChatRequest -> IO LLMResult,
-    providerChatStream :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
+    providerChatStream :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult,
+    providerGenerateObject :: Hooks -> ChatRequest -> Value -> IO LLMResult
   }
 
 -- | Infrastructure-level configuration for a specific model.

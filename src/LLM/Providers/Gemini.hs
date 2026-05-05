@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module LLM.Providers.Gemini (Gemini (..), geminiProvider, parseGeminiResponse, parseGeminiUsage) where
 
 import Control.Applicative ((<|>))
@@ -12,7 +14,7 @@ import Data.Aeson
     (.:?),
   )
 import Data.Aeson.KeyMap qualified as KM
-import Data.Aeson.Types (Parser, parseMaybe)
+import Data.Aeson.Types (Pair, Parser, parseMaybe)
 import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -36,7 +38,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMResult,
+    LLMResult (..),
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -95,6 +97,12 @@ instance LLMProviderAdapter Gemini where
 
   parseResponse _ = parseGeminiResponse
 
+  buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseMimeType" .= ("application/json" :: Text), "responseSchema" .= schema]])
+
+  sendObjectRequest = sendRequest
+
+  parseObjectResponse _ = parseGeminiObjectResponse
+
 -- | Create an LLMClient from Gemini credentials
 geminiProvider :: Text -> LLMProvider
 geminiProvider apiKey = toProvider (Gemini apiKey)
@@ -130,8 +138,8 @@ parseGeminiStream reader callback = do
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
-    then pure $ Left EmptyResponse
-    else pure $ Right (ChatResponse text blocks usage)
+    then pure $ ResError EmptyResponse
+    else pure $ ResChat (ChatResponse text blocks usage)
   where
     assignToolId :: (StreamEvent -> IO ()) -> ContentBlock -> IO ContentBlock
     assignToolId cb (TextBlock t) = do
@@ -177,18 +185,20 @@ parseGeminiStream reader callback = do
         u
 
 geminiBuildBody :: ChatRequest -> Value
-geminiBuildBody r =
-  object $
-    [ "_model" .= reqModel r,
-      "contents" .= concatMap encodeTurn (unConversation $ reqConversation r),
-      "generationConfig" .= genConfig r
-    ]
-      ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
-           | Just sys <- [reqSystem r]
-         ]
-      ++ [ "tools" .= [object ["function_declarations" .= map encodeToolDef (reqTools r)]]
-           | not (null (reqTools r))
-         ]
+geminiBuildBody r = object $ geminiBuildBodyPairs r
+
+geminiBuildBodyPairs :: ChatRequest -> [Pair]
+geminiBuildBodyPairs r =
+  [ "_model" .= reqModel r,
+    "contents" .= concatMap encodeTurn (unConversation $ reqConversation r),
+    "generationConfig" .= genConfig r
+  ]
+    ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
+         | Just sys <- [reqSystem r]
+       ]
+    ++ [ "tools" .= [object ["function_declarations" .= map encodeToolDef (reqTools r)]]
+         | not (null (reqTools r))
+       ]
 
 encodeTurn :: Turn -> [Value]
 encodeTurn (UserTurn content) =
@@ -260,14 +270,14 @@ genConfig r =
 
 parseGeminiResponse :: Value -> IO LLMResult
 parseGeminiResponse v = case parseMaybe go v of
-  Nothing -> pure $ Left EmptyResponse
+  Nothing -> pure $ ResError EmptyResponse
   Just blocks -> do
     blocks' <- mapM normalizeBlock blocks
     case blocks' of
-      [] -> pure $ Left EmptyResponse
+      [] -> pure $ ResError EmptyResponse
       _ ->
         let text = T.concat [t | TextBlock t <- blocks']
-         in pure $ Right (ChatResponse text blocks' (parseGeminiUsage v))
+         in pure $ ResChat (ChatResponse text blocks' (parseGeminiUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "GeminiResponse" $ \o -> do
@@ -309,3 +319,15 @@ parseGeminiUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
     "usageMetadata"
     (\uo -> Usage <$> uo .: "promptTokenCount" <*> uo .: "candidatesTokenCount" <*> pure 0)
     u
+
+parseGeminiObjectResponse :: Value -> IO LLMResult
+parseGeminiObjectResponse v = case parseMaybe go v of
+  Nothing -> pure $ ResError EmptyResponse
+  Just text -> case decodeStrict' (encodeUtf8 text) of
+    Nothing -> pure $ ResError EmptyResponse
+    Just obj -> pure $ ResObject obj
+  where
+    go :: Value -> Parser Text
+    go = withObject "GeminiObjectResponse" $ \o -> do
+      (cand : _) <- o .: "candidates" :: Parser [Value]
+      withObject "candidate" (\co -> co .: "content" >>= withObject "content" (\cco -> cco .: "parts" >>= \case (p : _) -> withObject "part" (.: "text") p; _ -> fail "No parts")) cand

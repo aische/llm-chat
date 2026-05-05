@@ -8,7 +8,7 @@ module LLM.Core.Types
     ChatRequest (..),
     ChatResponse (..),
     LLMError (..),
-    LLMResult,
+    LLMResult (..),
     Tool (..),
     ToolDef (..),
     ToolCall (..),
@@ -37,7 +37,7 @@ instance FromJSON Turn
 
 -- | A full conversation history
 newtype Conversation = Conversation {unConversation :: [Turn]}
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, Semigroup)
 
 instance ToJSON Conversation
 
@@ -142,4 +142,9 @@ instance FromJSON LLMError
 
 instance ToJSON LLMError
 
-type LLMResult = Either LLMError ChatResponse
+-- | Result of an LLM operation: either an error, a chat response, or a generated object
+data LLMResult
+  = ResError LLMError
+  | ResChat ChatResponse
+  | ResObject Value
+  deriving (Show, Eq)

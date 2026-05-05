@@ -1,4 +1,18 @@
-module LLM.Providers.OpenAI (OpenAI, openAI, openAIWith, openAIProvider, openAIProviderWith, parseOpenAIResponse, parseOpenAIUsage, buildMessages, encodeToolDef, parseOpenAIStream) where
+module LLM.Providers.OpenAI
+  ( OpenAI,
+    openAI,
+    openAIWith,
+    openAIProvider,
+    openAIProviderWith,
+    parseOpenAIResponse,
+    parseOpenAIUsage,
+    buildMessages,
+    encodeToolDef,
+    parseOpenAIStream,
+    openAIBuildBody,
+    openAIBuildBodyPairs,
+  )
+where
 
 import Control.Applicative ((<|>))
 import Data.Aeson
@@ -13,7 +27,7 @@ import Data.Aeson
     (.:),
     (.:?),
   )
-import Data.Aeson.Types (Parser, parseMaybe)
+import Data.Aeson.Types (Pair, Parser, parseMaybe)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Foldable (forM_)
 import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
@@ -38,7 +52,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMResult,
+    LLMResult (..),
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -113,6 +127,21 @@ instance LLMProviderAdapter OpenAI where
 
   parseResponse _ = pure . parseOpenAIResponse
 
+  buildObjectBody _ r schema = object (openAIBuildBodyPairs False r <> ["response_format" .= object ["type" .= ("json_schema" :: Text), "json_schema" .= schema]])
+
+  sendObjectRequest = sendRequest
+
+  parseObjectResponse _ v = case parseMaybe parseObject v of
+    Nothing -> pure $ ResError EmptyResponse
+    Just contentStr -> case decodeStrict' (encodeUtf8 contentStr) of
+      Nothing -> pure $ ResError EmptyResponse
+      Just obj -> pure $ ResObject obj
+    where
+      parseObject :: Value -> Parser Text
+      parseObject = withObject "OpenAIObjectResponse" $ \o -> do
+        (choice : _) <- o .: "choices" :: Parser [Value]
+        withObject "choice" (\co -> co .: "message" >>= withObject "message" (.: "content")) choice
+
 -- | Create an OpenAI client for api.openai.com
 openAIProvider :: Text -> LLMProvider
 openAIProvider apiKey = toProvider (openAI apiKey)
@@ -129,16 +158,18 @@ authHeader apiKey
 -- Request body
 
 openAIBuildBody :: Bool -> ChatRequest -> Value
-openAIBuildBody stream r =
-  object $
-    [ "model" .= reqModel r,
-      "max_completion_tokens" .= reqMaxTokens r,
-      "messages" .= buildMessages r
-    ]
-      ++ ["temperature" .= t | Just t <- [reqTemperature r]]
-      ++ ["tools" .= map encodeToolDef (reqTools r) | not (null (reqTools r))]
-      ++ ["stream" .= True | stream]
-      ++ ["stream_options" .= object ["include_usage" .= True] | stream]
+openAIBuildBody stream r = object $ openAIBuildBodyPairs stream r
+
+openAIBuildBodyPairs :: Bool -> ChatRequest -> [Pair]
+openAIBuildBodyPairs stream r =
+  [ "model" .= reqModel r,
+    "max_completion_tokens" .= reqMaxTokens r,
+    "messages" .= buildMessages r
+  ]
+    ++ ["temperature" .= t | Just t <- [reqTemperature r]]
+    ++ ["tools" .= map encodeToolDef (reqTools r) | not (null (reqTools r))]
+    ++ ["stream" .= True | stream]
+    ++ ["stream_options" .= object ["include_usage" .= True] | stream]
 
 buildMessages :: ChatRequest -> [Value]
 buildMessages r =
@@ -197,12 +228,12 @@ encodeToolResult tr =
 
 parseOpenAIResponse :: Value -> LLMResult
 parseOpenAIResponse v = case parseMaybe go v of
-  Nothing -> Left EmptyResponse
+  Nothing -> ResError EmptyResponse
   Just blocks -> case blocks of
-    [] -> Left EmptyResponse
+    [] -> ResError EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in Right (ChatResponse text blocks (parseOpenAIUsage v))
+       in ResChat (ChatResponse text blocks (parseOpenAIUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "OpenAIResponse" $ \o -> do
@@ -311,8 +342,8 @@ parseOpenAIStream reader callback = do
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
-    then pure $ Left EmptyResponse
-    else pure $ Right (ChatResponse text blocks usage)
+    then pure $ ResError EmptyResponse
+    else pure $ ResChat (ChatResponse text blocks usage)
 
 parseStreamTextDelta :: Value -> Parser Text
 parseStreamTextDelta = withObject "chunk" $ \o -> do

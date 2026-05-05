@@ -7,7 +7,7 @@ where
 
 import Data.ByteString qualified as BS
 import Data.Text.Encoding (decodeUtf8)
-import LLM.Core.Types (LLMError (HttpError), LLMResult)
+import LLM.Core.Types (LLMError (HttpError), LLMResult (..))
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req (HttpConfig, defaultHttpConfig, httpConfigCheckResponse)
 import Network.HTTP.Types.Status (statusCode)
@@ -33,5 +33,5 @@ handleStreamResponse resp handler = do
   if status /= 200
     then do
       chunks <- readAll (HC.responseBody resp)
-      pure $ Left $ HttpError status (decodeUtf8 (BS.concat chunks))
+      pure $ ResError $ HttpError status (decodeUtf8 (BS.concat chunks))
     else handler (HC.responseBody resp)

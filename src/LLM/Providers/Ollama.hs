@@ -5,9 +5,14 @@ module LLM.Providers.Ollama (Ollama (..), ollama, ollamaWith, ollamaProvider, ol
 import Data.Aeson
   ( KeyValue ((.=)),
     Value,
+    decodeStrict',
     object,
+    withObject,
+    (.:),
   )
+import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig)
@@ -18,8 +23,10 @@ import LLM.Core.Types
         reqTemperature,
         reqTools
       ),
+    LLMError (EmptyResponse),
+    LLMResult (..),
   )
-import LLM.Providers.OpenAI (buildMessages, encodeToolDef, parseOpenAIResponse, parseOpenAIStream)
+import LLM.Providers.OpenAI (buildMessages, encodeToolDef, openAIBuildBody, openAIBuildBodyPairs, parseOpenAIResponse, parseOpenAIStream)
 import Network.HTTP.Req
   ( Option,
     POST (POST),
@@ -72,6 +79,21 @@ instance LLMProviderAdapter Ollama where
         handleStreamResponse resp (`parseOpenAIStream` callback)
 
   parseResponse _ = pure . parseOpenAIResponse
+
+  buildObjectBody _ r schema = object (openAIBuildBodyPairs False r <> ["response_format" .= object ["type" .= ("json_schema" :: Text), "json_schema" .= schema]])
+
+  sendObjectRequest = sendRequest
+
+  parseObjectResponse _ v = case parseMaybe parseObject v of
+    Nothing -> pure $ ResError EmptyResponse
+    Just contentStr -> case decodeStrict' (encodeUtf8 contentStr) of
+      Nothing -> pure $ ResError EmptyResponse
+      Just obj -> pure $ ResObject obj
+    where
+      parseObject :: Value -> Parser Text
+      parseObject = withObject "OpenAIObjectResponse" $ \o -> do
+        (choice : _) <- o .: "choices" :: Parser [Value]
+        withObject "choice" (\co -> co .: "message" >>= withObject "message" (.: "content")) choice
 
 -- | Create a LLMProvider for the default Ollama instance (localhost:11434).
 ollamaProvider :: LLMProvider

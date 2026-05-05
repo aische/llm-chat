@@ -7,13 +7,13 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
 import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
-import LLM.Core.Logger (Hooks (..), LogLevel (..), Logger, safeHooks)
+import LLM.Core.Logger 
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, NetworkError, TimeoutError, ToolLoopExceeded),
-    LLMResult,
+    LLMResult (..),
     StreamEvent,
     Tool (toolDef),
     ToolCall (tcName),
@@ -148,10 +148,10 @@ chatLoop env mc call rounds acc conv
               withRetry (mcRetry mc) log $
                 call request
           case result of
-            Left err -> do
+            ResError err -> do
               log Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, acc)
-            Right resp ->
+            ResChat resp ->
               let responseUsage = fromMaybe emptyUsage (respUsage resp)
                   cost = estimateCost (mcPricing mc) responseUsage
                   acc' = addUsage acc (responseUsage {usageTotalCost = cost})

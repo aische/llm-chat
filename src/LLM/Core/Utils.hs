@@ -19,7 +19,7 @@ import Data.Aeson (Value, object, (.=))
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
-import LLM.Core.Logger (LogLevel (..), Logger)
+import LLM.Core.Logger (LogLevel (Warn), Logger)
 import LLM.Core.Types
   ( ChatResponse (..),
     ContentBlock (..),
@@ -97,7 +97,7 @@ withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
 withTimeout Nothing action = action
 withTimeout (Just us) action = do
   result <- timeout (us * 1000) action
-  pure $ fromMaybe (Left TimeoutError) result
+  pure $ fromMaybe (ResError TimeoutError) result
 
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 -- The policy controls max attempts, delays, and jitter.
@@ -106,7 +106,7 @@ withRetry policy log action =
   retrying
     policy
     ( \status result -> case result of
-        Left err | isRetryable err -> do
+        ResError err | isRetryable err -> do
           log Warn $
             "Retryable error (attempt "
               <> T.pack (show (rsIterNumber status + 1))

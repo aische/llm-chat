@@ -30,9 +30,9 @@ import LLM.Core.Types
       ),
     ChatResponse (ChatResponse),
     ContentBlock (..),
-    Conversation (unConversation),
+    Conversation (..),
     LLMError (EmptyResponse),
-    LLMResult,
+    LLMResult (..),
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -64,6 +64,12 @@ instance LLMProviderAdapter Claude where
         handleStreamResponse resp (`parseClaudeStream` callback)
 
   parseResponse _ = pure . parseClaudeResponse
+
+  buildObjectBody _ r schema = claudeBuildBody False (r {reqConversation = reqConversation r <> Conversation [UserTurn ("Generate a JSON object matching this schema: " <> T.pack (show schema))]})
+
+  sendObjectRequest = sendRequest
+
+  parseObjectResponse _ = parseClaudeObjectResponse
 
 -- Internal helpers
 
@@ -138,8 +144,8 @@ parseClaudeStream reader callback = do
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
-    then pure $ Left EmptyResponse
-    else pure $ Right (ChatResponse text blocks (Just usage))
+    then pure $ ResError EmptyResponse
+    else pure $ ResChat (ChatResponse text blocks (Just usage))
 
 -- Parsers for streaming events
 parseMessageStartUsage :: Value -> Parser Int
@@ -253,12 +259,12 @@ encodeToolResult tr =
 
 parseClaudeResponse :: Value -> LLMResult
 parseClaudeResponse v = case parseMaybe go v of
-  Nothing -> Left EmptyResponse
+  Nothing -> ResError EmptyResponse
   Just blocks -> case blocks of
-    [] -> Left EmptyResponse
+    [] -> ResError EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in Right (ChatResponse text blocks (parseClaudeUsage v))
+       in ResChat (ChatResponse text blocks (parseClaudeUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "ClaudeResponse" $ \o -> do
@@ -281,3 +287,17 @@ parseClaudeUsage :: Value -> Maybe Usage
 parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
   u <- o .: "usage"
   withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens" <*> pure 0) u
+
+parseClaudeObjectResponse :: Value -> IO LLMResult
+parseClaudeObjectResponse v = case parseMaybe go v of
+  Nothing -> pure $ ResError EmptyResponse
+  Just text -> case decodeStrict' (encodeUtf8 text) of
+    Nothing -> pure $ ResError EmptyResponse
+    Just obj -> pure $ ResObject obj
+  where
+    go :: Value -> Parser Text
+    go = withObject "ClaudeResponse" $ \o -> do
+      content <- o .: "content" :: Parser [Value]
+      case content of
+        (block : _) -> withObject "content_block" (.: "text") block
+        _ -> fail "No content"
