@@ -1,5 +1,6 @@
 module LLM.Core.Utils
-  ( hasToolCalls,
+  ( withConversation,
+    hasToolCalls,
     getToolCalls,
     executeTool,
     executeTools,
@@ -18,14 +19,19 @@ import LLM.Core.Abort (AbortSignal, isAborted)
 import LLM.Core.Types
   ( ChatResponse (..),
     ContentBlock (..),
+    Conversation (..),
     LLMError (..),
     Tool (..),
     ToolCall (..),
     ToolContext (..),
     ToolDef (..),
     ToolResult (..),
+    Turn,
   )
 import LLM.Core.Usage (Usage (..))
+
+withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
+withConversation (Conversation turns) f = Conversation (f turns)
 
 -- | Smart constructor for tool results
 toolResult :: ToolCall -> Text -> ToolResult

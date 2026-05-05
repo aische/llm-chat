@@ -27,6 +27,7 @@ import LLM.Core.Utils
     getToolCalls,
     hasToolCalls,
     isRetryable,
+    withConversation,
   )
 import System.Timeout (timeout)
 
@@ -38,7 +39,7 @@ runChat ::
   Text ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 runChat unsafeEnv conv msg = do
-  let conv' = Conversation (unConversation conv ++ [UserTurn msg])
+  let conv' = withConversation conv (++ [UserTurn msg])
       env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv' $ \mc c u ->
@@ -53,7 +54,7 @@ streamChat ::
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamChat unsafeEnv conv msg callback = do
-  let conv' = Conversation (unConversation conv ++ [UserTurn msg])
+  let conv' = withConversation conv (++ [UserTurn msg])
       env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       log = onLog (envHooks env)
   log Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
@@ -181,9 +182,6 @@ chatLoop env mc call rounds acc conv
                       let finalConv =
                             withConversation conv (++ [AssistantTurn (respText resp) []])
                       pure $ Right (respText resp, finalConv, acc')
-
-withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
-withConversation (Conversation turns) f = Conversation (f turns)
 
 -- | Build a ChatRequest from the model config and a conversation.
 -- When 'envContextWindow' is set, only the last N user messages (and their
