@@ -40,11 +40,18 @@ runChat ::
   Conversation ->
   Text ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-runChat unsafeEnv conv msg = do
-  let conv' = withConversation conv (++ [UserTurn msg])
-      env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
+runChat unsafeEnv conv msg = runChatConversation unsafeEnv conv'
+  where
+    conv' = withConversation conv (++ [UserTurn msg])
+
+runChatConversation ::
+  ChatEnv ->
+  Conversation ->
+  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+runChatConversation unsafeEnv conv = do
+  let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
-  withFallback env conv' $ \mc c u ->
+  withFallback env conv $ \mc c u ->
     let call = providerChat (mcGateway mc) (envHooks env)
      in chatLoop env mc call 0 u c
 
@@ -55,12 +62,20 @@ streamChat ::
   Text ->
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamChat unsafeEnv conv msg callback = do
-  let conv' = withConversation conv (++ [UserTurn msg])
-      env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
+streamChat unsafeEnv conv msg = streamChatConversation unsafeEnv conv'
+  where
+    conv' = withConversation conv (++ [UserTurn msg])
+
+streamChatConversation ::
+  ChatEnv ->
+  Conversation ->
+  (StreamEvent -> IO ()) ->
+  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamChatConversation unsafeEnv conv callback = do
+  let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       log = onLog (envHooks env)
   log Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
-  withFallback env conv' $ \mc c u ->
+  withFallback env conv $ \mc c u ->
     let call req = providerChatStream (mcGateway mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
 
