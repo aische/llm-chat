@@ -7,13 +7,20 @@ module LLM.Core.Usage
   )
 where
 
+import Data.Aeson (FromJSON, ToJSON)
+import GHC.Generics (Generic)
+
 -- | Token usage from a single API call
 data Usage = Usage
   { usageInputTokens :: !Int,
     usageOutputTokens :: !Int,
     usageTotalCost :: !Double
   }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance FromJSON Usage
+
+instance ToJSON Usage
 
 emptyUsage :: Usage
 emptyUsage = Usage 0 0 0
