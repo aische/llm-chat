@@ -2,6 +2,8 @@ module Main where
 
 import Adapters.Repl (repl)
 -- import Adapters.StreamChatLoop (streamChatLoopMain)
+
+import Adapters.SessionChat (sessionChat)
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
@@ -71,4 +73,5 @@ main = do
           }
 
   -- streamChatLoopMain claudeEnv
-  repl llama_Env
+  -- repl llama_Env
+  sessionChat llama_Env

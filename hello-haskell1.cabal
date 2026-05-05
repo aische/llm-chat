@@ -100,8 +100,9 @@ executable hello-haskell1
                       Tools.Readdir,
                       Tools.FsConfig,
                       AllModels,
-                      Adapters.StreamChatLoop,
-                      Adapters.Repl
+                      Adapters.Repl,
+                      Adapters.SessionChat,
+                      Adapters.StreamChatLoop
     hs-source-dirs:   app
     build-depends:
         base           ^>=4.18,
