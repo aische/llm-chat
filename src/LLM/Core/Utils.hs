@@ -7,20 +7,25 @@ module LLM.Core.Utils
     executeToolsWithAbort,
     toolResult,
     isRetryable,
+    withRetry,
+    withTimeout,
     streamResponseJson,
   )
 where
 
 import Control.Exception (SomeException (SomeException), try)
+import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
 import Data.Aeson (Value, object, (.=))
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
+import LLM.Core.Logger (LogLevel (..), Logger)
 import LLM.Core.Types
   ( ChatResponse (..),
     ContentBlock (..),
     Conversation (..),
     LLMError (..),
+    LLMResult (..),
     Tool (..),
     ToolCall (..),
     ToolContext (..),
@@ -29,6 +34,7 @@ import LLM.Core.Types
     Turn,
   )
 import LLM.Core.Usage (Usage (..))
+import System.Directory.Internal.Prelude (fromMaybe, timeout)
 
 withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
 withConversation (Conversation turns) f = Conversation (f turns)
@@ -85,6 +91,31 @@ isRetryable :: LLMError -> Bool
 isRetryable (HttpError status _) = status `elem` [429, 503, 529]
 isRetryable (NetworkError _) = True
 isRetryable _ = False
+
+-- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
+withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
+withTimeout Nothing action = action
+withTimeout (Just us) action = do
+  result <- timeout (us * 1000) action
+  pure $ fromMaybe (Left TimeoutError) result
+
+-- | Retry an action using the retry package's policy (exponential backoff + jitter).
+-- The policy controls max attempts, delays, and jitter.
+withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
+withRetry policy log action =
+  retrying
+    policy
+    ( \status result -> case result of
+        Left err | isRetryable err -> do
+          log Warn $
+            "Retryable error (attempt "
+              <> T.pack (show (rsIterNumber status + 1))
+              <> "): "
+              <> T.pack (show err)
+          pure True
+        _ -> pure False
+    )
+    (const action)
 
 -- | Build a synthetic JSON summary from a streamed ChatResponse,
 -- used by providers to fire 'onResponse' after streaming completes.

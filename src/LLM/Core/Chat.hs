@@ -28,6 +28,8 @@ import LLM.Core.Utils
     hasToolCalls,
     isRetryable,
     withConversation,
+    withRetry,
+    withTimeout,
   )
 import System.Timeout (timeout)
 
@@ -226,28 +228,3 @@ findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
       | otherwise = case unConversation conv !! idx of
           UserTurn _ -> go (idx - 1) (remaining - 1)
           _ -> go (idx - 1) remaining
-
--- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
-withTimeout :: Maybe Int -> IO LLMResult -> IO LLMResult
-withTimeout Nothing action = action
-withTimeout (Just us) action = do
-  result <- timeout (us * 1000) action
-  pure $ fromMaybe (Left TimeoutError) result
-
--- | Retry an action using the retry package's policy (exponential backoff + jitter).
--- The policy controls max attempts, delays, and jitter.
-withRetry :: RetryPolicyM IO -> Logger -> IO LLMResult -> IO LLMResult
-withRetry policy log action =
-  retrying
-    policy
-    ( \status result -> case result of
-        Left err | isRetryable err -> do
-          log Warn $
-            "Retryable error (attempt "
-              <> T.pack (show (rsIterNumber status + 1))
-              <> "): "
-              <> T.pack (show err)
-          pure True
-        _ -> pure False
-    )
-    (const action)
