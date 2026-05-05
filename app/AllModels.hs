@@ -44,7 +44,7 @@ getAllModels =
         openAI = openAIProvider openAIKey
         gpt_5_nano =
           ModelConfig
-            { mcGateway = openAI,
+            { mcProvider = openAI,
               -- mcModel = "gpt-5.5",
               mcModel = "gpt-5-nano-2025-08-07",
               mcPricing = PricingInfo {pricePerMillionInput = 0.05, pricePerMillionOutput = 0.4},
@@ -56,7 +56,7 @@ getAllModels =
             }
         gpt_5_4_nano =
           ModelConfig
-            { mcGateway = openAI,
+            { mcProvider = openAI,
               mcModel = "gpt-5.4-nano-2026-03-17",
               mcPricing = PricingInfo {pricePerMillionInput = 0.2, pricePerMillionOutput = 1.25},
               mcMaxTokens = 1024,
@@ -67,7 +67,7 @@ getAllModels =
             }
         gpt_4_1 =
           ModelConfig
-            { mcGateway = openAI,
+            { mcProvider = openAI,
               mcModel = "gpt-4.1-2025-04-14",
               mcPricing = PricingInfo {pricePerMillionInput = 2.0, pricePerMillionOutput = 8.0},
               mcMaxTokens = 1024,
@@ -78,7 +78,7 @@ getAllModels =
             }
         gemini_2_5_flash =
           ModelConfig
-            { mcGateway = gemini,
+            { mcProvider = gemini,
               mcModel = "gemini-2.5-flash",
               mcPricing = PricingInfo {pricePerMillionInput = 0.10, pricePerMillionOutput = 0.40},
               mcMaxTokens = 1024,
@@ -89,7 +89,7 @@ getAllModels =
             }
         claude_haiku_4_5 =
           ModelConfig
-            { mcGateway = claude,
+            { mcProvider = claude,
               mcModel = "claude-haiku-4-5-20251001",
               mcPricing = PricingInfo {pricePerMillionInput = 1.0, pricePerMillionOutput = 5.00},
               mcMaxTokens = 1024,
@@ -100,7 +100,7 @@ getAllModels =
             }
         llama_3_2 =
           ModelConfig
-            { mcGateway = ollamaProvider,
+            { mcProvider = ollamaProvider,
               mcModel = "llama3.2:latest",
               mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
               mcMaxTokens = 1024,

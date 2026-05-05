@@ -13,10 +13,10 @@ import LLM
     LogLevel (Debug),
     ModelConfig
       ( ModelConfig,
-        mcGateway,
         mcMaxTokens,
         mcModel,
         mcPricing,
+        mcProvider,
         mcRequestTimeout,
         mcRetry,
         mcTemperature,

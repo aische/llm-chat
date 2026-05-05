@@ -52,7 +52,7 @@ runChatConversation unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call = providerChat (mcGateway mc) (envHooks env)
+    let call = providerChat (mcProvider mc) (envHooks env)
      in chatLoop env mc call 0 u c
 
 -- | Like 'runChat', but streams text deltas via a callback as they arrive.
@@ -76,7 +76,7 @@ streamChatConversation unsafeEnv conv callback = do
       log = onLog (envHooks env)
   log Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call req = providerChatStream (mcGateway mc) (envHooks env) req callback
+    let call req = providerChatStream (mcProvider mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
 
 -- | Try each 'ModelConfig' in order. Falls back on retryable errors.
@@ -91,13 +91,13 @@ withFallback env conv tryModel = go (envModel env : envFallbacks env) conv empty
   where
     go [] c u = pure $ Left (NetworkError "all models failed", c, u)
     go [mc] c u = do
-      onLog (envHooks env) Info $ "Using model: " <> mcModel mc <> " via " <> providerName (mcGateway mc)
+      onLog (envHooks env) Info $ "Using model: " <> mcModel mc <> " via " <> providerName (mcProvider mc)
       result <- tryModel mc c u
       pure $ case result of
         Left (err, c', u') -> Left (err, c', u')
         Right r -> Right r
     go (mc : rest) c u = do
-      onLog (envHooks env) Info $ "Trying model: " <> mcModel mc <> " via " <> providerName (mcGateway mc)
+      onLog (envHooks env) Info $ "Trying model: " <> mcModel mc <> " via " <> providerName (mcProvider mc)
       result <- tryModel mc c u
       case result of
         Left (Aborted, c', u') -> pure $ Left (Aborted, c', u')

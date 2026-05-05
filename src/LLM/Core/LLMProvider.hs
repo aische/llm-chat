@@ -34,7 +34,7 @@ data LLMProvider = LLMProvider
 -- Bundles together everything needed to reach one model endpoint.
 -- Use a list of these in 'ChatEnv' for fallback across models/providers.
 data ModelConfig = ModelConfig
-  { mcGateway :: LLMProvider,
+  { mcProvider :: LLMProvider,
     mcModel :: Text,
     mcPricing :: PricingInfo,
     mcMaxTokens :: Int,

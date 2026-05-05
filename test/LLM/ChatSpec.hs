@@ -72,7 +72,7 @@ zeroPricing = PricingInfo 0 0
 mockModel :: LLMProvider -> ModelConfig
 mockModel gw =
   ModelConfig
-    { mcGateway = gw,
+    { mcProvider = gw,
       mcModel = "test-model",
       mcPricing = zeroPricing,
       mcMaxTokens = 1024,
