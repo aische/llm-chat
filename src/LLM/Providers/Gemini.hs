@@ -23,7 +23,7 @@ import Data.Text.Encoding (encodeUtf8)
 import Data.Unique (hashUnique, newUnique)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
   ( ChatRequest
@@ -100,11 +100,30 @@ instance LLMProviderAdapter Gemini where
   parseResponse :: Gemini -> Value -> IO LLMResult
   parseResponse _ = parseGeminiResponse
 
-  buildObjectBody :: Gemini -> ChatRequest -> Value -> Value
-  buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseSchema" .= schema]])
+  -- buildObjectBody :: Gemini -> ChatRequest -> Value -> Value
+  -- buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseSchema" .= schema]])
 
   -- buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseMimeType" .= ("application/json" :: Text), "responseSchema" .= schema]])
 
+  buildObjectBody _ r schema =
+    object $
+      [ "_model" .= reqModel r,
+        "contents" .= concatMap encodeTurn (unConversation $ reqConversation r),
+        "generationConfig"
+          .= object
+            ( [ "maxOutputTokens" .= reqMaxTokens r,
+                "responseMimeType" .= ("application/json" :: Text),
+                "responseSchema" .= schema
+              ]
+                ++ ["temperature" .= t | Just t <- [reqTemperature r]]
+            )
+      ]
+        ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
+             | Just sys <- [reqSystem r]
+           ]
+        ++ [ "tools" .= [object ["function_declarations" .= map encodeToolDef (reqTools r)]]
+             | not (null (reqTools r))
+           ]
   sendObjectRequest = sendRequest
 
   parseObjectResponse _ = parseGeminiObjectResponse
@@ -134,13 +153,13 @@ parseGeminiStream reader callback = do
         case parseMaybe parseChunkParts v of
           Just parts -> do
             newBlocks <- mapM (assignToolId callback) parts
-            modifyIORef' blocksRef (newBlocks ++)
+            modifyIORef' blocksRef (++ newBlocks)
           Nothing -> pure ()
         -- Check for usage metadata (usually in the last chunk)
         case parseMaybe parseUsageMetadata v of
           Just u -> writeIORef usageRef (Just u)
           Nothing -> pure ()
-  blocks <- reverse <$> readIORef blocksRef
+  blocks <- readIORef blocksRef
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
@@ -329,7 +348,7 @@ parseGeminiUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
 parseGeminiObjectResponse :: Value -> IO LLMObjectResult
 parseGeminiObjectResponse v = case parseMaybe go v of
   Nothing -> pure $ ResError EmptyResponse
-  Just text -> case decodeStrict' (encodeUtf8 text) of
+  Just text -> case decodeStrict' (encodeUtf8 (stripJsonFences text)) of
     Nothing -> pure $ ResError EmptyResponse
     Just obj -> pure $ ResOk obj
   where
