@@ -6,6 +6,7 @@ import Data.Aeson
   ( KeyValue ((.=)),
     Value (String),
     decodeStrict',
+    encode,
     object,
     withObject,
     (.:),
@@ -15,6 +16,8 @@ import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.Encoding (decodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig)
@@ -67,8 +70,12 @@ instance LLMProviderAdapter Claude where
 
   parseResponse _ = pure . parseClaudeResponse
 
-  buildObjectBody _ r schema = claudeBuildBody False (r {reqConversation = reqConversation r <> Conversation [UserTurn ("Generate a JSON object matching this schema: " <> T.pack (show schema))]})
-
+  -- buildObjectBody _ r schema = claudeBuildBody False (r {reqConversation = reqConversation r <> Conversation [UserTurn ("Generate a JSON object matching this schema: " <> T.pack (show schema))]})
+  buildObjectBody _ r schema =
+    let schemaText = TL.toStrict . decodeUtf8 $ encode schema
+        instruction = "Respond with a raw JSON object matching this schema. No markdown, no explanation, no code fences:\n" <> schemaText
+        conv' = reqConversation r <> Conversation [UserTurn instruction]
+     in claudeBuildBody False (r {reqConversation = conv'})
   sendObjectRequest = sendRequest
 
   parseObjectResponse _ = parseClaudeObjectResponse
@@ -290,10 +297,37 @@ parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
   u <- o .: "usage"
   withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens" <*> pure 0) u
 
+-- parseClaudeObjectResponse :: Value -> IO LLMObjectResult
+-- parseClaudeObjectResponse v = case parseMaybe go v of
+--   Nothing -> pure $ ResError EmptyResponse
+--   Just text -> case decodeStrict' (encodeUtf8 text) of
+--     Nothing -> pure $ ResError EmptyResponse
+--     Just obj -> pure $ ResOk obj
+--   where
+--     go :: Value -> Parser Text
+--     go = withObject "ClaudeResponse" $ \o -> do
+--       content <- o .: "content" :: Parser [Value]
+--       case content of
+--         (block : _) -> withObject "content_block" (.: "text") block
+--         _ -> fail "No content"
+
+stripJsonFences :: Text -> Text
+stripJsonFences t =
+  let t' = T.strip t
+      t'' =
+        if "```" `T.isPrefixOf` t'
+          then T.strip . T.drop 1 . T.dropWhile (/= '\n') $ t'
+          else t'
+      t''' =
+        if "```" `T.isSuffixOf` t''
+          then T.strip $ T.dropEnd 3 t''
+          else t''
+   in t'''
+
 parseClaudeObjectResponse :: Value -> IO LLMObjectResult
 parseClaudeObjectResponse v = case parseMaybe go v of
   Nothing -> pure $ ResError EmptyResponse
-  Just text -> case decodeStrict' (encodeUtf8 text) of
+  Just text -> case decodeStrict' (encodeUtf8 (stripJsonFences text)) of
     Nothing -> pure $ ResError EmptyResponse
     Just obj -> pure $ ResOk obj
   where
