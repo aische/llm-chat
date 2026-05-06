@@ -12,6 +12,7 @@ module LLM.Core.Types
     LLMObjectResult (..),
     LLMRes (..),
     Tool (..),
+    TypedTool (..),
     ToolDef (..),
     ToolCall (..),
     ToolResult (..),
@@ -99,6 +100,12 @@ instance FromJSON ToolResult
 data Tool = Tool
   { toolDef :: ToolDef,
     toolExecute :: ToolContext -> Value -> IO Text
+  }
+
+data TypedTool a = TypedTool
+  { ttoolName :: Text,
+    ttoolDescription :: Text,
+    ttoolExecute :: ToolContext -> a -> IO Text
   }
 
 -- | A content block in a response — either text or a tool call

@@ -3,6 +3,7 @@ module LLM.Core.Utils
     emptyConversation,
     hasToolCalls,
     getToolCalls,
+    toTool,
     executeTool,
     executeTools,
     executeToolsWithAbort,
@@ -15,9 +16,11 @@ module LLM.Core.Utils
   )
 where
 
+import Autodocodec qualified as AC
 import Control.Exception (SomeException (SomeException), try)
 import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
-import Data.Aeson (Value, encode, object, (.=))
+import Data.Aeson (FromJSON, Value, encode, object, (.=))
+import Data.Aeson qualified as AE
 import Data.ByteString.Lazy.Char8 qualified as L8
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -36,6 +39,7 @@ import LLM.Core.Types
     ToolDef (..),
     ToolResult (..),
     Turn,
+    TypedTool (TypedTool),
   )
 import LLM.Core.Usage (Usage (..))
 import System.Directory.Internal.Prelude (fromMaybe, timeout)
@@ -150,3 +154,18 @@ streamResponseJson r =
 
 printValue :: Value -> IO ()
 printValue val = L8.putStrLn (encode val)
+
+toTool :: (AC.HasCodec t, FromJSON t) => TypedTool t -> Tool
+toTool (TypedTool name descr exec) =
+  Tool
+    { toolDef =
+        ToolDef
+          { toolName = name,
+            toolDescription = descr,
+            toolParameters = object []
+          },
+      toolExecute = \ctx argsvalue ->
+        case AE.fromJSON argsvalue of
+          AE.Error e -> pure "Error: Parsing arguments failed"
+          AE.Success args -> exec ctx args
+    }
