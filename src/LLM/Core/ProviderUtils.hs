@@ -4,11 +4,11 @@ module LLM.Core.ProviderUtils
     handleStreamResponse,
     normalizeSchemaOpenAI,
     stripJsonFences,
+    stripBounds,
   )
 where
 
 import Data.Aeson (Value (..))
-import Data.Aeson.Key (toText)
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString qualified as BS
 import Data.Text (Text)
@@ -74,3 +74,17 @@ stripJsonFences t =
           then T.strip $ T.dropEnd 3 t''
           else t''
    in t'''
+
+-- | Recursively removes "minimum" and "maximum" keys from a JSON Value, also $comment fields
+stripBounds :: Value -> Value
+stripBounds (Object obj) =
+  Object $
+    KM.fromList
+      [ (k, stripBounds v)
+        | (k, v) <- KM.toList obj,
+          k /= "minimum",
+          k /= "maximum",
+          k /= "$comment"
+      ]
+stripBounds (Array arr) = Array (fmap stripBounds arr)
+stripBounds other = other

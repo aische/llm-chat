@@ -1,19 +1,24 @@
-module LLM.Core.Chat (runChat, streamChat, generateObject) where
+module LLM.Core.Chat (runChat, streamChat, generateObject, generateObject') where
 
+import Autodocodec qualified as AC
+import Autodocodec.Aeson (encodeJSONViaCodec)
+import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
 import Control.Retry (RetryPolicyM, RetryStatus (..), retrying, rsIterNumber)
 import Data.Aeson (Value)
+import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
 import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
 import LLM.Core.Logger
+import LLM.Core.ProviderUtils (stripBounds)
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
-    LLMError (Aborted, NetworkError, TimeoutError, ToolLoopExceeded),
+    LLMError (Aborted, NetworkError, ParseError, TimeoutError, ToolLoopExceeded),
     LLMRes (ResError, ResOk),
     LLMResult (..),
     StreamEvent,
@@ -80,6 +85,31 @@ streamChatConversation unsafeEnv conv callback = do
   withFallback env conv $ \mc c u ->
     let call req = providerChatStream (mcProvider mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
+
+generateObject' ::
+  (AC.HasCodec t, AE.FromJSON t) =>
+  ChatEnv ->
+  Conversation ->
+  Text ->
+  IO (Either (LLMError, Conversation, Usage) t)
+generateObject' unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
+
+generateObjectTypedInternal ::
+  (AC.HasCodec t, AE.FromJSON t) =>
+  ChatEnv ->
+  AC.JSONCodec t ->
+  Conversation ->
+  Text ->
+  IO (Either (LLMError, Conversation, Usage) t)
+generateObjectTypedInternal unsafeEnv codec conv msg = do
+  let jsonschema = stripBounds $ AE.toJSON $ jsonSchemaVia codec
+  res <- generateObject unsafeEnv jsonschema conv msg
+  case res of
+    Left (e, conv', u) -> pure (Left (e, conv', u))
+    Right v -> do
+      case AE.fromJSON v of
+        AE.Error e -> pure $ Left (ParseError "Can't decode object returned from generateObject", conv, emptyUsage)
+        AE.Success a -> pure $ Right a
 
 generateObject ::
   ChatEnv ->
