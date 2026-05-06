@@ -1,8 +1,8 @@
 module LLM.Core.LLMProviderAdapter
   ( LLMProviderAdapter (..),
     toProvider,
-    genericChat,
-    genericStreamChat,
+    genericGenerateText,
+    genericStreamText,
   )
 where
 
@@ -54,8 +54,8 @@ class LLMProviderAdapter a where
   parseObjectResponse :: a -> Value -> IO LLMObjectResult
 
 -- | Generic non-streaming chat via the typeclass.
-genericChat :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> IO LLMResult
-genericChat p hooks r = do
+genericGenerateText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> IO LLMResult
+genericGenerateText p hooks r = do
   let body = buildBody p False r
   onRequest hooks (providerAdapterName p) body
   result <- try (sendRequest p body)
@@ -82,8 +82,8 @@ genericGenerateObject p hooks schema r = do
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic streaming chat via the typeclass.
-genericStreamChat :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
-genericStreamChat p hooks r callback = do
+genericStreamText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
+genericStreamText p hooks r callback = do
   let body = buildBody p True r
   onRequest hooks (providerAdapterName p) body
   result <- try (sendStreamRequest p body callback)
@@ -101,7 +101,7 @@ toProvider :: (LLMProviderAdapter a) => a -> LLMProvider
 toProvider p =
   LLMProvider
     { providerName = providerAdapterName p,
-      providerChat = genericChat p,
-      providerChatStream = genericStreamChat p,
+      providerGenerateText = genericGenerateText p,
+      providerStreamText = genericStreamText p,
       providerGenerateObject = genericGenerateObject p
     }

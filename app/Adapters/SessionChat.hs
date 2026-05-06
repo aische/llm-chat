@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
-import LLM.Core.Chat (streamChat)
+import LLM.Core.Chat (streamText)
 import LLM.Core.LLMProvider (ChatEnv)
 import LLM.Core.Types
   ( Conversation (..),
@@ -86,7 +86,7 @@ sessionChat env = do
     promptParts -> do
       let prompt = T.pack (unwords promptParts)
       sf <- loadSessionFile
-      result <- streamChat env (sfConversation sf) prompt $ \case
+      result <- streamText env (sfConversation sf) prompt $ \case
         StreamDelta txt -> TIO.putStr txt
         StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
       case result of

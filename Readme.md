@@ -11,10 +11,11 @@ A library for building chat applications with LLMs.
 
 ## Basic llm functionality
 
-- runChat
-- streamChat (with callback for each streamed chunk)
+- generateText
+- streamText (with callback for each streamed chunk)
 - generateObject (typed response)
-- tools
+- generateObjectUntyped (schema and result are Value objects)
+- tools (typed)
 - token counting / cost estimation
 - hooks for logging and other side effects
 - model fallback mechanism

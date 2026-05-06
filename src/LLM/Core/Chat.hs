@@ -1,4 +1,4 @@
-module LLM.Core.Chat (runChat, streamChat, generateObject, generateObject') where
+module LLM.Core.Chat (generateText, streamText, generateObjectUntyped, generateObject) where
 
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
@@ -41,57 +41,57 @@ import LLM.Core.Utils
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.
-runChat ::
+generateText ::
   ChatEnv ->
   Conversation ->
   Text ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-runChat unsafeEnv conv msg = runChatConversation unsafeEnv conv'
+generateText unsafeEnv conv msg = generateTextConversation unsafeEnv conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
 
-runChatConversation ::
+generateTextConversation ::
   ChatEnv ->
   Conversation ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-runChatConversation unsafeEnv conv = do
+generateTextConversation unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-  onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
+  onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call = providerChat (mcProvider mc) (envHooks env)
+    let call = providerGenerateText (mcProvider mc) (envHooks env)
      in chatLoop env mc call 0 u c
 
--- | Like 'runChat', but streams text deltas via a callback as they arrive.
-streamChat ::
+-- | Like 'generateText', but streams text deltas via a callback as they arrive.
+streamText ::
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamChat unsafeEnv conv msg = streamChatConversation unsafeEnv conv'
+streamText unsafeEnv conv msg = streamTextConversation unsafeEnv conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
 
-streamChatConversation ::
+streamTextConversation ::
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamChatConversation unsafeEnv conv callback = do
+streamTextConversation unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       logIt = onLog (envHooks env)
-  logIt Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
+  logIt Info $ "streamText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call req = providerChatStream (mcProvider mc) (envHooks env) req callback
+    let call req = providerStreamText (mcProvider mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
 
-generateObject' ::
+generateObject ::
   (AC.HasCodec t, AE.FromJSON t) =>
   ChatEnv ->
   Conversation ->
   Text ->
   IO (Either (LLMError, Conversation, Usage) t)
-generateObject' unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
+generateObject unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
 
 generateObjectTypedInternal ::
   (AC.HasCodec t, AE.FromJSON t) =>
@@ -102,21 +102,21 @@ generateObjectTypedInternal ::
   IO (Either (LLMError, Conversation, Usage) t)
 generateObjectTypedInternal unsafeEnv codec conv msg = do
   let jsonschema = stripBounds $ AE.toJSON $ jsonSchemaVia codec
-  res <- generateObject unsafeEnv jsonschema conv msg
+  res <- generateObjectUntyped unsafeEnv jsonschema conv msg
   case res of
     Left (e, conv', u) -> pure (Left (e, conv', u))
     Right v -> do
       case AE.fromJSON v of
-        AE.Error _e -> pure $ Left (ParseError "Can't decode object returned from generateObject", conv, emptyUsage) -- TODO: e not used
+        AE.Error _e -> pure $ Left (ParseError "Can't decode object returned from generateObjectUntyped", conv, emptyUsage) -- TODO: e not used
         AE.Success a -> pure $ Right a
 
-generateObject ::
+generateObjectUntyped ::
   ChatEnv ->
   Value ->
   Conversation ->
   Text ->
   IO (Either (LLMError, Conversation, Usage) Value)
-generateObject unsafeEnv schema conv msg = generateObjectConversation unsafeEnv schema conv'
+generateObjectUntyped unsafeEnv schema conv msg = generateObjectConversation unsafeEnv schema conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
 
@@ -127,7 +127,7 @@ generateObjectConversation ::
   IO (Either (LLMError, Conversation, Usage) Value)
 generateObjectConversation unsafeEnv schema conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-  onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
+  onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call = providerGenerateObject (mcProvider mc) (envHooks env) schema
         logIt = onLog (envHooks env)
@@ -180,7 +180,7 @@ withFallback env conv tryModel = go (envModel env : envFallbacks env) conv empty
           go rest c' u'
         Right r -> pure $ Right r
 
--- | Shared loop used by both runChat and streamChat.
+-- | Shared loop used by both generateText and streamText.
 -- The @call@ parameter abstracts over streaming vs non-streaming.
 -- On failure, returns the partial conversation and accumulated usage
 -- so that a fallback model can continue from where this one left off.

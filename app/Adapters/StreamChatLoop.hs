@@ -7,7 +7,7 @@ import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Chat (streamChat)
+import LLM.Core.Chat (streamText)
 import LLM.Core.LLMProvider (ChatEnv)
 import LLM.Core.Types
   ( Conversation (..),
@@ -54,7 +54,7 @@ streamChatLoop env = aux emptyUsage (Conversation [])
     aux totalUsage conv (prompt : rest) = do
       putStrLn $ "> " <> T.unpack prompt
       firstChunkRef <- newIORef True
-      result <- streamChat env conv prompt $ \case
+      result <- streamText env conv prompt $ \case
         StreamDelta txt -> do
           _ <- readIORef firstChunkRef
           writeIORef firstChunkRef False

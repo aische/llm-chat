@@ -29,8 +29,8 @@ import LLM.Core.Usage (PricingInfo (..))
 -- can be shared across chat sessions with different hook configurations.
 data LLMProvider = LLMProvider
   { providerName :: Text,
-    providerChat :: Hooks -> ChatRequest -> IO LLMResult,
-    providerChatStream :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult,
+    providerGenerateText :: Hooks -> ChatRequest -> IO LLMResult,
+    providerStreamText :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult,
     providerGenerateObject :: Hooks -> Value -> ChatRequest -> IO LLMObjectResult
   }
 

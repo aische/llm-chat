@@ -5,7 +5,7 @@ module Adapters.Repl (repl) where
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Chat (streamChat)
+import LLM.Core.Chat (streamText)
 import LLM.Core.LLMProvider (ChatEnv)
 import LLM.Core.Types (Conversation (..), StreamEvent (..))
 import LLM.Core.Usage
@@ -38,7 +38,7 @@ loop env totalUsage conv = do
           putStrLn "(conversation cleared)"
           loop env emptyUsage (Conversation [])
         Chat msg -> do
-          result <- streamChat env conv msg $ \case
+          result <- streamText env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt
             StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
           case result of
