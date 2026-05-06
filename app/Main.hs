@@ -1,27 +1,20 @@
+{-# OPTIONS_GHC -Wall #-}
+
 module Main where
 
 import Adapters.Repl (repl)
-import Adapters.SessionChat (sessionChat)
+-- import Adapters.SessionChat (sessionChat)
 import AllModels (AllModels (..), getAllModels)
-import Autodocodec qualified as AC
-import Autodocodec.Aeson (encodeJSONViaCodec)
-import Autodocodec.Schema (jsonSchemaVia)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import Control.Monad (forM, forM_)
-import Data.Aeson (FromJSON, ToJSON (toJSON), Value, encode, fromJSON, object, (.=))
-import Data.Aeson qualified as AE
-import Data.ByteString.Lazy.Char8 qualified as L8
-import Data.Text (Text)
-import Data.Text.IO qualified as TIO
-import GHC.Generics (Generic)
-import LLM (LLMProvider (providerName), ModelConfig (mcModel), Usage, createChatEnv, toTool)
-import LLM.Core.Chat (generateObject, generateObject', runChat)
-import LLM.Core.LLMProvider (ChatEnv (..), defaultChatEnv)
-import LLM.Core.Logger (LogLevel (..), noHooks, withJsonDump, withStderrLogger)
-import LLM.Core.ProviderUtils (normalizeSchemaOpenAI)
-import LLM.Core.Types (Conversation (Conversation), LLMError (ParseError), LLMObjectResult, LLMRes (ResError, ResOk))
-import LLM.Core.Utils (emptyConversation, printValue)
+import LLM.Core.LLMProvider (ChatEnv (..), createChatEnv)
+import LLM.Core.Logger
+  ( LogLevel (..),
+    noHooks,
+    withJsonDump,
+    withStderrLogger,
+  )
+import LLM.Core.Utils (toTool)
 import System.Environment (getEnv)
 import Tools.FsConfig (mkFsConfig)
 import Tools.History (historyToolTyped)

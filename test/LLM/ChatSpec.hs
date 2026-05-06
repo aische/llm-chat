@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-missing-fields #-}
 module LLM.ChatSpec (spec) where
 
 import Control.Retry (limitRetries)

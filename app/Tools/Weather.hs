@@ -1,10 +1,19 @@
 module Tools.Weather (weatherTool) where
 
 import Data.Aeson
+  ( KeyValue ((.=)),
+    Value,
+    object,
+    withObject,
+    (.:),
+  )
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import LLM.Core.Types
+  ( Tool (..),
+    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
+  )
 
 weatherTool :: Tool
 weatherTool =

@@ -21,6 +21,7 @@ newtype ReaddirToolArgs = ReaddirToolArgs
 instance FromJSON ReaddirToolArgs
 
 instance AC.HasCodec ReaddirToolArgs where
+  codec :: AC.JSONCodec ReaddirToolArgs
   codec =
     AC.object "ReaddirToolArgs" $
       ReaddirToolArgs <$> AC.requiredField "path" "Relative directory path to list" AC..= path

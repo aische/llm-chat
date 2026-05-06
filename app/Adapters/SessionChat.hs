@@ -7,16 +7,18 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
-import LLM
-  ( ChatEnv,
-    Conversation (..),
+import LLM.Core.Chat (streamChat)
+import LLM.Core.LLMProvider (ChatEnv)
+import LLM.Core.Types
+  ( Conversation (..),
     StreamEvent (..),
     ToolResult (trName),
     Turn (..),
-    Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
+  )
+import LLM.Core.Usage
+  ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
     emptyUsage,
-    streamChat,
   )
 import System.Directory (doesFileExist)
 import System.Environment (getArgs, getProgName)

@@ -1,14 +1,14 @@
 module Tools.Writefile (writefileToolTyped) where
 
 import Autodocodec qualified as AC
-import Data.Aeson
+import Data.Aeson (FromJSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
-import LLM.Core.Types
-import Tools.FsConfig
+import LLM.Core.Types (TypedTool (..))
+import Tools.FsConfig (FsConfig, sandboxWritePath)
 
 data WritefileToolArgs = WritefileToolArgs
   { path :: Text,

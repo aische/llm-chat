@@ -1,10 +1,19 @@
 module Tools.Age (ageTool) where
 
 import Data.Aeson
+  ( KeyValue ((.=)),
+    Value,
+    object,
+    withObject,
+    (.:),
+  )
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text, toLower)
 import LLM.Core.Types
+  ( Tool (..),
+    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
+  )
 
 ageTool :: Tool
 ageTool =

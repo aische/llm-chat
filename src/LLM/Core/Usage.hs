@@ -23,7 +23,7 @@ instance FromJSON Usage
 instance ToJSON Usage
 
 emptyUsage :: Usage
-emptyUsage = Usage 0 0 0
+emptyUsage = Usage {usageInputTokens = 0, usageOutputTokens = 0, usageTotalCost = 0}
 
 addUsage :: Usage -> Usage -> Usage
 addUsage a b =

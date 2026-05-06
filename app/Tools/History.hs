@@ -8,11 +8,9 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
 import LLM.Core.Types
-  ( Conversation (..),
-    Tool (..),
+  ( Conversation (unConversation),
     ToolCall (tcName),
     ToolContext (tcConversation, tcWindowOffset),
-    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
     ToolResult (trContent, trName),
     Turn (..),
     TypedTool (..),
