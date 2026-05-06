@@ -45,7 +45,6 @@ getAllModels =
         gpt_5_nano =
           ModelConfig
             { mcProvider = openAI,
-              -- mcModel = "gpt-5.5",
               mcModel = "gpt-5-nano-2025-08-07",
               mcPricing = PricingInfo {pricePerMillionInput = 0.05, pricePerMillionOutput = 0.4},
               mcMaxTokens = 1024,
@@ -109,4 +108,12 @@ getAllModels =
               mcThrottleDelay = Nothing,
               mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
             }
-    return $ AllModels {gemini_2_5_flash = gemini_2_5_flash, claude_haiku_4_5 = claude_haiku_4_5, llama_3_2 = llama_3_2, gpt_4_1 = gpt_4_1, gpt_5_nano = gpt_5_nano, gpt_5_4_nano = gpt_5_4_nano}
+    return $
+      AllModels
+        { gemini_2_5_flash = gemini_2_5_flash,
+          claude_haiku_4_5 = claude_haiku_4_5,
+          llama_3_2 = llama_3_2,
+          gpt_4_1 = gpt_4_1,
+          gpt_5_nano = gpt_5_nano,
+          gpt_5_4_nano = gpt_5_4_nano
+        }
