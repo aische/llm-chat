@@ -37,7 +37,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
   ( ChatRequest
@@ -129,7 +129,21 @@ instance LLMProviderAdapter OpenAI where
 
   parseResponse _ = pure . parseOpenAIResponse
 
-  buildObjectBody _ r schema = object (openAIBuildBodyPairs False r <> ["response_format" .= object ["type" .= ("json_schema" :: Text), "json_schema" .= schema]])
+  buildObjectBody :: OpenAI -> ChatRequest -> Value -> Value
+  buildObjectBody _ r schema =
+    object $
+      openAIBuildBodyPairs False r
+        <> [ "response_format"
+               .= object
+                 [ "type" .= ("json_schema" :: Text),
+                   "json_schema"
+                     .= object
+                       [ "name" .= ("response" :: Text),
+                         "schema" .= normalizeSchemaOpenAI schema,
+                         "strict" .= True
+                       ]
+                 ]
+           ]
 
   sendObjectRequest = sendRequest
 

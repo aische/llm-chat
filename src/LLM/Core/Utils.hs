@@ -11,12 +11,14 @@ module LLM.Core.Utils
     withRetry,
     withTimeout,
     streamResponseJson,
+    printValue,
   )
 where
 
 import Control.Exception (SomeException (SomeException), try)
 import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
-import Data.Aeson (Value, object, (.=))
+import Data.Aeson (Value, encode, object, (.=))
+import Data.ByteString.Lazy.Char8 qualified as L8
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
@@ -145,3 +147,6 @@ streamResponseJson r =
         [ "input_tokens" .= usageInputTokens u,
           "output_tokens" .= usageOutputTokens u
         ]
+
+printValue :: Value -> IO ()
+printValue val = L8.putStrLn (encode val)

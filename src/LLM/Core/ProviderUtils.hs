@@ -2,12 +2,18 @@ module LLM.Core.ProviderUtils
   ( lenientConfig,
     readAll,
     handleStreamResponse,
+    normalizeSchemaOpenAI,
   )
 where
 
+import Data.Aeson (Value (..))
+import Data.Aeson.Key (toText)
+import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString qualified as BS
+-- import Data.HashMap.Strict qualified as HM
 import Data.Text.Encoding (decodeUtf8)
-import LLM.Core.Types (LLMError (HttpError), LLMResult (..), LLMRes (ResError))
+import Data.Vector qualified as V
+import LLM.Core.Types (LLMError (HttpError), LLMRes (ResError), LLMResult (..))
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req (HttpConfig, defaultHttpConfig, httpConfigCheckResponse)
 import Network.HTTP.Types.Status (statusCode)
@@ -35,3 +41,21 @@ handleStreamResponse resp handler = do
       chunks <- readAll (HC.responseBody resp)
       pure $ ResError $ HttpError status (decodeUtf8 (BS.concat chunks))
     else handler (HC.responseBody resp)
+
+-- | Recursively enforce OpenAI structured output constraints:
+--   every object node gets additionalProperties:false and all keys in required.
+normalizeSchemaOpenAI :: Value -> Value
+normalizeSchemaOpenAI (Object o) =
+  let o' = fmap normalizeSchemaOpenAI o
+      fixed = case KM.lookup "type" o' of
+        Just (String "object") ->
+          let props = case KM.lookup "properties" o' of
+                Just (Object p) -> KM.keys p
+                _ -> []
+              withAP = KM.insert "additionalProperties" (Bool False) o'
+           in -- withReq = KM.insert "required" (Array (V.fromList (map (String . toText) props))) withAP
+              withAP
+        _ -> o'
+   in Object fixed
+normalizeSchemaOpenAI (Array a) = Array (fmap normalizeSchemaOpenAI a)
+normalizeSchemaOpenAI v = v

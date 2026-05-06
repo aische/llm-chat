@@ -13,7 +13,7 @@ import Data.Text qualified as T
 import LLM.Core.LLMProvider (LLMProvider (..))
 import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
-  ( ChatRequest,
+  ( ChatRequest (reqTools),
     LLMError (HttpError, NetworkError),
     LLMObjectResult (..),
     LLMRes (ResError, ResOk),
@@ -71,7 +71,7 @@ genericChat p hooks r = do
 -- | Generic object generation via the typeclass.
 genericGenerateObject :: (LLMProviderAdapter a) => a -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
 genericGenerateObject p hooks schema r = do
-  let body = buildObjectBody p r schema
+  let body = buildObjectBody p r { reqTools = [] }  schema
   onRequest hooks (providerAdapterName p) body
   result <- try (sendObjectRequest p body)
   case result of
