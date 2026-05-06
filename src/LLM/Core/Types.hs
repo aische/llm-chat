@@ -8,8 +8,8 @@ module LLM.Core.Types
     ChatRequest (..),
     ChatResponse (..),
     LLMError (..),
-    LLMResult (..),
-    LLMObjectResult (..),
+    LLMResult,
+    LLMObjectResult,
     LLMRes (..),
     Tool (..),
     TypedTool (..),
@@ -20,12 +20,11 @@ module LLM.Core.Types
   )
 where
 
-import Control.Exception (SomeException, try)
 import Data.Aeson (FromJSON, ToJSON, Value)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import LLM.Core.Abort (AbortSignal)
-import LLM.Core.Usage (Usage, usageInputTokens, usageOutputTokens)
+import LLM.Core.Usage (Usage)
 
 -- | A single turn in a conversation
 data Turn

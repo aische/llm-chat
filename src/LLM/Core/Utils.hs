@@ -17,7 +17,7 @@ module LLM.Core.Utils
 where
 
 import Autodocodec qualified as AC
-import Control.Exception (SomeException (SomeException), try)
+import Control.Exception (SomeException, try)
 import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
 import Data.Aeson (FromJSON, Value, encode, object, (.=))
 import Data.Aeson qualified as AE
@@ -32,7 +32,6 @@ import LLM.Core.Types
     Conversation (..),
     LLMError (..),
     LLMRes (ResError),
-    LLMResult (..),
     Tool (..),
     ToolCall (..),
     ToolContext (..),
@@ -113,12 +112,12 @@ withTimeout (Just us) action = do
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 -- The policy controls max attempts, delays, and jitter.
 withRetry :: RetryPolicyM IO -> Logger -> IO (LLMRes a) -> IO (LLMRes a)
-withRetry policy log action =
+withRetry policy logIt action =
   retrying
     policy
     ( \status result -> case result of
         ResError err | isRetryable err -> do
-          log Warn $
+          logIt Warn $
             "Retryable error (attempt "
               <> T.pack (show (rsIterNumber status + 1))
               <> "): "
@@ -166,6 +165,6 @@ toTool (TypedTool name descr exec) =
           },
       toolExecute = \ctx argsvalue ->
         case AE.fromJSON argsvalue of
-          AE.Error e -> pure "Error: Parsing arguments failed"
+          AE.Error _e -> pure "Error: Parsing arguments failed" -- TODO: e not used
           AE.Success args -> exec ctx args
     }

@@ -1,26 +1,28 @@
 module LLM.Core.Chat (runChat, streamChat, generateObject, generateObject') where
 
 import Autodocodec qualified as AC
-import Autodocodec.Aeson (encodeJSONViaCodec)
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
-import Control.Retry (RetryPolicyM, RetryStatus (..), retrying, rsIterNumber)
 import Data.Aeson (Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.Abort (AbortSignal, isAborted)
+import LLM.Core.Abort (isAborted)
 import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
 import LLM.Core.Logger
+  ( Hooks (onLog),
+    LogLevel (Debug, Error, Info, Warn),
+    safeHooks,
+  )
 import LLM.Core.ProviderUtils (stripBounds)
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
-    LLMError (Aborted, NetworkError, ParseError, TimeoutError, ToolLoopExceeded),
+    LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
     LLMRes (ResError, ResOk),
-    LLMResult (..),
+    LLMResult,
     StreamEvent,
     Tool (toolDef),
     ToolCall (tcName),
@@ -33,12 +35,10 @@ import LLM.Core.Utils
   ( executeToolsWithAbort,
     getToolCalls,
     hasToolCalls,
-    isRetryable,
     withConversation,
     withRetry,
     withTimeout,
   )
-import System.Timeout (timeout)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.
@@ -80,8 +80,8 @@ streamChatConversation ::
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamChatConversation unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-      log = onLog (envHooks env)
-  log Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
+      logIt = onLog (envHooks env)
+  logIt Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call req = providerChatStream (mcProvider mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
@@ -108,7 +108,7 @@ generateObjectTypedInternal unsafeEnv codec conv msg = do
     Left (e, conv', u) -> pure (Left (e, conv', u))
     Right v -> do
       case AE.fromJSON v of
-        AE.Error e -> pure $ Left (ParseError "Can't decode object returned from generateObject", conv, emptyUsage)
+        AE.Error _e -> pure $ Left (ParseError "Can't decode object returned from generateObject", conv, emptyUsage) -- TODO: e not used
         AE.Success a -> pure $ Right a
 
 generateObject ::
@@ -131,30 +131,23 @@ generateObjectConversation unsafeEnv schema conv = do
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call = providerGenerateObject (mcProvider mc) (envHooks env) schema
-        log = onLog (envHooks env)
-        request = mkRequest env mc conv
+        logIt = onLog (envHooks env)
+        request = mkRequest env mc c
      in do
           case mcThrottleDelay mc of
             Just d -> do
-              log Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
+              logIt Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
               threadDelay (d * 1000)
             Nothing -> pure ()
           result <-
             withTimeout (mcRequestTimeout mc) $
-              withRetry (mcRetry mc) log $
+              withRetry (mcRetry mc) logIt $
                 call request
           case result of
             ResError err -> do
-              log Error $ "API error: " <> T.pack (show err)
+              logIt Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, u)
             ResOk value -> pure $ Right value
-
--- let responseUsage = fromMaybe emptyUsage (respUsage resp)
---     cost = estimateCost (mcPricing mc) responseUsage
---     acc' = addUsage acc (responseUsage {usageTotalCost = cost})
---   in pure $ Right ()
-
---  in chatLoop env mc call 0 u c
 
 -- | Try each 'ModelConfig' in order. Falls back on retryable errors.
 -- On fallback, the next model continues from the partial conversation
@@ -212,8 +205,8 @@ chatLoop env mc call rounds acc conv
           pure $ Left (Aborted, conv, acc)
         else do
           let request = mkRequest env mc conv
-              log = onLog (envHooks env)
-          log Debug $
+              logIt = onLog (envHooks env)
+          logIt Debug $
             "API request: model="
               <> mcModel mc
               <> " round="
@@ -222,16 +215,16 @@ chatLoop env mc call rounds acc conv
               <> T.pack (show (length (unConversation (reqConversation request))))
           case mcThrottleDelay mc of
             Just d -> do
-              log Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
+              logIt Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
               threadDelay (d * 1000)
             Nothing -> pure ()
           result <-
             withTimeout (mcRequestTimeout mc) $
-              withRetry (mcRetry mc) log $
+              withRetry (mcRetry mc) logIt $
                 call request
           case result of
             ResError err -> do
-              log Error $ "API error: " <> T.pack (show err)
+              logIt Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, acc)
             ResOk resp ->
               let responseUsage = fromMaybe emptyUsage (respUsage resp)
@@ -240,7 +233,7 @@ chatLoop env mc call rounds acc conv
                in if hasToolCalls resp
                     then do
                       let calls = getToolCalls resp
-                      log Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
+                      logIt Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
                       let offset = windowOffset (envContextWindow env) conv
                           ctx =
                             ToolContext
@@ -252,10 +245,10 @@ chatLoop env mc call rounds acc conv
                       toolResults <- executeToolsWithAbort (envAbortSignal env) ctx (envTools env) calls
                       case toolResults of
                         Left _ -> do
-                          log Info "Aborted during tool execution"
+                          logIt Info "Aborted during tool execution"
                           pure $ Left (Aborted, conv, acc')
                         Right results -> do
-                          log Debug $
+                          logIt Debug $
                             "Tool results: "
                               <> T.intercalate
                                 ", "
@@ -266,7 +259,7 @@ chatLoop env mc call rounds acc conv
                                   (++ [AssistantTurn (respText resp) calls, ToolTurn results])
                           chatLoop env mc call (rounds + 1) acc' conv'
                     else do
-                      log Info $
+                      logIt Info $
                         "Response: "
                           <> T.take 100 (respText resp)
                           <> maybe

@@ -24,11 +24,9 @@ import LLM.Core.Types
         reqTools
       ),
     LLMError (EmptyResponse),
-    LLMObjectResult,
     LLMRes (ResError, ResOk),
-    LLMResult (..),
   )
-import LLM.Providers.OpenAI (buildMessages, encodeToolDef, openAIBuildBody, openAIBuildBodyPairs, parseOpenAIResponse, parseOpenAIStream)
+import LLM.Providers.OpenAI (buildMessages, encodeToolDef, openAIBuildBodyPairs, parseOpenAIResponse, parseOpenAIStream)
 import Network.HTTP.Req
   ( Option,
     POST (POST),

@@ -1,5 +1,5 @@
 module LLM.Providers.OpenAI
-  ( OpenAI,
+  ( OpenAI (..),
     openAI,
     openAIWith,
     openAIProvider,
@@ -14,7 +14,6 @@ module LLM.Providers.OpenAI
   )
 where
 
-import Control.Applicative ((<|>))
 import Data.Aeson
   ( KeyValue ((.=)),
     Object,
@@ -52,9 +51,8 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMObjectResult,
     LLMRes (ResError, ResOk),
-    LLMResult (..),
+    LLMResult,
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),

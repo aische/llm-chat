@@ -14,8 +14,7 @@ import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
-import Data.Vector qualified as V
-import LLM.Core.Types (LLMError (HttpError), LLMRes (ResError), LLMResult (..))
+import LLM.Core.Types (LLMError (HttpError), LLMRes (ResError), LLMResult)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req (HttpConfig, defaultHttpConfig, httpConfigCheckResponse)
 import Network.HTTP.Types.Status (statusCode)
@@ -51,7 +50,7 @@ normalizeSchemaOpenAI (Object o) =
   let o' = fmap normalizeSchemaOpenAI o
       fixed = case KM.lookup "type" o' of
         Just (String "object") ->
-          let props = case KM.lookup "properties" o' of
+          let _props = case KM.lookup "properties" o' of
                 Just (Object p) -> KM.keys p
                 _ -> []
               withAP = KM.insert "additionalProperties" (Bool False) o'

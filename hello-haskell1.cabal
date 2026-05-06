@@ -52,7 +52,9 @@ extra-doc-files:    CHANGELOG.md
 -- extra-source-files:
 
 common warnings
-    ghc-options: -Wall
+    ghc-options: 
+        -Wall 
+        -Wunused-imports
 
 library
     exposed-modules:
@@ -92,6 +94,9 @@ library
         vector         >=0.13 && <0.14,
     default-language:   GHC2021
     default-extensions: OverloadedStrings
+    ghc-options: 
+        -Wall 
+        -Wunused-imports
 
 executable hello-haskell1
     main-is:          Main.hs

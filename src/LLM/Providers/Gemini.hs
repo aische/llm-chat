@@ -40,7 +40,7 @@ import LLM.Core.Types
     LLMError (EmptyResponse),
     LLMObjectResult,
     LLMRes (ResError, ResOk),
-    LLMResult (..),
+    LLMResult,
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),

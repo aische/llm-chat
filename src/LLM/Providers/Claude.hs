@@ -37,7 +37,7 @@ import LLM.Core.Types
     LLMError (EmptyResponse),
     LLMObjectResult,
     LLMRes (ResError, ResOk),
-    LLMResult (..),
+    LLMResult,
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -47,6 +47,21 @@ import LLM.Core.Types
 import LLM.Core.Usage (Usage (..), emptyUsage)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req
+  ( Option,
+    POST (POST),
+    ReqBodyJson (ReqBodyJson),
+    Scheme (Https),
+    Url,
+    header,
+    https,
+    jsonResponse,
+    req,
+    reqBr,
+    responseBody,
+    responseStatusCode,
+    runReq,
+    (/:),
+  )
 
 -- | Claude provider configuration
 newtype Claude = Claude

@@ -13,7 +13,7 @@ where
 
 import Control.Exception (SomeException, try)
 import Control.Monad (void)
-import Data.Aeson (ToJSON (..), Value, object, (.=))
+import Data.Aeson (Value)
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Text (Text)
