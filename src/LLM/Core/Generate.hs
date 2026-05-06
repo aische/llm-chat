@@ -20,6 +20,7 @@ import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
+    Generatable,
     GeneratedResult,
     LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
     LLMTextResult,
@@ -87,7 +88,7 @@ streamTextConversation unsafeEnv conv callback = do
      in chatLoop env mc call 0 u c
 
 generateObject ::
-  (AC.HasCodec t, AE.FromJSON t) =>
+  (Generatable t) =>
   ChatEnv ->
   Conversation ->
   Text ->
@@ -95,7 +96,7 @@ generateObject ::
 generateObject unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
 
 generateObjectTypedInternal ::
-  (AC.HasCodec t, AE.FromJSON t) =>
+  (Generatable t) =>
   ChatEnv ->
   AC.JSONCodec t ->
   Conversation ->

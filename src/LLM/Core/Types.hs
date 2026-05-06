@@ -18,9 +18,11 @@ module LLM.Core.Types
     ToolCall (..),
     ToolResult (..),
     StreamEvent (..),
+    Generatable,
   )
 where
 
+import Autodocodec (HasCodec)
 import Data.Aeson (FromJSON, ToJSON, Value)
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -159,3 +161,5 @@ type LLMObjectResult = LLMResult Value
 type LLMResult a = Either LLMError a
 
 type GeneratedResult a = Either (LLMError, Conversation, Usage) a
+
+class (HasCodec t, FromJSON t) => Generatable t
