@@ -51,7 +51,6 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMRes (ResError, ResOk),
     LLMResult,
     StreamEvent (..),
     ToolCall (..),
@@ -144,10 +143,10 @@ instance LLMProviderAdapter OpenAI where
   sendObjectRequest = sendRequest
 
   parseObjectResponse _ v = case parseMaybe parseObject v of
-    Nothing -> pure $ ResError EmptyResponse
+    Nothing -> pure $ Left EmptyResponse
     Just contentStr -> case decodeStrict' (encodeUtf8 (stripJsonFences contentStr)) of
-      Nothing -> pure $ ResError EmptyResponse
-      Just obj -> pure $ ResOk obj
+      Nothing -> pure $ Left EmptyResponse
+      Just obj -> pure $ Right obj
     where
       parseObject :: Value -> Parser Text
       parseObject = withObject "OpenAIObjectResponse" $ \o -> do
@@ -240,12 +239,12 @@ encodeToolResult tr =
 
 parseOpenAIResponse :: Value -> LLMResult
 parseOpenAIResponse v = case parseMaybe go v of
-  Nothing -> ResError EmptyResponse
+  Nothing -> Left EmptyResponse
   Just blocks -> case blocks of
-    [] -> ResError EmptyResponse
+    [] -> Left EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in ResOk (ChatResponse text blocks (parseOpenAIUsage v))
+       in Right (ChatResponse text blocks (parseOpenAIUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "OpenAIResponse" $ \o -> do
@@ -354,8 +353,8 @@ parseOpenAIStream reader callback = do
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
-    then pure $ ResError EmptyResponse
-    else pure $ ResOk (ChatResponse text blocks usage)
+    then pure $ Left EmptyResponse
+    else pure $ Right (ChatResponse text blocks usage)
 
 parseStreamTextDelta :: Value -> Parser Text
 parseStreamTextDelta = withObject "chunk" $ \o -> do

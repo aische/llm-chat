@@ -39,7 +39,6 @@ import LLM.Core.Types
     Conversation (unConversation),
     LLMError (EmptyResponse),
     LLMObjectResult,
-    LLMRes (ResError, ResOk),
     LLMResult,
     StreamEvent (..),
     ToolCall (..),
@@ -163,8 +162,8 @@ parseGeminiStream reader callback = do
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
-    then pure $ ResError EmptyResponse
-    else pure $ ResOk (ChatResponse text blocks usage)
+    then pure $ Left EmptyResponse
+    else pure $ Right (ChatResponse text blocks usage)
   where
     assignToolId :: (StreamEvent -> IO ()) -> ContentBlock -> IO ContentBlock
     assignToolId cb (TextBlock t) = do
@@ -295,14 +294,14 @@ genConfig r =
 
 parseGeminiResponse :: Value -> IO LLMResult
 parseGeminiResponse v = case parseMaybe go v of
-  Nothing -> pure $ ResError EmptyResponse
+  Nothing -> pure $ Left EmptyResponse
   Just blocks -> do
     blocks' <- mapM normalizeBlock blocks
     case blocks' of
-      [] -> pure $ ResError EmptyResponse
+      [] -> pure $ Left EmptyResponse
       _ ->
         let text = T.concat [t | TextBlock t <- blocks']
-         in pure $ ResOk (ChatResponse text blocks' (parseGeminiUsage v))
+         in pure $ Right (ChatResponse text blocks' (parseGeminiUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "GeminiResponse" $ \o -> do
@@ -347,10 +346,10 @@ parseGeminiUsage = parseMaybe $ withObject "GeminiResponse" $ \o -> do
 
 parseGeminiObjectResponse :: Value -> IO LLMObjectResult
 parseGeminiObjectResponse v = case parseMaybe go v of
-  Nothing -> pure $ ResError EmptyResponse
+  Nothing -> pure $ Left EmptyResponse
   Just text -> case decodeStrict' (encodeUtf8 (stripJsonFences text)) of
-    Nothing -> pure $ ResError EmptyResponse
-    Just obj -> pure $ ResOk obj
+    Nothing -> pure $ Left EmptyResponse
+    Just obj -> pure $ Right obj
   where
     go :: Value -> Parser Text
     go = withObject "GeminiObjectResponse" $ \o -> do

@@ -21,7 +21,6 @@ import LLM.Core.Types
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
-    LLMRes (ResError, ResOk),
     LLMResult,
     StreamEvent,
     Tool (toolDef),
@@ -144,10 +143,10 @@ generateObjectConversation unsafeEnv schema conv = do
               withRetry (mcRetry mc) logIt $
                 call request
           case result of
-            ResError err -> do
+            Left err -> do
               logIt Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, u)
-            ResOk value -> pure $ Right value
+            Right value -> pure $ Right value
 
 -- | Try each 'ModelConfig' in order. Falls back on retryable errors.
 -- On fallback, the next model continues from the partial conversation
@@ -223,10 +222,10 @@ chatLoop env mc call rounds acc conv
               withRetry (mcRetry mc) logIt $
                 call request
           case result of
-            ResError err -> do
+            Left err -> do
               logIt Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, acc)
-            ResOk resp ->
+            Right resp ->
               let responseUsage = fromMaybe emptyUsage (respUsage resp)
                   cost = estimateCost (mcPricing mc) responseUsage
                   acc' = addUsage acc (responseUsage {usageTotalCost = cost})

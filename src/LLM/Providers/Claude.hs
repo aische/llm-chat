@@ -36,7 +36,6 @@ import LLM.Core.Types
     Conversation (..),
     LLMError (EmptyResponse),
     LLMObjectResult,
-    LLMRes (ResError, ResOk),
     LLMResult,
     StreamEvent (..),
     ToolCall (..),
@@ -168,8 +167,8 @@ parseClaudeStream reader callback = do
   usage <- readIORef usageRef
   let text = T.concat [t | TextBlock t <- blocks]
   if null blocks
-    then pure $ ResError EmptyResponse
-    else pure $ ResOk (ChatResponse text blocks (Just usage))
+    then pure $ Left EmptyResponse
+    else pure $ Right (ChatResponse text blocks (Just usage))
 
 -- Parsers for streaming events
 parseMessageStartUsage :: Value -> Parser Int
@@ -283,12 +282,12 @@ encodeToolResult tr =
 
 parseClaudeResponse :: Value -> LLMResult
 parseClaudeResponse v = case parseMaybe go v of
-  Nothing -> ResError EmptyResponse
+  Nothing -> Left EmptyResponse
   Just blocks -> case blocks of
-    [] -> ResError EmptyResponse
+    [] -> Left EmptyResponse
     _ ->
       let text = T.concat [t | TextBlock t <- blocks]
-       in ResOk (ChatResponse text blocks (parseClaudeUsage v))
+       in Right (ChatResponse text blocks (parseClaudeUsage v))
   where
     go :: Value -> Parser [ContentBlock]
     go = withObject "ClaudeResponse" $ \o -> do
@@ -314,10 +313,10 @@ parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
 
 -- parseClaudeObjectResponse :: Value -> IO LLMObjectResult
 -- parseClaudeObjectResponse v = case parseMaybe go v of
---   Nothing -> pure $ ResError EmptyResponse
+--   Nothing -> pure $ Left EmptyResponse
 --   Just text -> case decodeStrict' (encodeUtf8 text) of
---     Nothing -> pure $ ResError EmptyResponse
---     Just obj -> pure $ ResOk obj
+--     Nothing -> pure $ Left EmptyResponse
+--     Just obj -> pure $ Right obj
 --   where
 --     go :: Value -> Parser Text
 --     go = withObject "ClaudeResponse" $ \o -> do
@@ -328,10 +327,10 @@ parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
 
 parseClaudeObjectResponse :: Value -> IO LLMObjectResult
 parseClaudeObjectResponse v = case parseMaybe go v of
-  Nothing -> pure $ ResError EmptyResponse
+  Nothing -> pure $ Left EmptyResponse
   Just text -> case decodeStrict' (encodeUtf8 (stripJsonFences text)) of
-    Nothing -> pure $ ResError EmptyResponse
-    Just obj -> pure $ ResOk obj
+    Nothing -> pure $ Left EmptyResponse
+    Just obj -> pure $ Right obj
   where
     go :: Value -> Parser Text
     go = withObject "ClaudeResponse" $ \o -> do

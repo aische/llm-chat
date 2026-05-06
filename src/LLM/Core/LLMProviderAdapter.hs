@@ -16,7 +16,6 @@ import LLM.Core.Types
   ( ChatRequest (reqTools),
     LLMError (HttpError, NetworkError),
     LLMObjectResult,
-    LLMRes (ResError, ResOk),
     LLMResult,
     StreamEvent,
   )
@@ -61,12 +60,12 @@ genericChat p hooks r = do
   onRequest hooks (providerAdapterName p) body
   result <- try (sendRequest p body)
   case result of
-    Left e -> pure $ ResError $ NetworkError (T.pack (show (e :: HttpException)))
+    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right (status, respBody) -> do
       onResponse hooks (providerAdapterName p) respBody
       if status == 200
         then parseResponse p respBody
-        else pure $ ResError $ HttpError status (T.pack $ show respBody)
+        else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic object generation via the typeclass.
 genericGenerateObject :: (LLMProviderAdapter a) => a -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
@@ -75,12 +74,12 @@ genericGenerateObject p hooks schema r = do
   onRequest hooks (providerAdapterName p) body
   result <- try (sendObjectRequest p body)
   case result of
-    Left e -> pure $ ResError $ NetworkError (T.pack (show (e :: HttpException)))
+    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right (status, respBody) -> do
       onResponse hooks (providerAdapterName p) respBody
       if status == 200
         then parseObjectResponse p respBody
-        else pure $ ResError $ HttpError status (T.pack $ show respBody)
+        else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic streaming chat via the typeclass.
 genericStreamChat :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
@@ -89,10 +88,10 @@ genericStreamChat p hooks r callback = do
   onRequest hooks (providerAdapterName p) body
   result <- try (sendStreamRequest p body callback)
   case result of
-    Left e -> pure $ ResError $ NetworkError (T.pack (show (e :: HttpException)))
+    Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right r' -> do
       case r' of
-        ResOk resp -> onResponse hooks (providerAdapterName p) (streamResponseJson resp)
+        Right resp -> onResponse hooks (providerAdapterName p) (streamResponseJson resp)
         _ -> pure ()
       pure r'
 

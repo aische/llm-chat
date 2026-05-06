@@ -38,17 +38,17 @@ main = do
           toTool $ readdirToolTyped fsConfig
         ]
       systemPrompt = "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to."
-      claudeEnv =
+      _claudeEnv =
         (createChatEnv claude_haiku_4_5 systemPrompt tools)
           { envHooks = hooks,
             envContextWindow = Just 3
           }
-      gpt5NanoEnv =
+      _gpt5NanoEnv =
         (createChatEnv gpt_5_nano systemPrompt tools)
           { envHooks = hooks,
             envContextWindow = Just 3
           }
-      llamaEnv =
+      _llamaEnv =
         (createChatEnv llama_3_2 systemPrompt tools)
           { envHooks = hooks,
             envContextWindow = Just 5
@@ -58,7 +58,7 @@ main = do
           { envHooks = hooks,
             envContextWindow = Just 3
           }
-      gemini25flashEnv =
+      _gemini25flashEnv =
         (createChatEnv gemini_2_5_flash systemPrompt tools)
           { envHooks = hooks,
             envContextWindow = Just 3

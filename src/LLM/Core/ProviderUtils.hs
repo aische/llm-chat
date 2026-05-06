@@ -14,7 +14,7 @@ import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
-import LLM.Core.Types (LLMError (HttpError), LLMRes (ResError), LLMResult)
+import LLM.Core.Types (LLMError (HttpError), LLMResult)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req (HttpConfig, defaultHttpConfig, httpConfigCheckResponse)
 import Network.HTTP.Types.Status (statusCode)
@@ -40,7 +40,7 @@ handleStreamResponse resp handler = do
   if status /= 200
     then do
       chunks <- readAll (HC.responseBody resp)
-      pure $ ResError $ HttpError status (decodeUtf8 (BS.concat chunks))
+      pure $ Left $ HttpError status (decodeUtf8 (BS.concat chunks))
     else handler (HC.responseBody resp)
 
 -- | Recursively enforce OpenAI structured output constraints:

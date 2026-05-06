@@ -31,7 +31,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (..),
-    LLMRes (ResError),
+    LLMRes,
     Tool (..),
     ToolCall (..),
     ToolContext (..),
@@ -107,7 +107,7 @@ withTimeout :: Maybe Int -> IO (LLMRes a) -> IO (LLMRes a)
 withTimeout Nothing action = action
 withTimeout (Just us) action = do
   result <- timeout (us * 1000) action
-  pure $ fromMaybe (ResError TimeoutError) result
+  pure $ fromMaybe (Left TimeoutError) result
 
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 -- The policy controls max attempts, delays, and jitter.
@@ -116,7 +116,7 @@ withRetry policy logIt action =
   retrying
     policy
     ( \status result -> case result of
-        ResError err | isRetryable err -> do
+        Left err | isRetryable err -> do
           logIt Warn $
             "Retryable error (attempt "
               <> T.pack (show (rsIterNumber status + 1))

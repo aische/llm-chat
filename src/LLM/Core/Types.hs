@@ -10,7 +10,7 @@ module LLM.Core.Types
     LLMError (..),
     LLMResult,
     LLMObjectResult,
-    LLMRes (..),
+    LLMRes,
     Tool (..),
     TypedTool (..),
     ToolDef (..),
@@ -153,18 +153,6 @@ instance ToJSON LLMError
 -- | Result of an LLM operation: either an error, a chat response, or a generated object
 type LLMResult = LLMRes ChatResponse
 
--- data LLMResult
---   = ResError LLMError
---   | ResChat ChatResponse
---   deriving (Show, Eq)
-
 type LLMObjectResult = LLMRes Value
 
--- data LLMObjectResult
---   = ObjResError LLMError
---   | ObjResValue Value
---   deriving (Show, Eq)
-
-data LLMRes a
-  = ResError LLMError
-  | ResOk a
+type LLMRes a = Either LLMError a
