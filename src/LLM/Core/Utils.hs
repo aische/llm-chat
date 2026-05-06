@@ -31,7 +31,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (..),
-    LLMRes,
+    LLMResult,
     Tool (..),
     ToolCall (..),
     ToolContext (..),
@@ -103,7 +103,7 @@ isRetryable (NetworkError _) = True
 isRetryable _ = False
 
 -- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
-withTimeout :: Maybe Int -> IO (LLMRes a) -> IO (LLMRes a)
+withTimeout :: Maybe Int -> IO (LLMResult a) -> IO (LLMResult a)
 withTimeout Nothing action = action
 withTimeout (Just us) action = do
   result <- timeout (us * 1000) action
@@ -111,7 +111,7 @@ withTimeout (Just us) action = do
 
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 -- The policy controls max attempts, delays, and jitter.
-withRetry :: RetryPolicyM IO -> Logger -> IO (LLMRes a) -> IO (LLMRes a)
+withRetry :: RetryPolicyM IO -> Logger -> IO (LLMResult a) -> IO (LLMResult a)
 withRetry policy logIt action =
   retrying
     policy

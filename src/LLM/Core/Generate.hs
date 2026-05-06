@@ -1,4 +1,4 @@
-module LLM.Core.Chat (generateText, streamText, generateObjectUntyped, generateObject) where
+module LLM.Core.Generate (generateText, streamText, generateObjectUntyped, generateObject) where
 
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
@@ -20,8 +20,9 @@ import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
+    GeneratedResult,
     LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
-    LLMResult,
+    LLMTextResult,
     StreamEvent,
     Tool (toolDef),
     ToolCall (tcName),
@@ -45,7 +46,7 @@ generateText ::
   ChatEnv ->
   Conversation ->
   Text ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  IO (GeneratedResult (Text, Conversation, Usage))
 generateText unsafeEnv conv msg = generateTextConversation unsafeEnv conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
@@ -53,7 +54,7 @@ generateText unsafeEnv conv msg = generateTextConversation unsafeEnv conv'
 generateTextConversation ::
   ChatEnv ->
   Conversation ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  IO (GeneratedResult (Text, Conversation, Usage))
 generateTextConversation unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
@@ -67,7 +68,7 @@ streamText ::
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  IO (GeneratedResult (Text, Conversation, Usage))
 streamText unsafeEnv conv msg = streamTextConversation unsafeEnv conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
@@ -76,7 +77,7 @@ streamTextConversation ::
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  IO (GeneratedResult (Text, Conversation, Usage))
 streamTextConversation unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       logIt = onLog (envHooks env)
@@ -90,7 +91,7 @@ generateObject ::
   ChatEnv ->
   Conversation ->
   Text ->
-  IO (Either (LLMError, Conversation, Usage) t)
+  IO (GeneratedResult t)
 generateObject unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
 
 generateObjectTypedInternal ::
@@ -99,7 +100,7 @@ generateObjectTypedInternal ::
   AC.JSONCodec t ->
   Conversation ->
   Text ->
-  IO (Either (LLMError, Conversation, Usage) t)
+  IO (GeneratedResult t)
 generateObjectTypedInternal unsafeEnv codec conv msg = do
   let jsonschema = stripBounds $ AE.toJSON $ jsonSchemaVia codec
   res <- generateObjectUntyped unsafeEnv jsonschema conv msg
@@ -115,7 +116,7 @@ generateObjectUntyped ::
   Value ->
   Conversation ->
   Text ->
-  IO (Either (LLMError, Conversation, Usage) Value)
+  IO (GeneratedResult Value)
 generateObjectUntyped unsafeEnv schema conv msg = generateObjectConversation unsafeEnv schema conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
@@ -124,7 +125,7 @@ generateObjectConversation ::
   ChatEnv ->
   Value ->
   Conversation ->
-  IO (Either (LLMError, Conversation, Usage) Value)
+  IO (GeneratedResult Value)
 generateObjectConversation unsafeEnv schema conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
@@ -154,13 +155,13 @@ generateObjectConversation unsafeEnv schema conv = do
 withFallback ::
   ChatEnv ->
   Conversation ->
-  (ModelConfig -> Conversation -> Usage -> IO (Either (LLMError, Conversation, Usage) a)) ->
-  IO (Either (LLMError, Conversation, Usage) a)
+  (ModelConfig -> Conversation -> Usage -> IO (GeneratedResult a)) ->
+  IO (GeneratedResult a)
 -- withFallback ::
 --   ChatEnv ->
 --   Conversation ->
---   (ModelConfig -> Conversation -> Usage -> IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))) ->
---   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+--   (ModelConfig -> Conversation -> Usage -> IO (GeneratedResult (Text, Conversation, Usage))) ->
+--   IO (GeneratedResult (Text, Conversation, Usage))
 withFallback env conv tryModel = go (envModel env : envFallbacks env) conv emptyUsage
   where
     go [] c u = pure $ Left (NetworkError "all models failed", c, u)
@@ -187,11 +188,11 @@ withFallback env conv tryModel = go (envModel env : envFallbacks env) conv empty
 chatLoop ::
   ChatEnv ->
   ModelConfig ->
-  (ChatRequest -> IO LLMResult) ->
+  (ChatRequest -> IO LLMTextResult) ->
   Int ->
   Usage ->
   Conversation ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  IO (GeneratedResult (Text, Conversation, Usage))
 chatLoop env mc call rounds acc conv
   | rounds >= envMaxToolRounds env = do
       onLog (envHooks env) Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"

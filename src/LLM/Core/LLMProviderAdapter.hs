@@ -16,7 +16,7 @@ import LLM.Core.Types
   ( ChatRequest (reqTools),
     LLMError (HttpError, NetworkError),
     LLMObjectResult,
-    LLMResult,
+    LLMTextResult,
     StreamEvent,
   )
 import LLM.Core.Utils (streamResponseJson)
@@ -39,10 +39,10 @@ class LLMProviderAdapter a where
 
   -- | Make a streaming HTTP call. The handler receives the raw response
   -- and should parse it (checking status, reading body, etc.).
-  sendStreamRequest :: a -> Value -> (StreamEvent -> IO ()) -> IO LLMResult
+  sendStreamRequest :: a -> Value -> (StreamEvent -> IO ()) -> IO LLMTextResult
 
   -- | Parse a complete (non-streaming) JSON response body.
-  parseResponse :: a -> Value -> IO LLMResult
+  parseResponse :: a -> Value -> IO LLMTextResult
 
   -- | Build the JSON request body for object generation.
   buildObjectBody :: a -> ChatRequest -> Value -> Value
@@ -54,7 +54,7 @@ class LLMProviderAdapter a where
   parseObjectResponse :: a -> Value -> IO LLMObjectResult
 
 -- | Generic non-streaming chat via the typeclass.
-genericGenerateText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> IO LLMResult
+genericGenerateText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> IO LLMTextResult
 genericGenerateText p hooks r = do
   let body = buildBody p False r
   onRequest hooks (providerAdapterName p) body
@@ -82,7 +82,7 @@ genericGenerateObject p hooks schema r = do
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic streaming chat via the typeclass.
-genericStreamText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult
+genericStreamText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult
 genericStreamText p hooks r callback = do
   let body = buildBody p True r
   onRequest hooks (providerAdapterName p) body

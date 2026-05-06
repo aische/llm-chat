@@ -5,7 +5,7 @@ module Adapters.Repl (repl) where
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Chat (streamText)
+import LLM.Core.Generate (streamText)
 import LLM.Core.LLMProvider (ChatEnv)
 import LLM.Core.Types (Conversation (..), StreamEvent (..))
 import LLM.Core.Usage

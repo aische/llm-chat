@@ -51,7 +51,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMResult,
+    LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -237,7 +237,7 @@ encodeToolResult tr =
 
 -- Response parsing
 
-parseOpenAIResponse :: Value -> LLMResult
+parseOpenAIResponse :: Value -> LLMTextResult
 parseOpenAIResponse v = case parseMaybe go v of
   Nothing -> Left EmptyResponse
   Just blocks -> case blocks of
@@ -290,7 +290,7 @@ parseOpenAIUsage = parseMaybe $ withObject "OpenAIResponse" $ \o -> do
 
 -- Streaming
 
-parseOpenAIStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMResult
+parseOpenAIStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseOpenAIStream reader callback = do
   blocksRef <- newIORef ([] :: [ContentBlock])
   usageRef <- newIORef Nothing

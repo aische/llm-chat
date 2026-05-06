@@ -36,7 +36,7 @@ import LLM.Core.Types
     Conversation (..),
     LLMError (EmptyResponse),
     LLMObjectResult,
-    LLMResult,
+    LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -108,7 +108,7 @@ claudeOpts apiKey =
 claudeProvider :: Text -> LLMProvider
 claudeProvider apiKey = toProvider (Claude apiKey)
 
-parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMResult
+parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseClaudeStream reader callback = do
   blocksRef <- newIORef ([] :: [ContentBlock])
   usageRef <- newIORef emptyUsage
@@ -280,7 +280,7 @@ encodeToolResult tr =
       "content" .= trContent tr
     ]
 
-parseClaudeResponse :: Value -> LLMResult
+parseClaudeResponse :: Value -> LLMTextResult
 parseClaudeResponse v = case parseMaybe go v of
   Nothing -> Left EmptyResponse
   Just blocks -> case blocks of

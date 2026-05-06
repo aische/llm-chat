@@ -60,7 +60,7 @@ library
     exposed-modules:
         LLM
         LLM.Core.Abort
-        LLM.Core.Chat
+        LLM.Core.Generate
         LLM.Core.LLMProvider
         LLM.Core.Types
         LLM.Core.LLMProviderAdapter
@@ -111,7 +111,9 @@ executable hello-haskell1
                       AllModels,
                       Adapters.Repl,
                       Adapters.SessionChat,
-                      Adapters.StreamChatLoop
+                      Adapters.StreamChatLoop,
+                      Main1,
+                      Example
     hs-source-dirs:   app
     build-depends:
         autodocodec    >=0.5 && < 0.6,

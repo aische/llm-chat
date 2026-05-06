@@ -6,11 +6,12 @@ module LLM.Core.Types
     ToolContext (..),
     ContentBlock (..),
     ChatRequest (..),
+    GeneratedResult,
     ChatResponse (..),
     LLMError (..),
-    LLMResult,
+    LLMTextResult,
     LLMObjectResult,
-    LLMRes,
+    LLMResult,
     Tool (..),
     TypedTool (..),
     ToolDef (..),
@@ -151,8 +152,10 @@ instance FromJSON LLMError
 instance ToJSON LLMError
 
 -- | Result of an LLM operation: either an error, a chat response, or a generated object
-type LLMResult = LLMRes ChatResponse
+type LLMTextResult = LLMResult ChatResponse
 
-type LLMObjectResult = LLMRes Value
+type LLMObjectResult = LLMResult Value
 
-type LLMRes a = Either LLMError a
+type LLMResult a = Either LLMError a
+
+type GeneratedResult a = Either (LLMError, Conversation, Usage) a

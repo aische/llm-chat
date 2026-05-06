@@ -14,7 +14,7 @@ import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
-import LLM.Core.Types (LLMError (HttpError), LLMResult)
+import LLM.Core.Types (LLMError (HttpError), LLMTextResult)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Req (HttpConfig, defaultHttpConfig, httpConfigCheckResponse)
 import Network.HTTP.Types.Status (statusCode)
@@ -34,7 +34,7 @@ readAll br = do
 
 -- | Handle streaming response: check status, read error body or delegate
 -- to the provider-specific stream parser.
-handleStreamResponse :: HC.Response HC.BodyReader -> (HC.BodyReader -> IO LLMResult) -> IO LLMResult
+handleStreamResponse :: HC.Response HC.BodyReader -> (HC.BodyReader -> IO LLMTextResult) -> IO LLMTextResult
 handleStreamResponse resp handler = do
   let status = statusCode (HC.responseStatus resp)
   if status /= 200

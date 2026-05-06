@@ -39,7 +39,7 @@ import LLM.Core.Types
     Conversation (unConversation),
     LLMError (EmptyResponse),
     LLMObjectResult,
-    LLMResult,
+    LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
     ToolDef (toolDescription, toolName, toolParameters),
@@ -96,7 +96,7 @@ instance LLMProviderAdapter Gemini where
       reqBr POST url (ReqBodyJson (stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
         handleStreamResponse resp (`parseGeminiStream` callback)
 
-  parseResponse :: Gemini -> Value -> IO LLMResult
+  parseResponse :: Gemini -> Value -> IO LLMTextResult
   parseResponse _ = parseGeminiResponse
 
   -- buildObjectBody :: Gemini -> ChatRequest -> Value -> Value
@@ -140,7 +140,7 @@ stripModel :: Value -> Value
 stripModel (Object o) = Object (KM.delete "_model" o)
 stripModel v = v
 
-parseGeminiStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMResult
+parseGeminiStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseGeminiStream reader callback = do
   blocksRef <- newIORef ([] :: [ContentBlock])
   usageRef <- newIORef Nothing
@@ -292,7 +292,7 @@ genConfig r =
     ("maxOutputTokens" .= reqMaxTokens r)
       : ["temperature" .= t | Just t <- [reqTemperature r]]
 
-parseGeminiResponse :: Value -> IO LLMResult
+parseGeminiResponse :: Value -> IO LLMTextResult
 parseGeminiResponse v = case parseMaybe go v of
   Nothing -> pure $ Left EmptyResponse
   Just blocks -> do
