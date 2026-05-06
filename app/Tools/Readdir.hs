@@ -1,49 +1,44 @@
-module Tools.Readdir (readdirTool) where
+module Tools.Readdir (readdirToolTyped) where
 
-import Data.Aeson
+import Autodocodec qualified as AC
+import Data.Aeson (FromJSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.List (sort)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.Types
+import GHC.Generics (Generic)
+import LLM.Core.Types (TypedTool (..))
+import LLM.Core.Utils (toTool)
 import System.Directory (doesDirectoryExist, listDirectory)
-import Tools.FsConfig
+import Tools.FsConfig (FsConfig, sandboxPath)
 
-readdirTool :: FsConfig -> Tool
-readdirTool cfg =
-  Tool
-    { toolDef =
-        ToolDef
-          { toolName = "read_dir",
-            toolDescription =
-              "List the contents of a directory (relative to the workspace). "
-                <> "Returns one entry per line. Directories are suffixed with '/'. "
-                <> "Use path '.' or omit it to list the workspace root.",
-            toolParameters = readdirSchema
-          },
-      toolExecute = const (readdirExec cfg)
+newtype ReaddirToolArgs = ReaddirToolArgs
+  { path :: Text
+  }
+  deriving (Generic)
+
+instance FromJSON ReaddirToolArgs
+
+instance AC.HasCodec ReaddirToolArgs where
+  codec =
+    AC.object "ReaddirToolArgs" $
+      ReaddirToolArgs <$> AC.requiredField "path" "Relative directory path to list" AC..= path
+
+readdirToolTyped :: FsConfig -> TypedTool ReaddirToolArgs
+readdirToolTyped fsConfig =
+  TypedTool
+    { ttoolName = "read_dir",
+      ttoolDescription =
+        "List the contents of a directory (relative to the workspace). "
+          <> "Returns one entry per line. Directories are suffixed with '/'. "
+          <> "Use path '.' or omit it to list the workspace root.",
+      ttoolExecute = const (readdirExecTyped fsConfig)
     }
 
-readdirSchema :: Value
-readdirSchema =
-  object
-    [ "type" .= ("object" :: Text),
-      "properties"
-        .= object
-          [ "path"
-              .= object
-                [ "type" .= ("string" :: Text),
-                  "description" .= ("Relative directory path to list (default: '.')" :: Text)
-                ]
-          ],
-      "required" .= ([] :: [Text])
-    ]
-
-readdirExec :: FsConfig -> Value -> IO Text
-readdirExec cfg args = do
-  let mpath = parseMaybe (withObject "args" (.: "path")) args :: Maybe Text
-      relPath = maybe "." T.unpack mpath
+readdirExecTyped :: FsConfig -> ReaddirToolArgs -> IO Text
+readdirExecTyped cfg args = do
+  let relPath = T.unpack $ path args
   resolved <- sandboxPath cfg relPath
   entries <- sort <$> listDirectory resolved
   annotated <- mapM (annotateEntry resolved) entries

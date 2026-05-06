@@ -1,16 +1,12 @@
-module Tools.History (historyTool) where
+module Tools.History (historyToolTyped) where
 
-import Data.Aeson
-  ( KeyValue ((.=)),
-    Value,
-    object,
-    withObject,
-    (.:),
-  )
+import Autodocodec qualified as AC
+import Data.Aeson (FromJSON, KeyValue ((.=)), Value, object, withObject, (.:))
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHC.Generics (Generic)
 import LLM.Core.Types
   ( Conversation (..),
     Tool (..),
@@ -19,46 +15,24 @@ import LLM.Core.Types
     ToolDef (ToolDef, toolDescription, toolName, toolParameters),
     ToolResult (trContent, trName),
     Turn (..),
+    TypedTool (..),
   )
 
-historyTool :: Tool
-historyTool =
-  Tool
-    { toolDef =
-        ToolDef
-          { toolName = "get_history",
-            toolDescription =
-              "Retrieve earlier conversation history that is not in your current context window. "
-                <> "Pass chunk=0 for the most recent hidden history, chunk=1 for the one before that, etc. "
-                <> "Returns an empty result when there is no more history.",
-            toolParameters = historySchema
-          },
-      toolExecute = getHistory
-    }
+newtype HistoryToolArgs = HistoryToolArgs
+  { chunk :: Int
+  }
+  deriving (Generic)
 
-historySchema :: Value
-historySchema =
-  object
-    [ "type" .= ("object" :: Text),
-      "properties"
-        .= object
-          [ "chunk"
-              .= object
-                [ "type" .= ("integer" :: Text),
-                  "description" .= ("0 = most recent hidden chunk, 1 = the one before that, etc." :: Text)
-                ]
-          ],
-      "required" .= (["chunk"] :: [Text])
-    ]
+instance FromJSON HistoryToolArgs
 
--- | Return a chunk of hidden conversation history.
--- The hidden prefix is everything before 'tcWindowOffset'. It is split
--- into window-sized pages whose boundaries align to 'UserTurn' starts,
--- working backward from the window offset.
--- Chunk 0 is the most recent hidden page, chunk 1 the one before, etc.
-getHistory :: ToolContext -> Value -> IO Text
-getHistory ctx args = do
-  let chunkIdx = fromMaybe 0 $ parseMaybe parseChunk args
+instance AC.HasCodec HistoryToolArgs where
+  codec =
+    AC.object "HistoryToolArgs" $
+      HistoryToolArgs <$> AC.requiredField "chunk" "0 = most recent hidden chunk, 1 = the one before that, etc." AC..= chunk
+
+getHistoryExecTyped :: ToolContext -> HistoryToolArgs -> IO Text
+getHistoryExecTyped ctx args = do
+  let chunkIdx = chunk args
       hidden = take (tcWindowOffset ctx) (unConversation $ tcConversation ctx)
   if null hidden
     then pure "(no earlier history)"
@@ -70,6 +44,17 @@ getHistory ctx args = do
       if chunkIdx < 0 || chunkIdx >= length chunks
         then pure "(no more history)"
         else pure $ formatChunk (chunks !! chunkIdx)
+
+historyToolTyped :: TypedTool HistoryToolArgs
+historyToolTyped =
+  TypedTool
+    { ttoolName = "get_history",
+      ttoolDescription =
+        "Retrieve earlier conversation history that is not in your current context window. "
+          <> "Pass chunk=0 for the most recent hidden history, chunk=1 for the one before that, etc. "
+          <> "Returns an empty result when there is no more history.",
+      ttoolExecute = getHistoryExecTyped
+    }
 
 -- | Count the number of 'UserTurn's in a conversation.
 countUserTurns :: [Turn] -> Int

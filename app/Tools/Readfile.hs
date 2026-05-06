@@ -1,48 +1,40 @@
-module Tools.Readfile (readfileTool) where
+module Tools.Readfile (readfileToolTyped) where
 
+import Autodocodec qualified as AC
 import Data.Aeson
 import Data.Aeson.Types (parseMaybe)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import GHC.Generics (Generic)
 import LLM.Core.Types
 import Tools.FsConfig
 
-readfileTool :: FsConfig -> Tool
-readfileTool cfg =
-  Tool
-    { toolDef =
-        ToolDef
-          { toolName = "read_file",
-            toolDescription =
-              "Read the contents of a file at the given path (relative to the workspace). "
-                <> "Returns the full file content as text.",
-            toolParameters = readfileSchema
-          },
-      toolExecute = const (readfileExec cfg)
+newtype ReadfileToolArgs = ReadfileToolArgs
+  { path :: Text
+  }
+  deriving (Generic)
+
+instance FromJSON ReadfileToolArgs
+
+instance AC.HasCodec ReadfileToolArgs where
+  codec =
+    AC.object "ReadfileToolArgs" $
+      ReadfileToolArgs <$> AC.requiredField "path" "Relative file path to read" AC..= path
+
+readfileToolTyped :: FsConfig -> TypedTool ReadfileToolArgs
+readfileToolTyped cfg =
+  TypedTool
+    { ttoolName = "read_file",
+      ttoolDescription =
+        "Read the contents of a file at the given path (relative to the workspace). "
+          <> "Returns the full file content as text.",
+      ttoolExecute = const (readfileExecTyped cfg)
     }
 
-readfileSchema :: Value
-readfileSchema =
-  object
-    [ "type" .= ("object" :: Text),
-      "properties"
-        .= object
-          [ "path"
-              .= object
-                [ "type" .= ("string" :: Text),
-                  "description" .= ("Relative file path to read" :: Text)
-                ]
-          ],
-      "required" .= (["path"] :: [Text])
-    ]
-
-readfileExec :: FsConfig -> Value -> IO Text
-readfileExec cfg args = do
-  let mpath = parseMaybe (withObject "args" (.: "path")) args :: Maybe Text
-  case mpath of
-    Nothing -> pure "Error: missing 'path' argument"
-    Just p -> do
-      resolved <- sandboxPath cfg (T.unpack p)
-      TIO.readFile resolved
+readfileExecTyped :: FsConfig -> ReadfileToolArgs -> IO Text
+readfileExecTyped cfg args = do
+  let p = path args
+  resolved <- sandboxPath cfg (T.unpack p)
+  TIO.readFile resolved

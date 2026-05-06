@@ -1,77 +1,61 @@
-module Tools.ReplaceInFile (replaceInFileTool) where
+module Tools.ReplaceInFile (replaceInFileToolTyped) where
 
+import Autodocodec qualified as AC
 import Data.Aeson
 import Data.Aeson.Types (parseMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import GHC.Generics (Generic)
 import LLM.Core.Types
 import Tools.FsConfig
 
-replaceInFileTool :: FsConfig -> Tool
-replaceInFileTool cfg =
-  Tool
-    { toolDef =
-        ToolDef
-          { toolName = "replace_in_file",
-            toolDescription =
-              "Replace the first occurrence of a string in a file. "
-                <> "The 'old' string must appear exactly once in the file. "
-                <> "Returns an error if the string is not found or appears more than once.",
-            toolParameters = replaceSchema
-          },
-      toolExecute = const (replaceExec cfg)
+data ReplaceInFileToolArgs = ReplaceInFileToolArgs
+  { path :: Text,
+    old :: Text,
+    new :: Text
+  }
+  deriving (Generic)
+
+instance FromJSON ReplaceInFileToolArgs
+
+instance AC.HasCodec ReplaceInFileToolArgs where
+  codec =
+    AC.object "ReplaceInFileToolArgs" $
+      ReplaceInFileToolArgs
+        <$> AC.requiredField "path" "Relative file path to write to" AC..= path
+        <*> AC.requiredField "old" "The text content to write to the file" AC..= old
+        <*> AC.requiredField "new" "The text content to write to the file" AC..= new
+
+replaceInFileToolTyped :: FsConfig -> TypedTool ReplaceInFileToolArgs
+replaceInFileToolTyped cfg =
+  TypedTool
+    { ttoolName = "replace_in_file",
+      ttoolDescription =
+        "Replace the first occurrence of a string in a file. "
+          <> "The 'old' string must appear exactly once in the file. "
+          <> "Returns an error if the string is not found or appears more than once.",
+      ttoolExecute = const (replaceExecTyped cfg)
     }
 
-replaceSchema :: Value
-replaceSchema =
-  object
-    [ "type" .= ("object" :: Text),
-      "properties"
-        .= object
-          [ "path"
-              .= object
-                [ "type" .= ("string" :: Text),
-                  "description" .= ("Relative file path to modify" :: Text)
-                ],
-            "old"
-              .= object
-                [ "type" .= ("string" :: Text),
-                  "description" .= ("The exact text to find (must appear exactly once)" :: Text)
-                ],
-            "new"
-              .= object
-                [ "type" .= ("string" :: Text),
-                  "description" .= ("The replacement text" :: Text)
-                ]
-          ],
-      "required" .= (["path", "old", "new"] :: [Text])
-    ]
-
-replaceExec :: FsConfig -> Value -> IO Text
-replaceExec cfg args = do
-  let parsed = flip parseMaybe args $ withObject "args" $ \o -> do
-        p <- o .: "path"
-        old <- o .: "old"
-        new <- o .: "new"
-        pure (p :: Text, old :: Text, new :: Text)
-  case parsed of
-    Nothing -> pure "Error: missing 'path', 'old', or 'new' argument"
-    Just (p, old, new) -> do
-      resolved <- sandboxPath cfg (T.unpack p)
-      content <- TIO.readFile resolved
-      let occurrences = countOccurrences old content
-      case occurrences of
-        0 -> pure "Error: the 'old' string was not found in the file"
-        1 -> do
-          let replaced = replaceFirst old new content
-          TIO.writeFile resolved replaced
-          pure $ "Successfully replaced text in " <> p
-        n ->
-          pure $
-            "Error: the 'old' string was found "
-              <> T.pack (show n)
-              <> " times; it must appear exactly once"
+replaceExecTyped :: FsConfig -> ReplaceInFileToolArgs -> IO Text
+replaceExecTyped cfg args = do
+  let ReplaceInFileToolArgs {path, old, new} = args
+      p = path
+  resolved <- sandboxPath cfg (T.unpack p)
+  content <- TIO.readFile resolved
+  let occurrences = countOccurrences old content
+  case occurrences of
+    0 -> pure "Error: the 'old' string was not found in the file"
+    1 -> do
+      let replaced = replaceFirst old new content
+      TIO.writeFile resolved replaced
+      pure $ "Successfully replaced text in " <> p
+    n ->
+      pure $
+        "Error: the 'old' string was found "
+          <> T.pack (show n)
+          <> " times; it must appear exactly once"
 
 -- | Count non-overlapping occurrences of needle in haystack.
 countOccurrences :: Text -> Text -> Int
