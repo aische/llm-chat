@@ -3,6 +3,7 @@ module LLM.Core.LLMProvider
     ModelConfig (..),
     ChatEnv (..),
     defaultChatEnv,
+    createChatEnv,
   )
 where
 
@@ -13,8 +14,8 @@ import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Logger (Hooks, noHooks)
 import LLM.Core.Types
   ( ChatRequest,
-    LLMResult,
     LLMObjectResult,
+    LLMResult,
     StreamEvent,
     Tool,
   )
@@ -30,7 +31,7 @@ data LLMProvider = LLMProvider
   { providerName :: Text,
     providerChat :: Hooks -> ChatRequest -> IO LLMResult,
     providerChatStream :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMResult,
-    providerGenerateObject :: Hooks -> Value -> ChatRequest  -> IO LLMObjectResult
+    providerGenerateObject :: Hooks -> Value -> ChatRequest -> IO LLMObjectResult
   }
 
 -- | Infrastructure-level configuration for a specific model.
@@ -67,6 +68,19 @@ defaultChatEnv mc =
     { envModel = mc,
       envFallbacks = [],
       envSystem = Nothing,
+      envTools = [],
+      envMaxToolRounds = 10,
+      envContextWindow = Nothing,
+      envHooks = noHooks,
+      envAbortSignal = Nothing
+    }
+
+createChatEnv :: ModelConfig -> Text -> [Tool] -> ChatEnv
+createChatEnv mc system tools =
+  ChatEnv
+    { envModel = mc,
+      envFallbacks = [],
+      envSystem = Just system,
       envTools = [],
       envMaxToolRounds = 10,
       envContextWindow = Nothing,
