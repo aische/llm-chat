@@ -15,7 +15,7 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
 import LLM.Core.Types
   ( ChatRequest
       ( reqMaxTokens,
@@ -82,7 +82,20 @@ instance LLMProviderAdapter Ollama where
 
   parseResponse _ = pure . parseOpenAIResponse
 
-  buildObjectBody _ r schema = object (openAIBuildBodyPairs False r <> ["response_format" .= object ["type" .= ("json_schema" :: Text), "json_schema" .= schema]])
+  buildObjectBody _ r schema =
+    object $
+      openAIBuildBodyPairs False r
+        <> [ "response_format"
+               .= object
+                 [ "type" .= ("json_schema" :: Text),
+                   "json_schema"
+                     .= object
+                       [ "name" .= ("response" :: Text),
+                         "schema" .= normalizeSchemaOpenAI schema,
+                         "strict" .= True
+                       ]
+                 ]
+           ]
 
   sendObjectRequest = sendRequest
 

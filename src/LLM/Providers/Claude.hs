@@ -20,7 +20,7 @@ import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData, sseEvent), readSSEEvents)
 import LLM.Core.Types
   ( ChatRequest
@@ -310,19 +310,6 @@ parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
 --       case content of
 --         (block : _) -> withObject "content_block" (.: "text") block
 --         _ -> fail "No content"
-
-stripJsonFences :: Text -> Text
-stripJsonFences t =
-  let t' = T.strip t
-      t'' =
-        if "```" `T.isPrefixOf` t'
-          then T.strip . T.drop 1 . T.dropWhile (/= '\n') $ t'
-          else t'
-      t''' =
-        if "```" `T.isSuffixOf` t''
-          then T.strip $ T.dropEnd 3 t''
-          else t''
-   in t'''
 
 parseClaudeObjectResponse :: Value -> IO LLMObjectResult
 parseClaudeObjectResponse v = case parseMaybe go v of

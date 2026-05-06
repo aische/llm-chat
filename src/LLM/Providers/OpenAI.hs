@@ -37,7 +37,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
   ( ChatRequest
@@ -128,8 +128,6 @@ instance LLMProviderAdapter OpenAI where
         handleStreamResponse resp (`parseOpenAIStream` callback)
 
   parseResponse _ = pure . parseOpenAIResponse
-
-  buildObjectBody :: OpenAI -> ChatRequest -> Value -> Value
   buildObjectBody _ r schema =
     object $
       openAIBuildBodyPairs False r
@@ -149,7 +147,7 @@ instance LLMProviderAdapter OpenAI where
 
   parseObjectResponse _ v = case parseMaybe parseObject v of
     Nothing -> pure $ ResError EmptyResponse
-    Just contentStr -> case decodeStrict' (encodeUtf8 contentStr) of
+    Just contentStr -> case decodeStrict' (encodeUtf8 (stripJsonFences contentStr)) of
       Nothing -> pure $ ResError EmptyResponse
       Just obj -> pure $ ResOk obj
     where

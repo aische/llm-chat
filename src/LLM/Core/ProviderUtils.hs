@@ -3,6 +3,7 @@ module LLM.Core.ProviderUtils
     readAll,
     handleStreamResponse,
     normalizeSchemaOpenAI,
+    stripJsonFences,
   )
 where
 
@@ -10,7 +11,8 @@ import Data.Aeson (Value (..))
 import Data.Aeson.Key (toText)
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString qualified as BS
--- import Data.HashMap.Strict qualified as HM
+import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Vector qualified as V
 import LLM.Core.Types (LLMError (HttpError), LLMRes (ResError), LLMResult (..))
@@ -59,3 +61,16 @@ normalizeSchemaOpenAI (Object o) =
    in Object fixed
 normalizeSchemaOpenAI (Array a) = Array (fmap normalizeSchemaOpenAI a)
 normalizeSchemaOpenAI v = v
+
+stripJsonFences :: Text -> Text
+stripJsonFences t =
+  let t' = T.strip t
+      t'' =
+        if "```" `T.isPrefixOf` t'
+          then T.strip . T.drop 1 . T.dropWhile (/= '\n') $ t'
+          else t'
+      t''' =
+        if "```" `T.isSuffixOf` t''
+          then T.strip $ T.dropEnd 3 t''
+          else t''
+   in t'''
