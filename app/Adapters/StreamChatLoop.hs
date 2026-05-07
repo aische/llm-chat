@@ -19,8 +19,6 @@ import LLM.Core.Usage
     emptyUsage,
   )
 import Text.Printf (printf)
-import Tools.Age (ageTool)
-import Tools.Weather (weatherTool)
 
 prompts :: [Text]
 prompts =

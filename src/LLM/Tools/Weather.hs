@@ -1,19 +1,10 @@
-module Tools.Weather (weatherToolTyped) where
+module LLM.Tools.Weather (weatherToolTyped) where
 
 import Autodocodec qualified as AC
-import Data.Aeson
-  ( FromJSON,
-    KeyValue ((.=)),
-    Value,
-    object,
-    withObject,
-    (.:),
-  )
-import Data.Aeson.Types (Parser, parseMaybe)
-import Data.Maybe (fromMaybe)
+import Data.Aeson (FromJSON)
 import Data.Text (Text, toLower)
 import GHC.Generics (Generic)
-import LLM.Core.Types (Tool (..), ToolDef (ToolDef, toolDescription, toolName, toolParameters), TypedTool (..))
+import LLM.Core.Types (TypedTool (..))
 
 newtype WeatherToolArgs = WeatherToolArgs
   { location :: Text

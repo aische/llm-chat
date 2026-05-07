@@ -16,12 +16,12 @@ import LLM.Core.Logger
   )
 import LLM.Core.Utils (toTool)
 import System.Environment (getEnv)
-import Tools.FsConfig (mkFsConfig)
-import Tools.History (historyToolTyped)
-import Tools.Readdir (readdirToolTyped)
-import Tools.Readfile (readfileToolTyped)
-import Tools.ReplaceInFile (replaceInFileToolTyped)
-import Tools.Writefile (writefileToolTyped)
+import LLM.Tools.FsConfig (mkFsConfig)
+import LLM.Tools.History (historyToolTyped)
+import LLM.Tools.Readdir (readdirToolTyped)
+import LLM.Tools.Readfile (readfileToolTyped)
+import LLM.Tools.ReplaceInFile (replaceInFileToolTyped)
+import LLM.Tools.Writefile (writefileToolTyped)
 
 main1 :: IO ()
 main1 = do

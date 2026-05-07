@@ -1,9 +1,7 @@
-module Tools.History (historyToolTyped) where
+module LLM.Tools.History (historyToolTyped) where
 
 import Autodocodec qualified as AC
-import Data.Aeson (FromJSON, KeyValue ((.=)), Value, object, withObject, (.:))
-import Data.Aeson.Types (Parser, parseMaybe)
-import Data.Maybe (fromMaybe)
+import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
@@ -109,5 +107,5 @@ formatTurn (ToolTurn results) =
   "[Tool results] "
     <> T.intercalate ", " [trName r <> ": " <> T.take 200 (trContent r) | r <- results]
 
-parseChunk :: Value -> Parser Int
-parseChunk = withObject "args" (.: "chunk")
+-- parseChunk :: Value -> Parser Int
+-- parseChunk = withObject "args" (.: "chunk")

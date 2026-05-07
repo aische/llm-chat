@@ -1,4 +1,4 @@
-module Tools.Age (ageTool) where
+module LLM.Tools.Age (ageTool) where
 
 import Data.Aeson
   ( KeyValue ((.=)),

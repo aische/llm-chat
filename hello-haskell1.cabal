@@ -72,6 +72,14 @@ library
         LLM.Core.Usage
         LLM.Core.Utils
         LLM.Core.ProviderUtils
+        LLM.Tools.Weather
+        LLM.Tools.Age
+        LLM.Tools.History
+        LLM.Tools.Readfile
+        LLM.Tools.Writefile
+        LLM.Tools.ReplaceInFile
+        LLM.Tools.Readdir
+        LLM.Tools.FsConfig
     other-modules:
         LLM.Core.SSE
     hs-source-dirs:     src
@@ -100,15 +108,7 @@ library
 
 executable hello-haskell1
     main-is:          Main.hs
-    other-modules:    Tools.Weather, 
-                      Tools.Age,
-                      Tools.History,
-                      Tools.Readfile,
-                      Tools.Writefile,
-                      Tools.ReplaceInFile,
-                      Tools.Readdir,
-                      Tools.FsConfig,
-                      AllModels,
+    other-modules:    AllModels,
                       Adapters.Repl,
                       Adapters.SessionChat,
                       Adapters.StreamChatLoop,

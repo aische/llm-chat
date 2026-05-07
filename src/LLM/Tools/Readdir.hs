@@ -1,17 +1,14 @@
-module Tools.Readdir (readdirToolTyped) where
+module LLM.Tools.Readdir (readdirToolTyped) where
 
 import Autodocodec qualified as AC
 import Data.Aeson (FromJSON)
-import Data.Aeson.Types (parseMaybe)
 import Data.List (sort)
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
 import LLM.Core.Types (TypedTool (..))
-import LLM.Core.Utils (toTool)
+import LLM.Tools.FsConfig (FsConfig, sandboxPath)
 import System.Directory (doesDirectoryExist, listDirectory)
-import Tools.FsConfig (FsConfig, sandboxPath)
 
 newtype ReaddirToolArgs = ReaddirToolArgs
   { path :: Text

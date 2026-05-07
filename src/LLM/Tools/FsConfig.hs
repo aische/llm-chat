@@ -1,4 +1,4 @@
-module Tools.FsConfig
+module LLM.Tools.FsConfig
   ( FsConfig (..),
     SandboxViolation (..),
     mkFsConfig,
