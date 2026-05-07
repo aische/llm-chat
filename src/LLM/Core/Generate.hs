@@ -1,4 +1,14 @@
-module LLM.Core.Generate (generateText, streamText, generateObjectUntyped, generateObject) where
+module LLM.Core.Generate
+  ( generateText,
+    generateTextConversation,
+    streamText,
+    streamTextConversation,
+    generateObjectUntyped,
+    generateObjectConversationUntyped,
+    generateObject,
+    generateObjectConversation,
+  )
+where
 
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
@@ -93,18 +103,26 @@ generateObject ::
   Conversation ->
   Text ->
   IO (GeneratedResult (t, Usage))
-generateObject unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
+generateObject unsafeEnv conv msg = generateObjectConversationInternal unsafeEnv AC.codec conv'
+  where
+    conv' = withConversation conv (++ [UserTurn msg])
 
-generateObjectTypedInternal ::
+generateObjectConversation ::
+  (Generatable t) =>
+  ChatEnv ->
+  Conversation ->
+  IO (GeneratedResult (t, Usage))
+generateObjectConversation unsafeEnv = generateObjectConversationInternal unsafeEnv AC.codec
+
+generateObjectConversationInternal ::
   (Generatable t) =>
   ChatEnv ->
   AC.JSONCodec t ->
   Conversation ->
-  Text ->
   IO (GeneratedResult (t, Usage))
-generateObjectTypedInternal unsafeEnv codec conv msg = do
+generateObjectConversationInternal unsafeEnv codec conv = do
   let jsonschema = stripBounds $ AE.toJSON $ jsonSchemaVia codec
-  res <- generateObjectUntyped unsafeEnv jsonschema conv msg
+  res <- generateObjectConversationUntyped unsafeEnv jsonschema conv
   case res of
     Left (e, conv', u) -> pure (Left (e, conv', u))
     Right (v, u) -> do
@@ -118,16 +136,16 @@ generateObjectUntyped ::
   Conversation ->
   Text ->
   IO (GeneratedResult (Value, Usage))
-generateObjectUntyped unsafeEnv schema conv msg = generateObjectConversation unsafeEnv schema conv'
+generateObjectUntyped unsafeEnv schema conv msg = generateObjectConversationUntyped unsafeEnv schema conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
 
-generateObjectConversation ::
+generateObjectConversationUntyped ::
   ChatEnv ->
   Value ->
   Conversation ->
   IO (GeneratedResult (Value, Usage))
-generateObjectConversation unsafeEnv schema conv = do
+generateObjectConversationUntyped unsafeEnv schema conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
