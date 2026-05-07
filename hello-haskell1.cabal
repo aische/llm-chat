@@ -60,6 +60,9 @@ library
     exposed-modules:
         LLM
         LLM.Core.Abort
+        LLM.Core.Chat
+        LLM.Core.ChatStep
+        LLM.Core.ChatStepInterpreter
         LLM.Core.Generate
         LLM.Core.Types
         LLM.Core.LLMProvider
