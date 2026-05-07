@@ -17,6 +17,7 @@ module LLM.Core.Utils
 where
 
 import Autodocodec qualified as AC
+import Autodocodec.Schema (jsonSchemaVia)
 import Control.Exception (SomeException, try)
 import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
 import Data.Aeson (FromJSON, Value, encode, object, (.=))
@@ -154,14 +155,17 @@ streamResponseJson r =
 printValue :: Value -> IO ()
 printValue val = L8.putStrLn (encode val)
 
+getSchema :: (AC.HasCodec t, FromJSON t) => TypedTool t -> AC.JSONCodec t
+getSchema _ = AC.codec
+
 toTool :: (AC.HasCodec t, FromJSON t) => TypedTool t -> Tool
-toTool (TypedTool name descr exec) =
+toTool t@(TypedTool name descr exec) =
   Tool
     { toolDef =
         ToolDef
           { toolName = name,
             toolDescription = descr,
-            toolParameters = object []
+            toolParameters = AE.toJSON $ jsonSchemaVia $ getSchema t
           },
       toolExecute = \ctx argsvalue ->
         case AE.fromJSON argsvalue of
