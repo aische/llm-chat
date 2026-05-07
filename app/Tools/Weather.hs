@@ -1,7 +1,9 @@
-module Tools.Weather (weatherTool) where
+module Tools.Weather (weatherToolTyped) where
 
+import Autodocodec qualified as AC
 import Data.Aeson
-  ( KeyValue ((.=)),
+  ( FromJSON,
+    KeyValue ((.=)),
     Value,
     object,
     withObject,
@@ -9,44 +11,36 @@ import Data.Aeson
   )
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
-import LLM.Core.Types
-  ( Tool (..),
-    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
-  )
+import Data.Text (Text, toLower)
+import GHC.Generics (Generic)
+import LLM.Core.Types (Tool (..), ToolDef (ToolDef, toolDescription, toolName, toolParameters), TypedTool (..))
 
-weatherTool :: Tool
-weatherTool =
-  Tool
-    { toolDef =
-        ToolDef
-          { toolName = "get_weather",
-            toolDescription = "Get the current weather for a given location",
-            toolParameters = weatherSchema
-          },
-      toolExecute = const getWeather
+newtype WeatherToolArgs = WeatherToolArgs
+  { location :: Text
+  }
+  deriving (Generic)
+
+instance FromJSON WeatherToolArgs
+
+instance AC.HasCodec WeatherToolArgs where
+  codec =
+    AC.object "WeatherToolArgs" $
+      WeatherToolArgs
+        <$> AC.requiredField "location" "City name, e.g. London" AC..= location
+
+weatherToolTyped :: TypedTool WeatherToolArgs
+weatherToolTyped =
+  TypedTool
+    { ttoolName = "get_weather",
+      ttoolDescription = "Get the current weather for a given location",
+      ttoolExecute = const getWeather
     }
 
-weatherSchema :: Value
-weatherSchema =
-  object
-    [ "type" .= ("object" :: Text),
-      "properties"
-        .= object
-          [ "location"
-              .= object
-                [ "type" .= ("string" :: Text),
-                  "description" .= ("City name, e.g. London" :: Text)
-                ]
-          ],
-      "required" .= (["location"] :: [Text])
-    ]
-
 -- | Dummy implementation — in reality you'd call a weather API
-getWeather :: Value -> IO Text
+getWeather :: WeatherToolArgs -> IO Text
 getWeather args = do
-  let loc = fromMaybe "unknown" $ parseMaybe parseLocation args
-  pure $ "Weather in " <> loc <> ": Partly cloudy, 18°C, light breeze from the west."
-
-parseLocation :: Value -> Parser Text
-parseLocation = withObject "args" (.: "location")
+  let loc = location args
+  case toLower loc of
+    "london" -> pure "Weather in London is partly cloudy, 18°C, light breeze from the west."
+    "paris" -> pure "Weather in Paris is sunny, 23°C, no wind."
+    _ -> pure $ "Weather in" <> loc <> " is rainy, 12°C, strong wind from the east."
