@@ -156,7 +156,7 @@ instance ToJSON LLMError
 -- | Result of an LLM operation: either an error, a chat response, or a generated object
 type LLMTextResult = LLMResult ChatResponse
 
-type LLMObjectResult = LLMResult Value
+type LLMObjectResult = LLMResult (Value, Maybe Usage)
 
 type LLMResult a = Either LLMError a
 

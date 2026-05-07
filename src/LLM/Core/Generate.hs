@@ -92,7 +92,7 @@ generateObject ::
   ChatEnv ->
   Conversation ->
   Text ->
-  IO (GeneratedResult t)
+  IO (GeneratedResult (t, Usage))
 generateObject unsafeEnv = generateObjectTypedInternal unsafeEnv AC.codec
 
 generateObjectTypedInternal ::
@@ -101,23 +101,23 @@ generateObjectTypedInternal ::
   AC.JSONCodec t ->
   Conversation ->
   Text ->
-  IO (GeneratedResult t)
+  IO (GeneratedResult (t, Usage))
 generateObjectTypedInternal unsafeEnv codec conv msg = do
   let jsonschema = stripBounds $ AE.toJSON $ jsonSchemaVia codec
   res <- generateObjectUntyped unsafeEnv jsonschema conv msg
   case res of
     Left (e, conv', u) -> pure (Left (e, conv', u))
-    Right v -> do
+    Right (v, u) -> do
       case AE.fromJSON v of
         AE.Error _e -> pure $ Left (ParseError "Can't decode object returned from generateObjectUntyped", conv, emptyUsage) -- TODO: e not used
-        AE.Success a -> pure $ Right a
+        AE.Success a -> pure $ Right (a, u)
 
 generateObjectUntyped ::
   ChatEnv ->
   Value ->
   Conversation ->
   Text ->
-  IO (GeneratedResult Value)
+  IO (GeneratedResult (Value, Usage))
 generateObjectUntyped unsafeEnv schema conv msg = generateObjectConversation unsafeEnv schema conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
@@ -126,7 +126,7 @@ generateObjectConversation ::
   ChatEnv ->
   Value ->
   Conversation ->
-  IO (GeneratedResult Value)
+  IO (GeneratedResult (Value, Usage))
 generateObjectConversation unsafeEnv schema conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
@@ -148,7 +148,11 @@ generateObjectConversation unsafeEnv schema conv = do
             Left err -> do
               logIt Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, u)
-            Right value -> pure $ Right value
+            Right (value, mbu) ->
+              let responseUsage = fromMaybe emptyUsage mbu
+                  cost = estimateCost (mcPricing mc) responseUsage
+                  u' = addUsage u (responseUsage {usageTotalCost = cost})
+               in pure $ Right (value, u')
 
 -- | Try each 'ModelConfig' in order. Falls back on retryable errors.
 -- On fallback, the next model continues from the partial conversation

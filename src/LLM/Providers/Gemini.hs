@@ -349,7 +349,7 @@ parseGeminiObjectResponse v = case parseMaybe go v of
   Nothing -> pure $ Left EmptyResponse
   Just text -> case decodeStrict' (encodeUtf8 (stripJsonFences text)) of
     Nothing -> pure $ Left EmptyResponse
-    Just obj -> pure $ Right obj
+    Just obj -> pure $ Right (obj, parseGeminiUsage v)
   where
     go :: Value -> Parser Text
     go = withObject "GeminiObjectResponse" $ \o -> do

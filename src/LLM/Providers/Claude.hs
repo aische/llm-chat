@@ -35,7 +35,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (EmptyResponse),
-    LLMObjectResult,
+    LLMResult,
     LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
@@ -92,6 +92,7 @@ instance LLMProviderAdapter Claude where
      in claudeBuildBody False (r {reqConversation = conv'})
   sendObjectRequest = sendRequest
 
+  -- parseObjectResponse _ = parseClaudeObjectResponse
   parseObjectResponse _ = parseClaudeObjectResponse
 
 -- Internal helpers
@@ -311,26 +312,12 @@ parseClaudeUsage = parseMaybe $ withObject "ClaudeResponse" $ \o -> do
   u <- o .: "usage"
   withObject "usage" (\uo -> Usage <$> uo .: "input_tokens" <*> uo .: "output_tokens" <*> pure 0) u
 
--- parseClaudeObjectResponse :: Value -> IO LLMObjectResult
--- parseClaudeObjectResponse v = case parseMaybe go v of
---   Nothing -> pure $ Left EmptyResponse
---   Just text -> case decodeStrict' (encodeUtf8 text) of
---     Nothing -> pure $ Left EmptyResponse
---     Just obj -> pure $ Right obj
---   where
---     go :: Value -> Parser Text
---     go = withObject "ClaudeResponse" $ \o -> do
---       content <- o .: "content" :: Parser [Value]
---       case content of
---         (block : _) -> withObject "content_block" (.: "text") block
---         _ -> fail "No content"
-
-parseClaudeObjectResponse :: Value -> IO LLMObjectResult
+parseClaudeObjectResponse :: Value -> IO (LLMResult (Value, Maybe Usage))
 parseClaudeObjectResponse v = case parseMaybe go v of
   Nothing -> pure $ Left EmptyResponse
   Just text -> case decodeStrict' (encodeUtf8 (stripJsonFences text)) of
     Nothing -> pure $ Left EmptyResponse
-    Just obj -> pure $ Right obj
+    Just obj -> pure $ Right (obj, parseClaudeUsage v)
   where
     go :: Value -> Parser Text
     go = withObject "ClaudeResponse" $ \o -> do

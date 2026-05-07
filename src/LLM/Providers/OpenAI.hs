@@ -51,6 +51,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
+    LLMObjectResult,
     LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
@@ -142,11 +143,12 @@ instance LLMProviderAdapter OpenAI where
 
   sendObjectRequest = sendRequest
 
+  parseObjectResponse :: OpenAI -> Value -> IO LLMObjectResult
   parseObjectResponse _ v = case parseMaybe parseObject v of
     Nothing -> pure $ Left EmptyResponse
     Just contentStr -> case decodeStrict' (encodeUtf8 (stripJsonFences contentStr)) of
       Nothing -> pure $ Left EmptyResponse
-      Just obj -> pure $ Right obj
+      Just obj -> pure $ Right (obj, parseOpenAIUsage v)
     where
       parseObject :: Value -> Parser Text
       parseObject = withObject "OpenAIObjectResponse" $ \o -> do
