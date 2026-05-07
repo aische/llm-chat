@@ -134,13 +134,16 @@ test-suite hello-haskell1-test
     type:               exitcode-stdio-1.0
     main-is:            Spec.hs
     other-modules:      LLM.ClaudeSpec
+                        LLM.Claude2Spec
                         LLM.GeminiSpec
                         LLM.OpenAISpec
                         LLM.TypesSpec
                         LLM.ChatSpec
+                        LLM.TestKit
     hs-source-dirs:     test
     build-depends:
         base           ^>=4.18,
+        containers ^>=0.6.7,
         text           >=1.2   && <2.2,
         aeson          >=2.0   && <2.3,
         hspec          >=2.10  && <2.12,

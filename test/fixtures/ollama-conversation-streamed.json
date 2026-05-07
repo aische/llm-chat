@@ -1,0 +1,576 @@
+[
+    {
+        "prompt": "how's the weather in london?",
+        "request": {
+            "messages": [
+                {
+                    "content": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to, but use only the tools that are available.",
+                    "role": "system"
+                },
+                {
+                    "content": "how's the weather in london?",
+                    "role": "user"
+                }
+            ],
+            "model": "llama3.2:latest",
+            "num_predict": 1024,
+            "stream": true,
+            "tools": [
+                {
+                    "function": {
+                        "description": "Get the current weather for a given location",
+                        "name": "get_weather",
+                        "parameters": {
+                            "$comment": "WeatherToolArgs",
+                            "properties": {
+                                "location": {
+                                    "$comment": "City name, e.g. London",
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["location"],
+                            "type": "object"
+                        }
+                    },
+                    "type": "function"
+                }
+            ]
+        },
+        "response": {
+            "content": [
+                {
+                    "arguments": {
+                        "location": "London"
+                    },
+                    "id": "call_0rwdb1uf",
+                    "name": "get_weather",
+                    "type": "tool_call"
+                }
+            ],
+            "text": "",
+            "usage": null
+        }
+    },
+    {
+        "request": {
+            "messages": [
+                {
+                    "content": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to, but use only the tools that are available.",
+                    "role": "system"
+                },
+                {
+                    "content": "how's the weather in london?",
+                    "role": "user"
+                },
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "arguments": "{\"location\":\"London\"}",
+                                "name": "get_weather"
+                            },
+                            "id": "call_0rwdb1uf",
+                            "type": "function"
+                        }
+                    ]
+                },
+                {
+                    "content": "Weather in London is partly cloudy, 18°C, light breeze from the west.",
+                    "role": "tool",
+                    "tool_call_id": "call_0rwdb1uf"
+                }
+            ],
+            "model": "llama3.2:latest",
+            "num_predict": 1024,
+            "stream": true,
+            "tools": [
+                {
+                    "function": {
+                        "description": "Get the current weather for a given location",
+                        "name": "get_weather",
+                        "parameters": {
+                            "$comment": "WeatherToolArgs",
+                            "properties": {
+                                "location": {
+                                    "$comment": "City name, e.g. London",
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["location"],
+                            "type": "object"
+                        }
+                    },
+                    "type": "function"
+                }
+            ]
+        },
+        "response": {
+            "content": [
+                {
+                    "text": "According",
+                    "type": "text"
+                },
+                {
+                    "text": " to",
+                    "type": "text"
+                },
+                {
+                    "text": " the",
+                    "type": "text"
+                },
+                {
+                    "text": " current",
+                    "type": "text"
+                },
+                {
+                    "text": " weather",
+                    "type": "text"
+                },
+                {
+                    "text": " conditions",
+                    "type": "text"
+                },
+                {
+                    "text": ",",
+                    "type": "text"
+                },
+                {
+                    "text": " it",
+                    "type": "text"
+                },
+                {
+                    "text": " is",
+                    "type": "text"
+                },
+                {
+                    "text": " a",
+                    "type": "text"
+                },
+                {
+                    "text": " sunny",
+                    "type": "text"
+                },
+                {
+                    "text": " day",
+                    "type": "text"
+                },
+                {
+                    "text": " with",
+                    "type": "text"
+                },
+                {
+                    "text": " a",
+                    "type": "text"
+                },
+                {
+                    "text": " temperature",
+                    "type": "text"
+                },
+                {
+                    "text": " of",
+                    "type": "text"
+                },
+                {
+                    "text": " ",
+                    "type": "text"
+                },
+                {
+                    "text": "18",
+                    "type": "text"
+                },
+                {
+                    "text": "°C",
+                    "type": "text"
+                },
+                {
+                    "text": " in",
+                    "type": "text"
+                },
+                {
+                    "text": " London",
+                    "type": "text"
+                },
+                {
+                    "text": ",",
+                    "type": "text"
+                },
+                {
+                    "text": " with",
+                    "type": "text"
+                },
+                {
+                    "text": " a",
+                    "type": "text"
+                },
+                {
+                    "text": " light",
+                    "type": "text"
+                },
+                {
+                    "text": " breeze",
+                    "type": "text"
+                },
+                {
+                    "text": " coming",
+                    "type": "text"
+                },
+                {
+                    "text": " from",
+                    "type": "text"
+                },
+                {
+                    "text": " the",
+                    "type": "text"
+                },
+                {
+                    "text": " west",
+                    "type": "text"
+                },
+                {
+                    "text": ".",
+                    "type": "text"
+                },
+                {
+                    "text": " Is",
+                    "type": "text"
+                },
+                {
+                    "text": " there",
+                    "type": "text"
+                },
+                {
+                    "text": " anything",
+                    "type": "text"
+                },
+                {
+                    "text": " else",
+                    "type": "text"
+                },
+                {
+                    "text": " I",
+                    "type": "text"
+                },
+                {
+                    "text": " can",
+                    "type": "text"
+                },
+                {
+                    "text": " help",
+                    "type": "text"
+                },
+                {
+                    "text": " you",
+                    "type": "text"
+                },
+                {
+                    "text": " with",
+                    "type": "text"
+                },
+                {
+                    "text": " regarding",
+                    "type": "text"
+                },
+                {
+                    "text": " the",
+                    "type": "text"
+                },
+                {
+                    "text": " weather",
+                    "type": "text"
+                },
+                {
+                    "text": " or",
+                    "type": "text"
+                },
+                {
+                    "text": " any",
+                    "type": "text"
+                },
+                {
+                    "text": " other",
+                    "type": "text"
+                },
+                {
+                    "text": " topic",
+                    "type": "text"
+                },
+                {
+                    "text": "?",
+                    "type": "text"
+                }
+            ],
+            "text": "According to the current weather conditions, it is a sunny day with a temperature of 18°C in London, with a light breeze coming from the west. Is there anything else I can help you with regarding the weather or any other topic?",
+            "usage": null
+        }
+    },
+    {
+        "prompt": "and in paris?",
+        "request": {
+            "messages": [
+                {
+                    "content": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to, but use only the tools that are available.",
+                    "role": "system"
+                },
+                {
+                    "content": "how's the weather in london?",
+                    "role": "user"
+                },
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "arguments": "{\"location\":\"London\"}",
+                                "name": "get_weather"
+                            },
+                            "id": "call_0rwdb1uf",
+                            "type": "function"
+                        }
+                    ]
+                },
+                {
+                    "content": "Weather in London is partly cloudy, 18°C, light breeze from the west.",
+                    "role": "tool",
+                    "tool_call_id": "call_0rwdb1uf"
+                },
+                {
+                    "content": "According to the current weather conditions, it is a sunny day with a temperature of 18°C in London, with a light breeze coming from the west. Is there anything else I can help you with regarding the weather or any other topic?",
+                    "role": "assistant"
+                },
+                {
+                    "content": "and in paris?",
+                    "role": "user"
+                }
+            ],
+            "model": "llama3.2:latest",
+            "num_predict": 1024,
+            "stream": true,
+            "tools": [
+                {
+                    "function": {
+                        "description": "Get the current weather for a given location",
+                        "name": "get_weather",
+                        "parameters": {
+                            "$comment": "WeatherToolArgs",
+                            "properties": {
+                                "location": {
+                                    "$comment": "City name, e.g. London",
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["location"],
+                            "type": "object"
+                        }
+                    },
+                    "type": "function"
+                }
+            ]
+        },
+        "response": {
+            "content": [
+                {
+                    "arguments": {
+                        "location": "Paris"
+                    },
+                    "id": "call_v59ngosx",
+                    "name": "get_weather",
+                    "type": "tool_call"
+                }
+            ],
+            "text": "",
+            "usage": null
+        }
+    },
+    {
+        "request": {
+            "messages": [
+                {
+                    "content": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to, but use only the tools that are available.",
+                    "role": "system"
+                },
+                {
+                    "content": "how's the weather in london?",
+                    "role": "user"
+                },
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "arguments": "{\"location\":\"London\"}",
+                                "name": "get_weather"
+                            },
+                            "id": "call_0rwdb1uf",
+                            "type": "function"
+                        }
+                    ]
+                },
+                {
+                    "content": "Weather in London is partly cloudy, 18°C, light breeze from the west.",
+                    "role": "tool",
+                    "tool_call_id": "call_0rwdb1uf"
+                },
+                {
+                    "content": "According to the current weather conditions, it is a sunny day with a temperature of 18°C in London, with a light breeze coming from the west. Is there anything else I can help you with regarding the weather or any other topic?",
+                    "role": "assistant"
+                },
+                {
+                    "content": "and in paris?",
+                    "role": "user"
+                },
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "arguments": "{\"location\":\"Paris\"}",
+                                "name": "get_weather"
+                            },
+                            "id": "call_v59ngosx",
+                            "type": "function"
+                        }
+                    ]
+                },
+                {
+                    "content": "Weather in Paris is sunny, 23°C, no wind.",
+                    "role": "tool",
+                    "tool_call_id": "call_v59ngosx"
+                }
+            ],
+            "model": "llama3.2:latest",
+            "num_predict": 1024,
+            "stream": true,
+            "tools": [
+                {
+                    "function": {
+                        "description": "Get the current weather for a given location",
+                        "name": "get_weather",
+                        "parameters": {
+                            "$comment": "WeatherToolArgs",
+                            "properties": {
+                                "location": {
+                                    "$comment": "City name, e.g. London",
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["location"],
+                            "type": "object"
+                        }
+                    },
+                    "type": "function"
+                }
+            ]
+        },
+        "response": {
+            "content": [
+                {
+                    "text": "According",
+                    "type": "text"
+                },
+                {
+                    "text": " to",
+                    "type": "text"
+                },
+                {
+                    "text": " the",
+                    "type": "text"
+                },
+                {
+                    "text": " current",
+                    "type": "text"
+                },
+                {
+                    "text": " weather",
+                    "type": "text"
+                },
+                {
+                    "text": " conditions",
+                    "type": "text"
+                },
+                {
+                    "text": ",",
+                    "type": "text"
+                },
+                {
+                    "text": " it",
+                    "type": "text"
+                },
+                {
+                    "text": " is",
+                    "type": "text"
+                },
+                {
+                    "text": " a",
+                    "type": "text"
+                },
+                {
+                    "text": " pleasant",
+                    "type": "text"
+                },
+                {
+                    "text": " day",
+                    "type": "text"
+                },
+                {
+                    "text": " with",
+                    "type": "text"
+                },
+                {
+                    "text": " a",
+                    "type": "text"
+                },
+                {
+                    "text": " temperature",
+                    "type": "text"
+                },
+                {
+                    "text": " of",
+                    "type": "text"
+                },
+                {
+                    "text": " ",
+                    "type": "text"
+                },
+                {
+                    "text": "23",
+                    "type": "text"
+                },
+                {
+                    "text": "°C",
+                    "type": "text"
+                },
+                {
+                    "text": " in",
+                    "type": "text"
+                },
+                {
+                    "text": " Paris",
+                    "type": "text"
+                },
+                {
+                    "text": ",",
+                    "type": "text"
+                },
+                {
+                    "text": " with",
+                    "type": "text"
+                },
+                {
+                    "text": " zero",
+                    "type": "text"
+                },
+                {
+                    "text": " wind",
+                    "type": "text"
+                },
+                {
+                    "text": ".",
+                    "type": "text"
+                }
+            ],
+            "text": "According to the current weather conditions, it is a pleasant day with a temperature of 23°C in Paris, with zero wind.",
+            "usage": null
+        }
+    }
+]
