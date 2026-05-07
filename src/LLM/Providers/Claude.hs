@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
-module LLM.Providers.Claude (Claude (..), claudeProvider, parseClaudeResponse, parseClaudeUsage) where
+module LLM.Providers.Claude (claudeProvider, parseClaudeResponse, parseClaudeUsage) where
 
 import Data.Aeson
   ( KeyValue ((.=)),
@@ -62,38 +62,35 @@ import Network.HTTP.Req
     (/:),
   )
 
--- | Claude provider configuration
-newtype Claude = Claude
-  { claudeApiKey :: Text
-  }
+claudeProvider :: Text -> LLMProvider
+claudeProvider apiKey = toProvider $ claudeProviderAdapter apiKey
 
-instance LLMProviderAdapter Claude where
-  providerAdapterName _ = "claude"
-
-  buildBody _ = claudeBuildBody
-
-  sendRequest (Claude apiKey) body =
-    runReq lenientConfig $ do
-      resp <- req POST claudeUrl (ReqBodyJson body) jsonResponse (claudeOpts apiKey)
-      pure (responseStatusCode resp, responseBody resp)
-
-  sendStreamRequest (Claude apiKey) body callback =
-    runReq lenientConfig $
-      reqBr POST claudeUrl (ReqBodyJson body) (claudeOpts apiKey) $ \resp ->
-        handleStreamResponse resp (`parseClaudeStream` callback)
-
-  parseResponse _ = pure . parseClaudeResponse
-
-  -- buildObjectBody _ r schema = claudeBuildBody False (r {reqConversation = reqConversation r <> Conversation [UserTurn ("Generate a JSON object matching this schema: " <> T.pack (show schema))]})
-  buildObjectBody _ r schema =
-    let schemaText = TL.toStrict . decodeUtf8 $ encode schema
-        instruction = "Respond with a raw JSON object matching this schema. No markdown, no explanation, no code fences:\n" <> schemaText
-        conv' = reqConversation r <> Conversation [UserTurn instruction]
-     in claudeBuildBody False (r {reqConversation = conv'})
-  sendObjectRequest = sendRequest
-
-  -- parseObjectResponse _ = parseClaudeObjectResponse
-  parseObjectResponse _ = parseClaudeObjectResponse
+claudeProviderAdapter :: Text -> LLMProviderAdapter
+claudeProviderAdapter apiKey =
+  LLMProviderAdapter
+    { providerAdapterName = "claude",
+      buildBody = claudeBuildBody,
+      sendRequest = sendRequest,
+      sendStreamRequest = \body callback ->
+        runReq lenientConfig $
+          reqBr POST claudeUrl (ReqBodyJson body) (claudeOpts apiKey) $ \resp ->
+            handleStreamResponse resp (`parseClaudeStream` callback),
+      parseResponse = pure . parseClaudeResponse,
+      -- buildObjectBody _ r schema = claudeBuildBody False (r {reqConversation = reqConversation r <> Conversation [UserTurn ("Generate a JSON object matching this schema: " <> T.pack (show schema))]})
+      buildObjectBody = \r schema ->
+        let schemaText = TL.toStrict . decodeUtf8 $ encode schema
+            instruction = "Respond with a raw JSON object matching this schema. No markdown, no explanation, no code fences:\n" <> schemaText
+            conv' = reqConversation r <> Conversation [UserTurn instruction]
+         in claudeBuildBody False (r {reqConversation = conv'}),
+      sendObjectRequest = sendRequest,
+      -- parseObjectResponse _ = parseClaudeObjectResponse
+      parseObjectResponse = parseClaudeObjectResponse
+    }
+  where
+    sendRequest body =
+      runReq lenientConfig $ do
+        resp <- req POST claudeUrl (ReqBodyJson body) jsonResponse (claudeOpts apiKey)
+        pure (responseStatusCode resp, responseBody resp)
 
 -- Internal helpers
 
@@ -106,9 +103,8 @@ claudeOpts apiKey =
     <> header "anthropic-version" "2023-06-01"
 
 -- | Create an LLMClient from Claude credentials
-claudeProvider :: Text -> LLMProvider
-claudeProvider apiKey = toProvider (Claude apiKey)
-
+-- claudeProvider :: Text -> LLMProvider
+-- claudeProvider apiKey = toProvider (Claude apiKey)
 parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseClaudeStream reader callback = do
   blocksRef <- newIORef ([] :: [ContentBlock])

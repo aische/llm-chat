@@ -1,8 +1,5 @@
 module LLM.Providers.OpenAI
-  ( OpenAI (..),
-    openAI,
-    openAIWith,
-    openAIProvider,
+  ( openAIProvider,
     openAIProviderWith,
     parseOpenAIResponse,
     parseOpenAIUsage,
@@ -51,7 +48,6 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMObjectResult,
     LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
@@ -77,91 +73,60 @@ import Network.HTTP.Req
     (/:),
   )
 
--- | OpenAI provider configuration.
--- Uses an existential to support both Http and Https schemes.
-data OpenAI = forall scheme. OpenAI
-  { openAIBaseUrl :: Url scheme,
-    openAIBaseOpts :: Option scheme,
-    openAIApiKey :: Text
-  }
-
--- | Create an OpenAI provider for api.openai.com
-openAI :: Text -> OpenAI
-openAI = OpenAI (https "api.openai.com") mempty
-
--- | Create an OpenAI-compatible provider with a custom base URL.
---
--- Examples:
---
--- @
--- -- Together AI
--- openAIWith (https "api.together.xyz") mempty apiKey
---
--- -- Ollama (local)
--- openAIWith (http "localhost") (port 11434) ""
---
--- -- vLLM (local)
--- openAIWith (http "localhost") (port 8000) ""
--- @
-openAIWith :: Url scheme -> Option scheme -> Text -> OpenAI
-openAIWith = OpenAI
-
-instance LLMProviderAdapter OpenAI where
-  providerAdapterName _ = "openai"
-
-  buildBody _ = openAIBuildBody
-
-  sendRequest (OpenAI baseUrl baseOpts apiKey) body =
-    runReq lenientConfig $ do
-      let url = baseUrl /: "v1" /: "chat" /: "completions"
-          opts = baseOpts <> authHeader apiKey
-      resp <- req POST url (ReqBodyJson body) jsonResponse opts
-      pure (responseStatusCode resp, responseBody resp)
-
-  sendStreamRequest (OpenAI baseUrl baseOpts apiKey) body callback =
-    runReq lenientConfig $ do
-      let url = baseUrl /: "v1" /: "chat" /: "completions"
-          opts = baseOpts <> authHeader apiKey
-      reqBr POST url (ReqBodyJson body) opts $ \resp ->
-        handleStreamResponse resp (`parseOpenAIStream` callback)
-
-  parseResponse _ = pure . parseOpenAIResponse
-  buildObjectBody _ r schema =
-    object $
-      openAIBuildBodyPairs False r
-        <> [ "response_format"
-               .= object
-                 [ "type" .= ("json_schema" :: Text),
-                   "json_schema"
-                     .= object
-                       [ "name" .= ("response" :: Text),
-                         "schema" .= normalizeSchemaOpenAI schema,
-                         "strict" .= True
-                       ]
-                 ]
-           ]
-
-  sendObjectRequest = sendRequest
-
-  parseObjectResponse :: OpenAI -> Value -> IO LLMObjectResult
-  parseObjectResponse _ v = case parseMaybe parseObject v of
-    Nothing -> pure $ Left EmptyResponse
-    Just contentStr -> case decodeStrict' (encodeUtf8 (stripJsonFences contentStr)) of
-      Nothing -> pure $ Left EmptyResponse
-      Just obj -> pure $ Right (obj, parseOpenAIUsage v)
-    where
-      parseObject :: Value -> Parser Text
-      parseObject = withObject "OpenAIObjectResponse" $ \o -> do
-        (choice : _) <- o .: "choices" :: Parser [Value]
-        withObject "choice" (\co -> co .: "message" >>= withObject "message" (.: "content")) choice
+openAIProviderAdapter :: Url scheme -> Option scheme -> Text -> LLMProviderAdapter
+openAIProviderAdapter baseUrl baseOpts apiKey =
+  LLMProviderAdapter
+    { providerAdapterName = "openai",
+      buildBody = openAIBuildBody,
+      sendRequest = sendRequest,
+      sendStreamRequest = \body callback ->
+        runReq lenientConfig $ do
+          let url = baseUrl /: "v1" /: "chat" /: "completions"
+              opts = baseOpts <> authHeader apiKey
+          reqBr POST url (ReqBodyJson body) opts $ \resp ->
+            handleStreamResponse resp (`parseOpenAIStream` callback),
+      parseResponse = pure . parseOpenAIResponse,
+      buildObjectBody = \r schema ->
+        object $
+          openAIBuildBodyPairs False r
+            <> [ "response_format"
+                   .= object
+                     [ "type" .= ("json_schema" :: Text),
+                       "json_schema"
+                         .= object
+                           [ "name" .= ("response" :: Text),
+                             "schema" .= normalizeSchemaOpenAI schema,
+                             "strict" .= True
+                           ]
+                     ]
+               ],
+      sendObjectRequest = sendRequest,
+      parseObjectResponse = \v ->
+        let parseObject :: Value -> Parser Text
+            parseObject = withObject "OpenAIObjectResponse" $ \o -> do
+              (choice : _) <- o .: "choices" :: Parser [Value]
+              withObject "choice" (\co -> co .: "message" >>= withObject "message" (.: "content")) choice
+         in case parseMaybe parseObject v of
+              Nothing -> pure $ Left EmptyResponse
+              Just contentStr -> case decodeStrict' (encodeUtf8 (stripJsonFences contentStr)) of
+                Nothing -> pure $ Left EmptyResponse
+                Just obj -> pure $ Right (obj, parseOpenAIUsage v)
+    }
+  where
+    sendRequest body =
+      runReq lenientConfig $ do
+        let url = baseUrl /: "v1" /: "chat" /: "completions"
+            opts = baseOpts <> authHeader apiKey
+        resp <- req POST url (ReqBodyJson body) jsonResponse opts
+        pure (responseStatusCode resp, responseBody resp)
 
 -- | Create an OpenAI client for api.openai.com
 openAIProvider :: Text -> LLMProvider
-openAIProvider apiKey = toProvider (openAI apiKey)
+openAIProvider apiKey = toProvider $ openAIProviderAdapter (https "api.openai.com") mempty apiKey
 
 -- | Create an OpenAI-compatible client with a custom base URL.
 openAIProviderWith :: Url scheme -> Option scheme -> Text -> LLMProvider
-openAIProviderWith baseUrl baseOpts apiKey = toProvider (openAIWith baseUrl baseOpts apiKey)
+openAIProviderWith baseUrl baseOpts apiKey = toProvider (openAIProviderAdapter baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme
 authHeader apiKey

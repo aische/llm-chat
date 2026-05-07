@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module LLM.Providers.Gemini (Gemini (..), geminiProvider, parseGeminiResponse, parseGeminiUsage) where
+module LLM.Providers.Gemini (geminiProvider, parseGeminiResponse, parseGeminiUsage) where
 
 import Control.Applicative ((<|>))
 import Data.Aeson
@@ -63,73 +63,62 @@ import Network.HTTP.Req
   )
 
 -- | Gemini provider configuration
-newtype Gemini = Gemini
-  { geminiApiKey :: Text
-  }
-
-instance LLMProviderAdapter Gemini where
-  providerAdapterName _ = "gemini"
-
-  buildBody _ _ = geminiBuildBody
-
-  sendRequest (Gemini apiKey) body =
-    runReq lenientConfig $ do
-      -- For non-streaming we need the model name from the body to construct the URL.
-      -- We extract it from the request body JSON since the typeclass only passes Value.
-      let model = extractModel body
-          url =
-            https "generativelanguage.googleapis.com"
-              /: "v1beta"
-              /: "models"
-              /: (model <> ":generateContent")
-      resp <- req POST url (ReqBodyJson (stripModel body)) jsonResponse ("key" =: apiKey)
-      pure (responseStatusCode resp, responseBody resp)
-
-  sendStreamRequest (Gemini apiKey) body callback =
-    runReq lenientConfig $ do
-      let model = extractModel body
-          url =
-            https "generativelanguage.googleapis.com"
-              /: "v1beta"
-              /: "models"
-              /: (model <> ":streamGenerateContent")
-      reqBr POST url (ReqBodyJson (stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
-        handleStreamResponse resp (`parseGeminiStream` callback)
-
-  parseResponse :: Gemini -> Value -> IO LLMTextResult
-  parseResponse _ = parseGeminiResponse
-
-  -- buildObjectBody :: Gemini -> ChatRequest -> Value -> Value
-  -- buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseSchema" .= schema]])
-
-  -- buildObjectBody _ r schema = object (geminiBuildBodyPairs r <> ["generationConfig" .= object ["responseMimeType" .= ("application/json" :: Text), "responseSchema" .= schema]])
-
-  buildObjectBody _ r schema =
-    object $
-      [ "_model" .= reqModel r,
-        "contents" .= concatMap encodeTurn (unConversation $ reqConversation r),
-        "generationConfig"
-          .= object
-            ( [ "maxOutputTokens" .= reqMaxTokens r,
-                "responseMimeType" .= ("application/json" :: Text),
-                "responseSchema" .= schema
-              ]
-                ++ ["temperature" .= t | Just t <- [reqTemperature r]]
-            )
-      ]
-        ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
-             | Just sys <- [reqSystem r]
-           ]
-        ++ [ "tools" .= [object ["function_declarations" .= map encodeToolDef (reqTools r)]]
-             | not (null (reqTools r))
-           ]
-  sendObjectRequest = sendRequest
-
-  parseObjectResponse _ = parseGeminiObjectResponse
-
 -- | Create an LLMClient from Gemini credentials
 geminiProvider :: Text -> LLMProvider
-geminiProvider apiKey = toProvider (Gemini apiKey)
+geminiProvider apiKey = toProvider (geminiProviderAdapter apiKey)
+
+geminiProviderAdapter :: Text -> LLMProviderAdapter
+geminiProviderAdapter apiKey =
+  LLMProviderAdapter
+    { providerAdapterName = "gemini",
+      buildBody = const geminiBuildBody,
+      sendRequest = sendRequest,
+      sendStreamRequest = \body callback ->
+        runReq lenientConfig $ do
+          let model = extractModel body
+              url =
+                https "generativelanguage.googleapis.com"
+                  /: "v1beta"
+                  /: "models"
+                  /: (model <> ":streamGenerateContent")
+          reqBr POST url (ReqBodyJson (stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
+            handleStreamResponse resp (`parseGeminiStream` callback),
+      parseResponse = parseGeminiResponse,
+      buildObjectBody = \r schema ->
+        object $
+          [ "_model" .= reqModel r,
+            "contents" .= concatMap encodeTurn (unConversation $ reqConversation r),
+            "generationConfig"
+              .= object
+                ( [ "maxOutputTokens" .= reqMaxTokens r,
+                    "responseMimeType" .= ("application/json" :: Text),
+                    "responseSchema" .= schema
+                  ]
+                    ++ ["temperature" .= t | Just t <- [reqTemperature r]]
+                )
+          ]
+            ++ [ "system_instruction" .= object ["parts" .= [object ["text" .= sys]]]
+                 | Just sys <- [reqSystem r]
+               ]
+            ++ [ "tools" .= [object ["function_declarations" .= map encodeToolDef (reqTools r)]]
+                 | not (null (reqTools r))
+               ],
+      sendObjectRequest = sendRequest,
+      parseObjectResponse = parseGeminiObjectResponse
+    }
+  where
+    sendRequest body =
+      runReq lenientConfig $ do
+        -- For non-streaming we need the model name from the body to construct the URL.
+        -- We extract it from the request body JSON since the typeclass only passes Value.
+        let model = extractModel body
+            url =
+              https "generativelanguage.googleapis.com"
+                /: "v1beta"
+                /: "models"
+                /: (model <> ":generateContent")
+        resp <- req POST url (ReqBodyJson (stripModel body)) jsonResponse ("key" =: apiKey)
+        pure (responseStatusCode resp, responseBody resp)
 
 -- | Extract model name stashed in the request body by geminiBuildBody.
 extractModel :: Value -> Text

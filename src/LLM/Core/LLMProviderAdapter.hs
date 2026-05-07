@@ -22,39 +22,28 @@ import LLM.Core.Types
 import LLM.Core.Utils (streamResponseJson)
 import Network.HTTP.Req (HttpException)
 
--- | Typeclass for LLM provider backends.
---
--- Each provider implements how to build requests, send them over HTTP,
--- and parse responses. The generic chat functions handle hooks, error
--- wrapping, and retries uniformly.
-class LLMProviderAdapter a where
-  -- | Provider name for logging/hooks (e.g. "claude", "gemini", "openai")
-  providerAdapterName :: a -> Text
-
-  -- | Build the JSON request body. Bool indicates whether streaming is requested.
-  buildBody :: a -> Bool -> ChatRequest -> Value
-
-  -- | Make a non-streaming HTTP call, returning (status code, response JSON).
-  sendRequest :: a -> Value -> IO (Int, Value)
-
-  -- | Make a streaming HTTP call. The handler receives the raw response
-  -- and should parse it (checking status, reading body, etc.).
-  sendStreamRequest :: a -> Value -> (StreamEvent -> IO ()) -> IO LLMTextResult
-
-  -- | Parse a complete (non-streaming) JSON response body.
-  parseResponse :: a -> Value -> IO LLMTextResult
-
-  -- | Build the JSON request body for object generation.
-  buildObjectBody :: a -> ChatRequest -> Value -> Value
-
-  -- | Make a non-streaming HTTP call for object generation, returning (status code, response JSON).
-  sendObjectRequest :: a -> Value -> IO (Int, Value)
-
-  -- | Parse a complete JSON response body for object generation.
-  parseObjectResponse :: a -> Value -> IO LLMObjectResult
+data LLMProviderAdapter = LLMProviderAdapter
+  { -- | Provider name for logging/hooks (e.g. "claude", "gemini", "openai")
+    providerAdapterName :: Text,
+    -- | Build the JSON request body. Bool indicates whether streaming is requested.
+    buildBody :: Bool -> ChatRequest -> Value,
+    -- | Make a non-streaming HTTP call, returning (status code, response JSON).
+    sendRequest :: Value -> IO (Int, Value),
+    -- | Make a streaming HTTP call. The handler receives the raw response
+    -- and should parse it (checking status, reading body, etc.).
+    sendStreamRequest :: Value -> (StreamEvent -> IO ()) -> IO LLMTextResult,
+    -- | Parse a complete (non-streaming) JSON response body.
+    parseResponse :: Value -> IO LLMTextResult,
+    -- | Build the JSON request body for object generation.
+    buildObjectBody :: ChatRequest -> Value -> Value,
+    -- | Make a non-streaming HTTP call for object generation, returning (status code, response JSON).
+    sendObjectRequest :: Value -> IO (Int, Value),
+    -- | Parse a complete JSON response body for object generation.
+    parseObjectResponse :: Value -> IO LLMObjectResult
+  }
 
 -- | Generic non-streaming chat via the typeclass.
-genericGenerateText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> IO LLMTextResult
+genericGenerateText :: LLMProviderAdapter -> Hooks -> ChatRequest -> IO LLMTextResult
 genericGenerateText p hooks r = do
   let body = buildBody p False r
   onRequest hooks (providerAdapterName p) body
@@ -68,7 +57,7 @@ genericGenerateText p hooks r = do
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic object generation via the typeclass.
-genericGenerateObject :: (LLMProviderAdapter a) => a -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
+genericGenerateObject :: LLMProviderAdapter -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
 genericGenerateObject p hooks schema r = do
   let body = buildObjectBody p r {reqTools = []} schema
   onRequest hooks (providerAdapterName p) body
@@ -82,7 +71,7 @@ genericGenerateObject p hooks schema r = do
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic streaming chat via the typeclass.
-genericStreamText :: (LLMProviderAdapter a) => a -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult
+genericStreamText :: LLMProviderAdapter -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult
 genericStreamText p hooks r callback = do
   let body = buildBody p True r
   onRequest hooks (providerAdapterName p) body
@@ -97,7 +86,7 @@ genericStreamText p hooks r callback = do
 
 -- | Convert any LLMProviderAdapter instance into a LLMProvider.
 -- Hooks are not baked in — they are passed at call time via 'ChatEnv'.
-toProvider :: (LLMProviderAdapter a) => a -> LLMProvider
+toProvider :: LLMProviderAdapter -> LLMProvider
 toProvider p =
   LLMProvider
     { providerName = providerAdapterName p,
