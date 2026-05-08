@@ -7,7 +7,7 @@ import Adapters.Repl (repl)
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import LLM.Core.LLMProvider (ChatEnv (..), createChatEnv)
+import LLM.Core.Generate (ChatEnv (..), createChatEnv)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,
@@ -15,13 +15,13 @@ import LLM.Core.Logger
     withStderrLogger,
   )
 import LLM.Core.Utils (toTool)
-import System.Environment (getEnv)
 import LLM.Tools.FsConfig (mkFsConfig)
 import LLM.Tools.History (historyToolTyped)
 import LLM.Tools.Readdir (readdirToolTyped)
 import LLM.Tools.Readfile (readfileToolTyped)
 import LLM.Tools.ReplaceInFile (replaceInFileToolTyped)
 import LLM.Tools.Writefile (writefileToolTyped)
+import System.Environment (getEnv)
 
 main1 :: IO ()
 main1 = do

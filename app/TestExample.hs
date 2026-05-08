@@ -5,7 +5,7 @@ module TestExample where
 import Adapters.StreamChatLoop (streamChatLoopMain)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import LLM.Core.LLMProvider (ChatEnv (..), ModelConfig, createChatEnv)
+import LLM.Core.Generate (ChatEnv (..), ModelConfig, createChatEnv)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,

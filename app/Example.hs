@@ -9,8 +9,7 @@ import Control.Exception (SomeException, catch)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM.Core.Generate (generateObject)
-import LLM.Core.LLMProvider (ChatEnv (..), createChatEnv)
+import LLM.Core.Generate (ChatEnv (..), createChatEnv, generateObject)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,

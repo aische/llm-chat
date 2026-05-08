@@ -3,7 +3,7 @@ module AllModels (getAllModels, AllModels (..)) where
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.LLMProvider (ModelConfig (..))
+import LLM.Core.Generate (ModelConfig (..))
 import LLM.Core.Usage
   ( PricingInfo
       ( PricingInfo,

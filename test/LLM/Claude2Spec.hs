@@ -5,7 +5,7 @@ import Data.Aeson (eitherDecodeFileStrict')
 import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
 import LLM (createChatEnv, toProvider, toTool)
-import LLM.Core.LLMProvider (ChatEnv (..), ModelConfig (..))
+import LLM.Core.Generate (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Types
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)

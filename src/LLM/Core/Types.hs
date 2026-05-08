@@ -29,6 +29,30 @@ import GHC.Generics (Generic)
 import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Usage (Usage)
 
+-- | A tool invocation returned by the model
+data ToolCall = ToolCall
+  { tcId :: Text, -- provider-specific call id
+    tcName :: Text,
+    tcArguments :: Value
+  }
+  deriving (Show, Eq, Generic)
+
+instance ToJSON ToolCall
+
+instance FromJSON ToolCall
+
+-- | The result of executing a tool, sent back to the model
+data ToolResult = ToolResult
+  { trCallId :: Text, -- unique call id (matches tcId)
+    trName :: Text, -- function name (matches tcName)
+    trContent :: Text
+  }
+  deriving (Show, Eq, Generic)
+
+instance ToJSON ToolResult
+
+instance FromJSON ToolResult
+
 -- | A single turn in a conversation
 data Turn
   = UserTurn Text
@@ -72,30 +96,6 @@ data ToolDef = ToolDef
   }
   deriving (Show, Eq)
 
--- | A tool invocation returned by the model
-data ToolCall = ToolCall
-  { tcId :: Text, -- provider-specific call id
-    tcName :: Text,
-    tcArguments :: Value
-  }
-  deriving (Show, Eq, Generic)
-
-instance ToJSON ToolCall
-
-instance FromJSON ToolCall
-
--- | The result of executing a tool, sent back to the model
-data ToolResult = ToolResult
-  { trCallId :: Text, -- unique call id (matches tcId)
-    trName :: Text, -- function name (matches tcName)
-    trContent :: Text
-  }
-  deriving (Show, Eq, Generic)
-
-instance ToJSON ToolResult
-
-instance FromJSON ToolResult
-
 -- | A tool: its definition (sent to the model) paired with its implementation.
 -- 'toolExecute' receives a 'ToolContext' (full conversation + usage) and
 -- the JSON arguments from the model.
@@ -110,12 +110,6 @@ data TypedTool a = TypedTool
     ttoolExecute :: ToolContext -> a -> IO Text
   }
 
--- | A content block in a response — either text or a tool call
-data ContentBlock
-  = TextBlock Text
-  | ToolCallBlock ToolCall
-  deriving (Show, Eq)
-
 data ChatRequest = ChatRequest
   { reqModel :: Text,
     reqConversation :: Conversation,
@@ -124,6 +118,12 @@ data ChatRequest = ChatRequest
     reqTemperature :: Maybe Double,
     reqTools :: [ToolDef]
   }
+  deriving (Show, Eq)
+
+-- | A content block in a response — either text or a tool call
+data ContentBlock
+  = TextBlock Text
+  | ToolCallBlock ToolCall
   deriving (Show, Eq)
 
 data ChatResponse = ChatResponse

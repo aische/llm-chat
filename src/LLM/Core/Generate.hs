@@ -7,22 +7,28 @@ module LLM.Core.Generate
     generateObjectConversationUntyped,
     generateObject,
     generateObjectConversation,
+    ModelConfig (..),
+    ChatEnv (..),
+    defaultChatEnv,
+    createChatEnv,
   )
 where
 
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
+import Control.Retry (RetryPolicyM)
 import Data.Aeson (Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.Abort (isAborted)
-import LLM.Core.LLMProvider (ChatEnv (..), LLMProvider (..), ModelConfig (..))
+import LLM.Core.Abort (AbortSignal, isAborted)
+import LLM.Core.LLMProvider (LLMProvider (..))
 import LLM.Core.Logger
   ( Hooks (onLog),
     LogLevel (Debug, Error, Info, Warn),
+    noHooks,
     safeHooks,
   )
 import LLM.Core.ProviderUtils (stripBoundsAndComments)
@@ -41,7 +47,7 @@ import LLM.Core.Types
     ToolResult (trContent, trName),
     Turn (AssistantTurn, ToolTurn, UserTurn),
   )
-import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
+import LLM.Core.Usage (PricingInfo (..), Usage (..), addUsage, emptyUsage, estimateCost)
 import LLM.Core.Utils
   ( executeToolsWithAbort,
     getToolCalls,
@@ -50,6 +56,60 @@ import LLM.Core.Utils
     withRetry,
     withTimeout,
   )
+
+-- | Infrastructure-level configuration for a specific model.
+-- Bundles together everything needed to reach one model endpoint.
+-- Use a list of these in 'ChatEnv' for fallback across models/providers.
+data ModelConfig = ModelConfig
+  { mcProvider :: LLMProvider,
+    mcModel :: Text,
+    mcPricing :: PricingInfo,
+    mcMaxTokens :: Int,
+    mcTemperature :: Maybe Double,
+    mcRequestTimeout :: Maybe Int, -- milliseconds; timeout the whole request if it takes too long
+    mcThrottleDelay :: Maybe Int, -- milliseconds; wait before each API call
+    mcRetry :: RetryPolicyM IO
+  }
+
+-- | Application-level chat configuration.
+-- Tools, system prompt, and hooks stay fixed across fallback attempts.
+data ChatEnv = ChatEnv
+  { envModel :: ModelConfig, -- primary
+    envFallbacks :: [ModelConfig], -- fallbacks, tried in order
+    envSystem :: Maybe Text,
+    envTools :: [Tool],
+    envMaxToolRounds :: Int,
+    envContextWindow :: Maybe Int, -- max recent turns sent to the model; Nothing = all
+    envHooks :: Hooks,
+    envAbortSignal :: Maybe AbortSignal
+  }
+
+-- | Sensible defaults — single model, no fallback.
+defaultChatEnv :: ModelConfig -> ChatEnv
+defaultChatEnv mc =
+  ChatEnv
+    { envModel = mc,
+      envFallbacks = [],
+      envSystem = Nothing,
+      envTools = [],
+      envMaxToolRounds = 10,
+      envContextWindow = Nothing,
+      envHooks = noHooks,
+      envAbortSignal = Nothing
+    }
+
+createChatEnv :: ModelConfig -> Text -> [Tool] -> ChatEnv
+createChatEnv mc system tools =
+  ChatEnv
+    { envModel = mc,
+      envFallbacks = [],
+      envSystem = Just system,
+      envTools = tools,
+      envMaxToolRounds = 10,
+      envContextWindow = Nothing,
+      envHooks = noHooks,
+      envAbortSignal = Nothing
+    }
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.

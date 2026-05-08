@@ -5,12 +5,14 @@ module LLM.ChatSpec (spec) where
 import Control.Retry (limitRetries)
 import Data.Aeson (object, (.=))
 import LLM.Core.Abort (abort, newAbortSignal)
-import LLM.Core.Generate (generateText)
-import LLM.Core.LLMProvider
+import LLM.Core.Generate
   ( ChatEnv (..),
-    LLMProvider (..),
     ModelConfig (..),
     defaultChatEnv,
+    generateText,
+  )
+import LLM.Core.LLMProvider
+  ( LLMProvider (..),
   )
 import LLM.Core.Types
   ( ChatRequest (reqConversation),
