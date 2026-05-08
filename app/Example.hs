@@ -9,14 +9,13 @@ import Control.Exception (SomeException, catch)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM.Core.Generate (ChatEnv (..), createChatEnv, generateObject)
+import LLM.Core.Generate (ChatEnv (..), Generatable, GeneratedResult, createChatEnv, generateObject)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,
     withJsonDump,
     withStderrLogger,
   )
-import LLM.Core.Types (Generatable, GeneratedResult)
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (emptyConversation)
 

@@ -21,7 +21,6 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Unique (hashUnique, newUnique)
-import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripBoundsAndComments, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
@@ -39,6 +38,7 @@ import LLM.Core.Types
     Conversation (unConversation),
     LLMError (EmptyResponse),
     LLMObjectResult,
+    LLMProvider,
     LLMTextResult,
     StreamEvent (..),
     ToolCall (..),

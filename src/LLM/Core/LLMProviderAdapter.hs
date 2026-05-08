@@ -10,12 +10,12 @@ import Control.Exception (try)
 import Data.Aeson (Value)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.LLMProvider (LLMProvider (..))
 import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
   ( ChatRequest (reqTools),
     LLMError (HttpError, NetworkError),
     LLMObjectResult,
+    LLMProvider (..),
     LLMTextResult,
     StreamEvent,
   )

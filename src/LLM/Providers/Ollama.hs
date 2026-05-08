@@ -13,7 +13,6 @@ import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
-import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
 import LLM.Core.Types
@@ -24,6 +23,7 @@ import LLM.Core.Types
         reqTools
       ),
     LLMError (EmptyResponse),
+    LLMProvider,
   )
 import LLM.Providers.OpenAI (buildMessages, encodeToolDef, openAIBuildBodyPairs, parseOpenAIResponse, parseOpenAIStream, parseOpenAIUsage)
 import Network.HTTP.Req

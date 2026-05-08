@@ -2,7 +2,6 @@ module LLM
   ( module LLM.Core.Abort,
     module LLM.Core.Types,
     module LLM.Core.Utils,
-    module LLM.Core.LLMProvider,
     module LLM.Core.Generate,
     module LLM.Core.LLMProviderAdapter,
     module LLM.Core.ProviderUtils,
@@ -17,7 +16,6 @@ where
 
 import LLM.Core.Abort
 import LLM.Core.Generate
-import LLM.Core.LLMProvider
 import LLM.Core.LLMProviderAdapter
 import LLM.Core.Logger
 import LLM.Core.ProviderUtils

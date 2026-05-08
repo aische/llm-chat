@@ -61,7 +61,6 @@ library
         LLM
         LLM.Core.Abort
         LLM.Core.Generate
-        LLM.Core.LLMProvider
         LLM.Core.Types
         LLM.Core.LLMProviderAdapter
         LLM.Providers.Gemini

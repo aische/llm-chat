@@ -11,20 +11,22 @@ module LLM.Core.Generate
     ChatEnv (..),
     defaultChatEnv,
     createChatEnv,
+    GeneratedResult,
+    Generatable,
   )
 where
 
+import Autodocodec (HasCodec)
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
 import Control.Retry (RetryPolicyM)
-import Data.Aeson (Value)
+import Data.Aeson (FromJSON, Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
-import LLM.Core.LLMProvider (LLMProvider (..))
 import LLM.Core.Logger
   ( Hooks (onLog),
     LogLevel (Debug, Error, Info, Warn),
@@ -36,9 +38,8 @@ import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
-    Generatable,
-    GeneratedResult,
     LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
+    LLMProvider (..),
     LLMTextResult,
     StreamEvent,
     Tool (toolDef),
@@ -156,6 +157,10 @@ streamTextConversation unsafeEnv conv callback = do
   withFallback env conv $ \mc c u ->
     let call req = providerStreamText (mcProvider mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
+
+type GeneratedResult a = Either (LLMError, Conversation, Usage) a
+
+class (HasCodec t, FromJSON t) => Generatable t
 
 generateObject ::
   (Generatable t) =>

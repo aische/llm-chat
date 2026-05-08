@@ -18,7 +18,6 @@ import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding (decodeUtf8)
-import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData, sseEvent), readSSEEvents)
@@ -35,6 +34,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (EmptyResponse),
+    LLMProvider,
     LLMResult,
     LLMTextResult,
     StreamEvent (..),

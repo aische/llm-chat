@@ -11,15 +11,13 @@ import LLM.Core.Generate
     defaultChatEnv,
     generateText,
   )
-import LLM.Core.LLMProvider
-  ( LLMProvider (..),
-  )
 import LLM.Core.Types
   ( ChatRequest (reqConversation),
     ChatResponse (ChatResponse),
     ContentBlock (TextBlock, ToolCallBlock),
     Conversation (..),
     LLMError (Aborted, HttpError, NetworkError, ToolLoopExceeded),
+    LLMProvider (..),
     Tool (..),
     ToolCall (ToolCall),
     ToolDef (ToolDef, toolDescription, toolName, toolParameters),
@@ -199,7 +197,7 @@ spec = describe "Chat" $ do
                   abort sig -- abort while executing
                   pure "done"
               }
-          -- Gateway that always asks for two tool calls
+          -- gateway that always asks for two tool calls
           twoCallGw =
             LLMProvider
               { providerName = "mock-two",

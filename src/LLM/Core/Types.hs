@@ -6,7 +6,6 @@ module LLM.Core.Types
     ToolContext (..),
     ContentBlock (..),
     ChatRequest (..),
-    GeneratedResult,
     ChatResponse (..),
     LLMError (..),
     LLMTextResult,
@@ -16,17 +15,17 @@ module LLM.Core.Types
     TypedTool (..),
     ToolDef (..),
     ToolCall (..),
+    LLMProvider (..),
     ToolResult (..),
     StreamEvent (..),
-    Generatable,
   )
 where
 
-import Autodocodec (HasCodec)
 import Data.Aeson (FromJSON, ToJSON, Value)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import LLM.Core.Abort (AbortSignal)
+import LLM.Core.Logger (Hooks)
 import LLM.Core.Usage (Usage)
 
 -- | A tool invocation returned by the model
@@ -160,6 +159,9 @@ type LLMObjectResult = LLMResult (Value, Maybe Usage)
 
 type LLMResult a = Either LLMError a
 
-type GeneratedResult a = Either (LLMError, Conversation, Usage) a
-
-class (HasCodec t, FromJSON t) => Generatable t
+data LLMProvider = LLMProvider
+  { providerName :: Text,
+    providerGenerateText :: Hooks -> ChatRequest -> IO LLMTextResult,
+    providerStreamText :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult,
+    providerGenerateObject :: Hooks -> Value -> ChatRequest -> IO LLMObjectResult
+  }
