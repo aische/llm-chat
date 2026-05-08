@@ -23,7 +23,7 @@ import LLM.Core.Types
         reqTools
       ),
     LLMError (EmptyResponse),
-    LLMProvider,
+    LLMGateway,
   )
 import LLM.Providers.OpenAI (buildMessages, encodeToolDef, openAIBuildBodyPairs, parseOpenAIResponse, parseOpenAIStream, parseOpenAIUsage)
 import Network.HTTP.Req
@@ -104,12 +104,12 @@ ollamaProviderAdapter baseUrl baseOpts =
       (choice : _) <- o .: "choices" :: Parser [Value]
       withObject "choice" (\co -> co .: "message" >>= withObject "message" (.: "content")) choice
 
--- | Create a LLMProvider for the default Ollama instance (localhost:11434).
-ollamaProvider :: LLMProvider
+-- | Create a LLMGateway for the default Ollama instance (localhost:11434).
+ollamaProvider :: LLMGateway
 ollamaProvider = toProvider ollama
 
--- | Create a LLMProvider for a custom Ollama instance.
-ollamaProviderWith :: Url 'Http -> Option 'Http -> LLMProvider
+-- | Create a LLMGateway for a custom Ollama instance.
+ollamaProviderWith :: Url 'Http -> Option 'Http -> LLMGateway
 ollamaProviderWith baseUrl baseOpts = toProvider (ollamaWith baseUrl baseOpts)
 
 -- | Build request body — same as OpenAI but without stream_options

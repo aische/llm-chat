@@ -17,7 +17,7 @@ import LLM.Core.Types
     ContentBlock (TextBlock, ToolCallBlock),
     Conversation (..),
     LLMError (Aborted, HttpError, NetworkError, ToolLoopExceeded),
-    LLMProvider (..),
+    LLMGateway (..),
     Tool (..),
     ToolCall (ToolCall),
     ToolDef (ToolDef, toolDescription, toolName, toolParameters),
@@ -33,27 +33,27 @@ import Test.Hspec
   )
 
 -- | A mock gateway that returns a fixed response
-mockGateway :: ChatResponse -> LLMProvider
+mockGateway :: ChatResponse -> LLMGateway
 mockGateway resp =
-  LLMProvider
+  LLMGateway
     { providerName = "mock",
       providerGenerateText = \_ _ -> pure (Right resp),
       providerStreamText = \_ _ _ -> pure (Right resp)
     }
 
 -- | A mock gateway that returns an error
-mockErrorGateway :: LLMError -> LLMProvider
+mockErrorGateway :: LLMError -> LLMGateway
 mockErrorGateway err =
-  LLMProvider
+  LLMGateway
     { providerName = "mock-error",
       providerGenerateText = \_ _ -> pure (Left err),
       providerStreamText = \_ _ _ -> pure (Left err)
     }
 
 -- | A mock gateway that calls a tool, then responds with text
-mockToolGateway :: LLMProvider
+mockToolGateway :: LLMGateway
 mockToolGateway =
-  LLMProvider
+  LLMGateway
     { providerName = "mock-tool",
       providerGenerateText = \_ req ->
         if any isToolTurn (unConversation $ reqConversation req)
@@ -71,7 +71,7 @@ zeroPricing :: PricingInfo
 zeroPricing = PricingInfo 0 0
 
 -- | Wrap a gateway in a ModelConfig with test defaults
-mockModel :: LLMProvider -> ModelConfig
+mockModel :: LLMGateway -> ModelConfig
 mockModel gw =
   ModelConfig
     { mcProvider = gw,
@@ -96,7 +96,7 @@ weatherTool =
       toolExecute = \_ _ -> pure "Sunny, 22°C"
     }
 
-env :: LLMProvider -> ChatEnv
+env :: LLMGateway -> ChatEnv
 env gw = defaultChatEnv (mockModel gw)
 
 spec :: Spec
@@ -133,7 +133,7 @@ spec = describe "Chat" $ do
     it "respects maxToolRounds" $ do
       -- A gateway that always returns tool calls
       let infiniteToolGateway =
-            LLMProvider
+            LLMGateway
               { providerName = "mock-infinite",
                 providerGenerateText = \_ _ ->
                   let tc = ToolCall "call_1" "get_weather" (object [])
@@ -199,7 +199,7 @@ spec = describe "Chat" $ do
               }
           -- gateway that always asks for two tool calls
           twoCallGw =
-            LLMProvider
+            LLMGateway
               { providerName = "mock-two",
                 providerGenerateText = \_ _ ->
                   let tc1 = ToolCall "c1" "slow" (object [])

@@ -39,7 +39,7 @@ import LLM.Core.Types
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
-    LLMProvider (..),
+    LLMGateway (..),
     LLMTextResult,
     StreamEvent,
     Tool (toolDef),
@@ -62,7 +62,7 @@ import LLM.Core.Utils
 -- Bundles together everything needed to reach one model endpoint.
 -- Use a list of these in 'ChatEnv' for fallback across models/providers.
 data ModelConfig = ModelConfig
-  { mcProvider :: LLMProvider,
+  { mcProvider :: LLMGateway,
     mcModel :: Text,
     mcPricing :: PricingInfo,
     mcMaxTokens :: Int,

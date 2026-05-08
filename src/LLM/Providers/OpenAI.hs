@@ -47,7 +47,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
-    LLMProvider,
+    LLMGateway,
     LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
@@ -121,11 +121,11 @@ openAIProviderAdapter baseUrl baseOpts apiKey =
         pure (responseStatusCode resp, responseBody resp)
 
 -- | Create an OpenAI client for api.openai.com
-openAIProvider :: Text -> LLMProvider
+openAIProvider :: Text -> LLMGateway
 openAIProvider apiKey = toProvider $ openAIProviderAdapter (https "api.openai.com") mempty apiKey
 
 -- | Create an OpenAI-compatible client with a custom base URL.
-openAIProviderWith :: Url scheme -> Option scheme -> Text -> LLMProvider
+openAIProviderWith :: Url scheme -> Option scheme -> Text -> LLMGateway
 openAIProviderWith baseUrl baseOpts apiKey = toProvider (openAIProviderAdapter baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme

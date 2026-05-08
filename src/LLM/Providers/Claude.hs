@@ -34,7 +34,7 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (..),
     LLMError (EmptyResponse),
-    LLMProvider,
+    LLMGateway,
     LLMResult,
     LLMTextResult,
     StreamEvent (..),
@@ -62,7 +62,7 @@ import Network.HTTP.Req
     (/:),
   )
 
-claudeProvider :: Text -> LLMProvider
+claudeProvider :: Text -> LLMGateway
 claudeProvider apiKey = toProvider $ claudeProviderAdapter apiKey
 
 claudeProviderAdapter :: Text -> LLMProviderAdapter
@@ -103,7 +103,7 @@ claudeOpts apiKey =
     <> header "anthropic-version" "2023-06-01"
 
 -- | Create an LLMClient from Claude credentials
--- claudeProvider :: Text -> LLMProvider
+-- claudeProvider :: Text -> LLMGateway
 -- claudeProvider apiKey = toProvider (Claude apiKey)
 parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseClaudeStream reader callback = do

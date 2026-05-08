@@ -15,7 +15,7 @@ module LLM.Core.Types
     TypedTool (..),
     ToolDef (..),
     ToolCall (..),
-    LLMProvider (..),
+    LLMGateway (..),
     ToolResult (..),
     StreamEvent (..),
   )
@@ -159,7 +159,7 @@ type LLMObjectResult = LLMResult (Value, Maybe Usage)
 
 type LLMResult a = Either LLMError a
 
-data LLMProvider = LLMProvider
+data LLMGateway = LLMGateway
   { providerName :: Text,
     providerGenerateText :: Hooks -> ChatRequest -> IO LLMTextResult,
     providerStreamText :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult,

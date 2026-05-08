@@ -14,8 +14,8 @@ import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
   ( ChatRequest (reqTools),
     LLMError (HttpError, NetworkError),
+    LLMGateway (..),
     LLMObjectResult,
-    LLMProvider (..),
     LLMTextResult,
     StreamEvent,
   )
@@ -84,11 +84,11 @@ genericStreamText p hooks r callback = do
         _ -> pure ()
       pure r'
 
--- | Convert any LLMProviderAdapter instance into a LLMProvider.
+-- | Convert any LLMProviderAdapter instance into a LLMGateway.
 -- Hooks are not baked in — they are passed at call time via 'ChatEnv'.
-toProvider :: LLMProviderAdapter -> LLMProvider
+toProvider :: LLMProviderAdapter -> LLMGateway
 toProvider p =
-  LLMProvider
+  LLMGateway
     { providerName = providerAdapterName p,
       providerGenerateText = genericGenerateText p,
       providerStreamText = genericStreamText p,

@@ -37,8 +37,8 @@ import LLM.Core.Types
     ContentBlock (..),
     Conversation (unConversation),
     LLMError (EmptyResponse),
+    LLMGateway,
     LLMObjectResult,
-    LLMProvider,
     LLMTextResult,
     StreamEvent (..),
     ToolCall (..),
@@ -64,7 +64,7 @@ import Network.HTTP.Req
 
 -- | Gemini provider configuration
 -- | Create an LLMClient from Gemini credentials
-geminiProvider :: Text -> LLMProvider
+geminiProvider :: Text -> LLMGateway
 geminiProvider apiKey = toProvider (geminiProviderAdapter apiKey)
 
 geminiProviderAdapter :: Text -> LLMProviderAdapter
