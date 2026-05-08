@@ -13,6 +13,7 @@ module LLM.Core.Utils
     withTimeout,
     streamResponseJson,
     printValue,
+    parseChatResponse,
   )
 where
 
@@ -22,6 +23,7 @@ import Control.Exception (SomeException, try)
 import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
 import Data.Aeson (FromJSON, Value, encode, object, (.=))
 import Data.Aeson qualified as AE
+import Data.Aeson.Types (Parser)
 import Data.ByteString.Lazy.Char8 qualified as L8
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -151,6 +153,31 @@ streamResponseJson r =
         [ "input_tokens" .= usageInputTokens u,
           "output_tokens" .= usageOutputTokens u
         ]
+
+parseChatResponse :: Value -> Parser ChatResponse
+parseChatResponse = AE.withObject "ChatResponse" $ \v -> do
+  text <- v AE..: "text"
+  content <- v AE..: "content" >>= mapM parseContentBlock
+  usage <- v AE..:? "usage" >>= mapM parseUsage
+  pure $ ChatResponse text content usage
+  where
+    parseContentBlock = AE.withObject "ContentBlock" $ \o -> do
+      t <- o AE..: "type"
+      case (t :: Text) of
+        "text" -> TextBlock <$> o AE..: "text"
+        "tool_call" -> do
+          tcId <- o AE..: "id"
+          tcName <- o AE..: "name"
+          tcArgs <- o AE..: "arguments"
+          pure $ ToolCallBlock $ ToolCall tcId tcName tcArgs
+        _ -> fail "Unknown content block type"
+
+    parseUsage = AE.withObject "Usage" $ \o -> do
+      input <- o AE..: "input_tokens"
+      output <- o AE..: "output_tokens"
+      -- Da usageTotalCost nicht im JSON von streamResponseJson war,
+      -- setzen wir es hier auf 0.0 oder einen Standardwert.
+      pure $ Usage input output 0.0
 
 printValue :: Value -> IO ()
 printValue val = L8.putStrLn (encode val)

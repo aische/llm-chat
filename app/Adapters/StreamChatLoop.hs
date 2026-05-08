@@ -7,7 +7,7 @@ import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Generate (streamText)
+import LLM.Core.Generate (generateText, streamText)
 import LLM.Core.LLMProvider (ChatEnv)
 import LLM.Core.Types
   ( Conversation (..),
@@ -22,22 +22,19 @@ import Text.Printf (printf)
 
 prompts :: [Text]
 prompts =
-  [ "how old is John? Use a tool to look up his age",
-    "how's the weather in london?",
-    "and in paris?",
-    "write a poem about that city. 16 lines."
+  [ "how's the weather in london?",
+    "and in paris?"
   ]
 
-streamChatLoopMain :: ChatEnv -> IO ()
-streamChatLoopMain env = do
-  putStrLn "\n=== Ollama (with Claude  and Gemini fallbacks) ==="
-  _ <- streamChatLoop env prompts
+streamChatLoopMain :: Bool -> ChatEnv -> IO ()
+streamChatLoopMain stream env = do
+  _ <- streamChatLoop stream env prompts
   pure ()
 
 -- | Interactive streaming loop — runs a list of prompts, printing
 -- streamed deltas and usage stats as it goes.
-streamChatLoop :: ChatEnv -> [Text] -> IO Conversation
-streamChatLoop env = aux emptyUsage (Conversation [])
+streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop stream env = aux emptyUsage (Conversation [])
   where
     aux totalUsage conv [] = do
       putStrLn $
@@ -52,12 +49,16 @@ streamChatLoop env = aux emptyUsage (Conversation [])
     aux totalUsage conv (prompt : rest) = do
       putStrLn $ "> " <> T.unpack prompt
       firstChunkRef <- newIORef True
-      result <- streamText env conv prompt $ \case
-        StreamDelta txt -> do
-          _ <- readIORef firstChunkRef
-          writeIORef firstChunkRef False
-          TIO.putStr txt
-        StreamToolCall _ -> pure ()
+      result <-
+        if stream
+          then streamText env conv prompt $ \case
+            StreamDelta txt -> do
+              _ <- readIORef firstChunkRef
+              writeIORef firstChunkRef False
+              TIO.putStr txt
+            StreamToolCall _ -> pure ()
+          else
+            generateText env conv prompt
       case result of
         Left (err, _, _) -> do
           putStrLn $ "Error: " <> show err

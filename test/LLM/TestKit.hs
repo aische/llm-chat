@@ -1,11 +1,12 @@
 module LLM.TestKit where
 
 import Data.Aeson (FromJSON, Value, decodeFileStrict)
+import Data.Aeson.Types (parseMaybe)
 import Data.IORef (newIORef)
 import Data.Map qualified as M
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM (ChatEnv, ChatResponse (..), Conversation (..), LLMProviderAdapter (sendRequest), addUsage, emptyUsage, generateText, streamText)
+import LLM (ChatEnv, ChatResponse (..), Conversation (..), LLMProviderAdapter (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
 
 data MockRequestResponse = MockRequestResponse
   { prompt :: Maybe Text,
@@ -36,31 +37,36 @@ loadRecordedConversation filePath = do
 mockProvider :: M.Map Value Value -> LLMProviderAdapter -> LLMProviderAdapter
 mockProvider mp adapter =
   adapter
-    { sendRequest = \val ->
+    { sendRequest = \val -> do
         case M.lookup val mp of
           Nothing ->
-            let q = fst (head (M.toList mp)) in error (show val <> "\n" <> show q)
-          -- error ("vaulue not found" <> show val <> "\n" <> show (M.toList mp))
-          -- error "value not found"
-          Just r -> pure (200, r)
+            -- error (show val <> "\n" <> show (fst $ head $ M.toList mp))
+            error ("value not found for:" <> show val)
+          Just r -> pure (200, r),
+      sendStreamRequest = \body callback -> do
+        case M.lookup body mp of
+          Nothing ->
+            -- error (show body <> "\n" <> show (fst $ head $ M.toList mp))
+            error ("value not found for:" <> show body)
+          Just r -> case parseMaybe parseChatResponse r of
+            Nothing -> error "can't parse recorded ChatResponse json"
+            Just chatResponse -> pure $ Right chatResponse
     }
 
-streamChatLoopMain :: ChatEnv -> [Text] -> IO ()
-streamChatLoopMain env prompts = do
+streamChatLoopMain :: Bool -> ChatEnv -> [Text] -> IO ()
+streamChatLoopMain stream env prompts = do
   putStrLn "\n=== Ollama (with Claude  and Gemini fallbacks) ==="
-  _ <- streamChatLoop env prompts
+  _ <- streamChatLoop stream env prompts
   pure ()
 
--- | Interactive streaming loop — runs a list of prompts, printing
--- streamed deltas and usage stats as it goes.
-streamChatLoop :: ChatEnv -> [Text] -> IO Conversation
-streamChatLoop env = aux emptyUsage (Conversation [])
+streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop stream env = aux emptyUsage (Conversation [])
   where
     aux totalUsage conv [] = do
       return conv
     aux totalUsage conv (prompt : rest) = do
       firstChunkRef <- newIORef True
-      result <- streamText env conv prompt $ const $ pure ()
+      result <- if stream then streamText env conv prompt $ const (pure ()) else generateText env conv prompt
       case result of
         Left (err, _, _) -> do
           pure conv

@@ -113,6 +113,7 @@ executable hello-haskell1
                       Adapters.SessionChat,
                       Adapters.StreamChatLoop,
                       Main1,
+                      TestExample,
                       Example
     hs-source-dirs:   app
     build-depends:
