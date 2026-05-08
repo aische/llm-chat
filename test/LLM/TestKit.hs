@@ -6,7 +6,7 @@ import Data.IORef (newIORef)
 import Data.Map qualified as M
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM (ChatEnv, ChatResponse (..), Conversation (..), LLMProviderAdapter (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
+import LLM (ChatEnv, ChatResponse (..), Conversation (..), LLMProvider (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
 
 data MockRequestResponse = MockRequestResponse
   { prompt :: Maybe Text,
@@ -34,7 +34,7 @@ loadRecordedConversation filePath = do
           prompts = rrs >>= \rsp -> case prompt rsp of Nothing -> []; Just p -> [p]
        in pure (rrMap, prompts)
 
-mockProvider :: M.Map Value Value -> LLMProviderAdapter -> LLMProviderAdapter
+mockProvider :: M.Map Value Value -> LLMProvider -> LLMProvider
 mockProvider mp adapter =
   adapter
     { sendRequest = \val -> do

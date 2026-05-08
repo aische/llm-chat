@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
-module LLM.Providers.Claude (claudeProvider, parseClaudeResponse, parseClaudeUsage) where
+module LLM.Providers.Claude (claudeGateway, parseClaudeResponse, parseClaudeUsage) where
 
 import Data.Aeson
   ( KeyValue ((.=)),
@@ -18,7 +18,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding (decodeUtf8)
-import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData, sseEvent), readSSEEvents)
 import LLM.Core.Types
@@ -62,13 +62,13 @@ import Network.HTTP.Req
     (/:),
   )
 
-claudeProvider :: Text -> LLMGateway
-claudeProvider apiKey = toProvider $ claudeProviderAdapter apiKey
+claudeGateway :: Text -> LLMGateway
+claudeGateway apiKey = toProvider $ claudeProviderAdapter apiKey
 
-claudeProviderAdapter :: Text -> LLMProviderAdapter
+claudeProviderAdapter :: Text -> LLMProvider
 claudeProviderAdapter apiKey =
-  LLMProviderAdapter
-    { providerAdapterName = "claude",
+  LLMProvider
+    { providerName = "claude",
       buildBody = claudeBuildBody,
       sendRequest = sendRequest,
       sendStreamRequest = \body callback ->
@@ -103,8 +103,8 @@ claudeOpts apiKey =
     <> header "anthropic-version" "2023-06-01"
 
 -- | Create an LLMClient from Claude credentials
--- claudeProvider :: Text -> LLMGateway
--- claudeProvider apiKey = toProvider (Claude apiKey)
+-- claudeGateway :: Text -> LLMGateway
+-- claudeGateway apiKey = toProvider (Claude apiKey)
 parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseClaudeStream reader callback = do
   blocksRef <- newIORef ([] :: [ContentBlock])

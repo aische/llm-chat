@@ -62,7 +62,7 @@ library
         LLM.Core.Abort
         LLM.Core.Generate
         LLM.Core.Types
-        LLM.Core.LLMProviderAdapter
+        LLM.Core.LLMProvider
         LLM.Providers.Gemini
         LLM.Providers.Claude
         LLM.Providers.OpenAI

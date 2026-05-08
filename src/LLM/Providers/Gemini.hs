@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module LLM.Providers.Gemini (geminiProvider, parseGeminiResponse, parseGeminiUsage) where
+module LLM.Providers.Gemini (geminiGateway, parseGeminiResponse, parseGeminiUsage) where
 
 import Control.Applicative ((<|>))
 import Data.Aeson
@@ -21,7 +21,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Unique (hashUnique, newUnique)
-import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripBoundsAndComments, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
@@ -64,13 +64,13 @@ import Network.HTTP.Req
 
 -- | Gemini provider configuration
 -- | Create an LLMClient from Gemini credentials
-geminiProvider :: Text -> LLMGateway
-geminiProvider apiKey = toProvider (geminiProviderAdapter apiKey)
+geminiGateway :: Text -> LLMGateway
+geminiGateway apiKey = toProvider (geminiProviderAdapter apiKey)
 
-geminiProviderAdapter :: Text -> LLMProviderAdapter
+geminiProviderAdapter :: Text -> LLMProvider
 geminiProviderAdapter apiKey =
-  LLMProviderAdapter
-    { providerAdapterName = "gemini",
+  LLMProvider
+    { providerName = "gemini",
       buildBody = const geminiBuildBody,
       sendRequest = sendRequest,
       sendStreamRequest = \body callback ->

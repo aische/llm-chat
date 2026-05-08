@@ -1,5 +1,5 @@
-module LLM.Core.LLMProviderAdapter
-  ( LLMProviderAdapter (..),
+module LLM.Core.LLMProvider
+  ( LLMProvider (..),
     toProvider,
     genericGenerateText,
     genericStreamText,
@@ -22,9 +22,9 @@ import LLM.Core.Types
 import LLM.Core.Utils (streamResponseJson)
 import Network.HTTP.Req (HttpException)
 
-data LLMProviderAdapter = LLMProviderAdapter
+data LLMProvider = LLMProvider
   { -- | Provider name for logging/hooks (e.g. "claude", "gemini", "openai")
-    providerAdapterName :: Text,
+    providerName :: Text,
     -- | Build the JSON request body. Bool indicates whether streaming is requested.
     buildBody :: Bool -> ChatRequest -> Value,
     -- | Make a non-streaming HTTP call, returning (status code, response JSON).
@@ -43,53 +43,53 @@ data LLMProviderAdapter = LLMProviderAdapter
   }
 
 -- | Generic non-streaming chat via the typeclass.
-genericGenerateText :: LLMProviderAdapter -> Hooks -> ChatRequest -> IO LLMTextResult
+genericGenerateText :: LLMProvider -> Hooks -> ChatRequest -> IO LLMTextResult
 genericGenerateText p hooks r = do
   let body = buildBody p False r
-  onRequest hooks (providerAdapterName p) body
+  onRequest hooks (providerName p) body
   result <- try (sendRequest p body)
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right (status, respBody) -> do
-      onResponse hooks (providerAdapterName p) respBody
+      onResponse hooks (providerName p) respBody
       if status == 200
         then parseResponse p respBody
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic object generation via the typeclass.
-genericGenerateObject :: LLMProviderAdapter -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
+genericGenerateObject :: LLMProvider -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
 genericGenerateObject p hooks schema r = do
   let body = buildObjectBody p r {reqTools = []} schema
-  onRequest hooks (providerAdapterName p) body
+  onRequest hooks (providerName p) body
   result <- try (sendObjectRequest p body)
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right (status, respBody) -> do
-      onResponse hooks (providerAdapterName p) respBody
+      onResponse hooks (providerName p) respBody
       if status == 200
         then parseObjectResponse p respBody
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
 -- | Generic streaming chat via the typeclass.
-genericStreamText :: LLMProviderAdapter -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult
+genericStreamText :: LLMProvider -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult
 genericStreamText p hooks r callback = do
   let body = buildBody p True r
-  onRequest hooks (providerAdapterName p) body
+  onRequest hooks (providerName p) body
   result <- try (sendStreamRequest p body callback)
   case result of
     Left e -> pure $ Left $ NetworkError (T.pack (show (e :: HttpException)))
     Right r' -> do
       case r' of
-        Right resp -> onResponse hooks (providerAdapterName p) (streamResponseJson resp)
+        Right resp -> onResponse hooks (providerName p) (streamResponseJson resp)
         _ -> pure ()
       pure r'
 
--- | Convert any LLMProviderAdapter instance into a LLMGateway.
+-- | Convert any LLMProvider instance into a LLMGateway.
 -- Hooks are not baked in — they are passed at call time via 'ChatEnv'.
-toProvider :: LLMProviderAdapter -> LLMGateway
+toProvider :: LLMProvider -> LLMGateway
 toProvider p =
   LLMGateway
-    { gwName = providerAdapterName p,
+    { gwName = providerName p,
       gwGenerateText = genericGenerateText p,
       gwStreamText = genericStreamText p,
       gwGenerateObject = genericGenerateObject p

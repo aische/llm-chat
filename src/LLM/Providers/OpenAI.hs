@@ -1,6 +1,6 @@
 module LLM.Providers.OpenAI
-  ( openAIProvider,
-    openAIProviderWith,
+  ( openAIGateway,
+    openAIGatewayWith,
     parseOpenAIResponse,
     parseOpenAIUsage,
     buildMessages,
@@ -31,7 +31,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
@@ -73,10 +73,10 @@ import Network.HTTP.Req
     (/:),
   )
 
-openAIProviderAdapter :: Url scheme -> Option scheme -> Text -> LLMProviderAdapter
+openAIProviderAdapter :: Url scheme -> Option scheme -> Text -> LLMProvider
 openAIProviderAdapter baseUrl baseOpts apiKey =
-  LLMProviderAdapter
-    { providerAdapterName = "openai",
+  LLMProvider
+    { providerName = "openai",
       buildBody = openAIBuildBody,
       sendRequest = sendRequest,
       sendStreamRequest = \body callback ->
@@ -121,12 +121,12 @@ openAIProviderAdapter baseUrl baseOpts apiKey =
         pure (responseStatusCode resp, responseBody resp)
 
 -- | Create an OpenAI client for api.openai.com
-openAIProvider :: Text -> LLMGateway
-openAIProvider apiKey = toProvider $ openAIProviderAdapter (https "api.openai.com") mempty apiKey
+openAIGateway :: Text -> LLMGateway
+openAIGateway apiKey = toProvider $ openAIProviderAdapter (https "api.openai.com") mempty apiKey
 
 -- | Create an OpenAI-compatible client with a custom base URL.
-openAIProviderWith :: Url scheme -> Option scheme -> Text -> LLMGateway
-openAIProviderWith baseUrl baseOpts apiKey = toProvider (openAIProviderAdapter baseUrl baseOpts apiKey)
+openAIGatewayWith :: Url scheme -> Option scheme -> Text -> LLMGateway
+openAIGatewayWith baseUrl baseOpts apiKey = toProvider (openAIProviderAdapter baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme
 authHeader apiKey

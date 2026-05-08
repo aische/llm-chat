@@ -11,10 +11,10 @@ import LLM.Core.Usage
         pricePerMillionOutput
       ),
   )
-import LLM.Providers.Claude (claudeProvider)
-import LLM.Providers.Gemini (geminiProvider)
-import LLM.Providers.Ollama (ollamaProvider)
-import LLM.Providers.OpenAI (openAIProvider)
+import LLM.Providers.Claude (claudeGateway)
+import LLM.Providers.Gemini (geminiGateway)
+import LLM.Providers.Ollama (ollamaGateway)
+import LLM.Providers.OpenAI (openAIGateway)
 import System.Environment (getEnv)
 
 data AllModels = AllModels
@@ -33,9 +33,9 @@ getAllModels =
     claudeKey <- T.pack <$> getEnv "CLAUDE_API_KEY"
     openAIKey <- T.pack <$> getEnv "OPENAI_API_KEY"
 
-    let gemini = geminiProvider geminiKey
-        claude = claudeProvider claudeKey
-        openAI = openAIProvider openAIKey
+    let gemini = geminiGateway geminiKey
+        claude = claudeGateway claudeKey
+        openAI = openAIGateway openAIKey
         gpt_5_nano =
           ModelConfig
             { mcProvider = openAI,
@@ -93,7 +93,7 @@ getAllModels =
             }
         llama_3_2 =
           ModelConfig
-            { mcProvider = ollamaProvider,
+            { mcProvider = ollamaGateway,
               mcModel = "llama3.2:latest",
               mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
               mcMaxTokens = 1024,

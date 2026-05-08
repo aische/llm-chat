@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
-module LLM.Providers.Ollama (Ollama (..), ollama, ollamaWith, ollamaProvider, ollamaProviderWith) where
+module LLM.Providers.Ollama (Ollama (..), ollama, ollamaWith, ollamaGateway, ollamaGatewayWith) where
 
 import Data.Aeson
   ( KeyValue ((.=)),
@@ -13,7 +13,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
-import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
 import LLM.Core.Types
   ( ChatRequest
@@ -51,17 +51,17 @@ data Ollama = Ollama
   }
 
 -- | Default Ollama provider at localhost:11434.
-ollama :: LLMProviderAdapter
-ollama = ollamaProviderAdapter (http "localhost") (port 11434)
+ollama :: LLMProvider
+ollama = ollamaGatewayAdapter (http "localhost") (port 11434)
 
 -- | Custom Ollama provider with a different host/port.
-ollamaWith :: Url 'Http -> Option 'Http -> LLMProviderAdapter
-ollamaWith = ollamaProviderAdapter
+ollamaWith :: Url 'Http -> Option 'Http -> LLMProvider
+ollamaWith = ollamaGatewayAdapter
 
-ollamaProviderAdapter :: Url scheme -> Option scheme -> LLMProviderAdapter
-ollamaProviderAdapter baseUrl baseOpts =
-  LLMProviderAdapter
-    { providerAdapterName = "ollama",
+ollamaGatewayAdapter :: Url scheme -> Option scheme -> LLMProvider
+ollamaGatewayAdapter baseUrl baseOpts =
+  LLMProvider
+    { providerName = "ollama",
       -- Ollama uses the same request format as OpenAI, but without stream_options
       -- (Ollama doesn't support include_usage in streaming).
       buildBody = ollamaBuildBody,
@@ -105,12 +105,12 @@ ollamaProviderAdapter baseUrl baseOpts =
       withObject "choice" (\co -> co .: "message" >>= withObject "message" (.: "content")) choice
 
 -- | Create a LLMGateway for the default Ollama instance (localhost:11434).
-ollamaProvider :: LLMGateway
-ollamaProvider = toProvider ollama
+ollamaGateway :: LLMGateway
+ollamaGateway = toProvider ollama
 
 -- | Create a LLMGateway for a custom Ollama instance.
-ollamaProviderWith :: Url 'Http -> Option 'Http -> LLMGateway
-ollamaProviderWith baseUrl baseOpts = toProvider (ollamaWith baseUrl baseOpts)
+ollamaGatewayWith :: Url 'Http -> Option 'Http -> LLMGateway
+ollamaGatewayWith baseUrl baseOpts = toProvider (ollamaWith baseUrl baseOpts)
 
 -- | Build request body — same as OpenAI but without stream_options
 -- since Ollama doesn't support include_usage.

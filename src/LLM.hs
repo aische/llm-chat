@@ -3,7 +3,7 @@ module LLM
     module LLM.Core.Types,
     module LLM.Core.Utils,
     module LLM.Core.Generate,
-    module LLM.Core.LLMProviderAdapter,
+    module LLM.Core.LLMProvider,
     module LLM.Core.ProviderUtils,
     module LLM.Providers.Gemini,
     module LLM.Providers.Claude,
@@ -16,7 +16,7 @@ where
 
 import LLM.Core.Abort
 import LLM.Core.Generate
-import LLM.Core.LLMProviderAdapter
+import LLM.Core.LLMProvider
 import LLM.Core.Logger
 import LLM.Core.ProviderUtils
 import LLM.Core.Types
