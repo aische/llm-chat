@@ -89,8 +89,8 @@ genericStreamText p hooks r callback = do
 toProvider :: LLMProviderAdapter -> LLMGateway
 toProvider p =
   LLMGateway
-    { providerName = providerAdapterName p,
-      providerGenerateText = genericGenerateText p,
-      providerStreamText = genericStreamText p,
-      providerGenerateObject = genericGenerateObject p
+    { gwName = providerAdapterName p,
+      gwGenerateText = genericGenerateText p,
+      gwStreamText = genericStreamText p,
+      gwGenerateObject = genericGenerateObject p
     }

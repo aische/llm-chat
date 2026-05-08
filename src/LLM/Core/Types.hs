@@ -160,8 +160,8 @@ type LLMObjectResult = LLMResult (Value, Maybe Usage)
 type LLMResult a = Either LLMError a
 
 data LLMGateway = LLMGateway
-  { providerName :: Text,
-    providerGenerateText :: Hooks -> ChatRequest -> IO LLMTextResult,
-    providerStreamText :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult,
-    providerGenerateObject :: Hooks -> Value -> ChatRequest -> IO LLMObjectResult
+  { gwName :: Text,
+    gwGenerateText :: Hooks -> ChatRequest -> IO LLMTextResult,
+    gwStreamText :: Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult,
+    gwGenerateObject :: Hooks -> Value -> ChatRequest -> IO LLMObjectResult
   }

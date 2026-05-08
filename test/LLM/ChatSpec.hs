@@ -36,32 +36,32 @@ import Test.Hspec
 mockGateway :: ChatResponse -> LLMGateway
 mockGateway resp =
   LLMGateway
-    { providerName = "mock",
-      providerGenerateText = \_ _ -> pure (Right resp),
-      providerStreamText = \_ _ _ -> pure (Right resp)
+    { gwName = "mock",
+      gwGenerateText = \_ _ -> pure (Right resp),
+      gwStreamText = \_ _ _ -> pure (Right resp)
     }
 
 -- | A mock gateway that returns an error
 mockErrorGateway :: LLMError -> LLMGateway
 mockErrorGateway err =
   LLMGateway
-    { providerName = "mock-error",
-      providerGenerateText = \_ _ -> pure (Left err),
-      providerStreamText = \_ _ _ -> pure (Left err)
+    { gwName = "mock-error",
+      gwGenerateText = \_ _ -> pure (Left err),
+      gwStreamText = \_ _ _ -> pure (Left err)
     }
 
 -- | A mock gateway that calls a tool, then responds with text
 mockToolGateway :: LLMGateway
 mockToolGateway =
   LLMGateway
-    { providerName = "mock-tool",
-      providerGenerateText = \_ req ->
+    { gwName = "mock-tool",
+      gwGenerateText = \_ req ->
         if any isToolTurn (unConversation $ reqConversation req)
           then pure $ Right (ChatResponse "The weather is sunny." [TextBlock "The weather is sunny."] (Just (Usage 80 15 0)))
           else
             let tc = ToolCall "call_1" "get_weather" (object ["location" .= ("London" :: String)])
              in pure $ Right (ChatResponse "" [ToolCallBlock tc] (Just (Usage 50 10 0))),
-      providerStreamText = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
+      gwStreamText = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
     }
   where
     isToolTurn (ToolTurn _) = True
@@ -134,11 +134,11 @@ spec = describe "Chat" $ do
       -- A gateway that always returns tool calls
       let infiniteToolGateway =
             LLMGateway
-              { providerName = "mock-infinite",
-                providerGenerateText = \_ _ ->
+              { gwName = "mock-infinite",
+                gwGenerateText = \_ _ ->
                   let tc = ToolCall "call_1" "get_weather" (object [])
                    in pure $ Right (ChatResponse "" [ToolCallBlock tc] Nothing),
-                providerStreamText = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
+                gwStreamText = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
               }
           limitedEnv = (env infiniteToolGateway) {envMaxToolRounds = 2, envTools = [weatherTool]}
       result <- generateText limitedEnv (Conversation []) "test"
@@ -200,12 +200,12 @@ spec = describe "Chat" $ do
           -- gateway that always asks for two tool calls
           twoCallGw =
             LLMGateway
-              { providerName = "mock-two",
-                providerGenerateText = \_ _ ->
+              { gwName = "mock-two",
+                gwGenerateText = \_ _ ->
                   let tc1 = ToolCall "c1" "slow" (object [])
                       tc2 = ToolCall "c2" "slow" (object [])
                    in pure $ Right (ChatResponse "" [ToolCallBlock tc1, ToolCallBlock tc2] Nothing),
-                providerStreamText = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
+                gwStreamText = \_ _ _ -> pure $ Right (ChatResponse "" [] Nothing)
               }
           e = (env twoCallGw) {envTools = [slowTool], envAbortSignal = Just sig}
       result <- generateText e (Conversation []) "go"
