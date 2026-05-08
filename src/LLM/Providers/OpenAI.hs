@@ -73,8 +73,8 @@ import Network.HTTP.Req
     (/:),
   )
 
-openAIProviderAdapter :: Url scheme -> Option scheme -> Text -> LLMProvider
-openAIProviderAdapter baseUrl baseOpts apiKey =
+openAIProvider :: Url scheme -> Option scheme -> Text -> LLMProvider
+openAIProvider baseUrl baseOpts apiKey =
   LLMProvider
     { providerName = "openai",
       buildBody = openAIBuildBody,
@@ -122,11 +122,11 @@ openAIProviderAdapter baseUrl baseOpts apiKey =
 
 -- | Create an OpenAI client for api.openai.com
 openAIGateway :: Text -> LLMGateway
-openAIGateway apiKey = toProvider $ openAIProviderAdapter (https "api.openai.com") mempty apiKey
+openAIGateway apiKey = toProvider $ openAIProvider (https "api.openai.com") mempty apiKey
 
 -- | Create an OpenAI-compatible client with a custom base URL.
 openAIGatewayWith :: Url scheme -> Option scheme -> Text -> LLMGateway
-openAIGatewayWith baseUrl baseOpts apiKey = toProvider (openAIProviderAdapter baseUrl baseOpts apiKey)
+openAIGatewayWith baseUrl baseOpts apiKey = toProvider (openAIProvider baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme
 authHeader apiKey

@@ -63,10 +63,10 @@ import Network.HTTP.Req
   )
 
 claudeGateway :: Text -> LLMGateway
-claudeGateway apiKey = toProvider $ claudeProviderAdapter apiKey
+claudeGateway apiKey = toProvider $ claudeProvider apiKey
 
-claudeProviderAdapter :: Text -> LLMProvider
-claudeProviderAdapter apiKey =
+claudeProvider :: Text -> LLMProvider
+claudeProvider apiKey =
   LLMProvider
     { providerName = "claude",
       buildBody = claudeBuildBody,

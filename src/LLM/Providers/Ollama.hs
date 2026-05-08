@@ -52,14 +52,14 @@ data Ollama = Ollama
 
 -- | Default Ollama provider at localhost:11434.
 ollama :: LLMProvider
-ollama = ollamaGatewayAdapter (http "localhost") (port 11434)
+ollama = ollamaProvider (http "localhost") (port 11434)
 
 -- | Custom Ollama provider with a different host/port.
 ollamaWith :: Url 'Http -> Option 'Http -> LLMProvider
-ollamaWith = ollamaGatewayAdapter
+ollamaWith = ollamaProvider
 
-ollamaGatewayAdapter :: Url scheme -> Option scheme -> LLMProvider
-ollamaGatewayAdapter baseUrl baseOpts =
+ollamaProvider :: Url scheme -> Option scheme -> LLMProvider
+ollamaProvider baseUrl baseOpts =
   LLMProvider
     { providerName = "ollama",
       -- Ollama uses the same request format as OpenAI, but without stream_options

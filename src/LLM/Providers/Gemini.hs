@@ -65,10 +65,10 @@ import Network.HTTP.Req
 -- | Gemini provider configuration
 -- | Create an LLMClient from Gemini credentials
 geminiGateway :: Text -> LLMGateway
-geminiGateway apiKey = toProvider (geminiProviderAdapter apiKey)
+geminiGateway apiKey = toProvider (geminiProvider apiKey)
 
-geminiProviderAdapter :: Text -> LLMProvider
-geminiProviderAdapter apiKey =
+geminiProvider :: Text -> LLMProvider
+geminiProvider apiKey =
   LLMProvider
     { providerName = "gemini",
       buildBody = const geminiBuildBody,
