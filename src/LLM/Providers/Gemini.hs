@@ -23,7 +23,7 @@ import Data.Text.Encoding (encodeUtf8)
 import Data.Unique (hashUnique, newUnique)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.LLMProviderAdapter (LLMProviderAdapter (..), toProvider)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripJsonFences)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripBoundsAndComments, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
   ( ChatRequest
@@ -81,7 +81,7 @@ geminiProviderAdapter apiKey =
                   /: "v1beta"
                   /: "models"
                   /: (model <> ":streamGenerateContent")
-          reqBr POST url (ReqBodyJson (stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
+          reqBr POST url (ReqBodyJson (stripBoundsAndComments $ stripModel body)) ("key" =: apiKey <> "alt" =: ("sse" :: Text)) $ \resp ->
             handleStreamResponse resp (`parseGeminiStream` callback),
       parseResponse = parseGeminiResponse,
       buildObjectBody = \r schema ->
@@ -117,7 +117,7 @@ geminiProviderAdapter apiKey =
                 /: "v1beta"
                 /: "models"
                 /: (model <> ":generateContent")
-        resp <- req POST url (ReqBodyJson (stripModel body)) jsonResponse ("key" =: apiKey)
+        resp <- req POST url (ReqBodyJson (stripBoundsAndComments $ stripModel body)) jsonResponse ("key" =: apiKey)
         pure (responseStatusCode resp, responseBody resp)
 
 -- | Extract model name stashed in the request body by geminiBuildBody.

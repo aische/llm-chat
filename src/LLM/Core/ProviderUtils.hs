@@ -4,7 +4,7 @@ module LLM.Core.ProviderUtils
     handleStreamResponse,
     normalizeSchemaOpenAI,
     stripJsonFences,
-    stripBounds,
+    stripBoundsAndComments,
   )
 where
 
@@ -75,15 +75,15 @@ stripJsonFences t =
    in t'''
 
 -- | Recursively removes "minimum" and "maximum" keys from a JSON Value, also $comment fields
-stripBounds :: Value -> Value
-stripBounds (Object obj) =
+stripBoundsAndComments :: Value -> Value
+stripBoundsAndComments (Object obj) =
   Object $
     KM.fromList
-      [ (k, stripBounds v)
+      [ (k, stripBoundsAndComments v)
         | (k, v) <- KM.toList obj,
           k /= "minimum",
           k /= "maximum",
           k /= "$comment"
       ]
-stripBounds (Array arr) = Array (fmap stripBounds arr)
-stripBounds other = other
+stripBoundsAndComments (Array arr) = Array (fmap stripBoundsAndComments arr)
+stripBoundsAndComments other = other

@@ -25,7 +25,7 @@ import LLM.Core.Logger
     LogLevel (Debug, Error, Info, Warn),
     safeHooks,
   )
-import LLM.Core.ProviderUtils (stripBounds)
+import LLM.Core.ProviderUtils (stripBoundsAndComments)
 import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
@@ -121,7 +121,7 @@ generateObjectConversationInternal ::
   Conversation ->
   IO (GeneratedResult (t, Usage))
 generateObjectConversationInternal unsafeEnv codec conv = do
-  let jsonschema = stripBounds $ AE.toJSON $ jsonSchemaVia codec
+  let jsonschema = stripBoundsAndComments $ AE.toJSON $ jsonSchemaVia codec
   res <- generateObjectConversationUntyped unsafeEnv jsonschema conv
   case res of
     Left (e, conv', u) -> pure (Left (e, conv', u))
