@@ -18,7 +18,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding (decodeUtf8)
-import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toGateway)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData, sseEvent), readSSEEvents)
 import LLM.Core.Types
@@ -63,7 +63,7 @@ import Network.HTTP.Req
   )
 
 claudeGateway :: Text -> LLMGateway
-claudeGateway apiKey = toProvider $ claudeProvider apiKey
+claudeGateway apiKey = toGateway $ claudeProvider apiKey
 
 claudeProvider :: Text -> LLMProvider
 claudeProvider apiKey =
@@ -104,7 +104,7 @@ claudeOpts apiKey =
 
 -- | Create an LLMClient from Claude credentials
 -- claudeGateway :: Text -> LLMGateway
--- claudeGateway apiKey = toProvider (Claude apiKey)
+-- claudeGateway apiKey = toGateway (Claude apiKey)
 parseClaudeStream :: HC.BodyReader -> (StreamEvent -> IO ()) -> IO LLMTextResult
 parseClaudeStream reader callback = do
   blocksRef <- newIORef ([] :: [ContentBlock])

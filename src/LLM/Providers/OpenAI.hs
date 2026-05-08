@@ -31,7 +31,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toGateway)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
@@ -122,11 +122,11 @@ openAIProvider baseUrl baseOpts apiKey =
 
 -- | Create an OpenAI client for api.openai.com
 openAIGateway :: Text -> LLMGateway
-openAIGateway apiKey = toProvider $ openAIProvider (https "api.openai.com") mempty apiKey
+openAIGateway apiKey = toGateway $ openAIProvider (https "api.openai.com") mempty apiKey
 
 -- | Create an OpenAI-compatible client with a custom base URL.
 openAIGatewayWith :: Url scheme -> Option scheme -> Text -> LLMGateway
-openAIGatewayWith baseUrl baseOpts apiKey = toProvider (openAIProvider baseUrl baseOpts apiKey)
+openAIGatewayWith baseUrl baseOpts apiKey = toGateway (openAIProvider baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme
 authHeader apiKey

@@ -4,7 +4,7 @@ import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Aeson (eitherDecodeFileStrict')
 import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
-import LLM (createChatEnv, toProvider, toTool)
+import LLM (createChatEnv, toGateway, toTool)
 import LLM.Core.Generate (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Types
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
@@ -26,10 +26,10 @@ spec = describe "Claude" $ do
   describe "recorded conversation" $ do
     it "ollama generateText" $ do
       (m, p) <- loadRecordedConversation ollamaConversationGeneratedFilePath
-      let provider = toProvider $ mockProvider m ollama
+      let provider = toGateway $ mockProvider m ollama
           modelConf =
             ModelConfig
-              { mcProvider = provider,
+              { mcGateway = provider,
                 mcModel = "llama3.2:latest",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
@@ -52,10 +52,10 @@ spec = describe "Claude" $ do
       length turns `shouldBe` 8
     it "ollama streamText" $ do
       (m, p) <- loadRecordedConversation ollamaConversationStreamedFilePath
-      let provider = toProvider $ mockProvider m ollama
+      let provider = toGateway $ mockProvider m ollama
           modelConf =
             ModelConfig
-              { mcProvider = provider,
+              { mcGateway = provider,
                 mcModel = "llama3.2:latest",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,

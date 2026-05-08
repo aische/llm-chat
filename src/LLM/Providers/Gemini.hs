@@ -21,7 +21,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Unique (hashUnique, newUnique)
-import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toGateway)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, stripBoundsAndComments, stripJsonFences)
 import LLM.Core.SSE (SSEEvent (sseData), readSSEEvents)
 import LLM.Core.Types
@@ -65,7 +65,7 @@ import Network.HTTP.Req
 -- | Gemini provider configuration
 -- | Create an LLMClient from Gemini credentials
 geminiGateway :: Text -> LLMGateway
-geminiGateway apiKey = toProvider (geminiProvider apiKey)
+geminiGateway apiKey = toGateway (geminiProvider apiKey)
 
 geminiProvider :: Text -> LLMProvider
 geminiProvider apiKey =

@@ -13,7 +13,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
-import LLM.Core.LLMProvider (LLMProvider (..), toProvider)
+import LLM.Core.LLMProvider (LLMProvider (..), toGateway)
 import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
 import LLM.Core.Types
   ( ChatRequest
@@ -106,11 +106,11 @@ ollamaProvider baseUrl baseOpts =
 
 -- | Create a LLMGateway for the default Ollama instance (localhost:11434).
 ollamaGateway :: LLMGateway
-ollamaGateway = toProvider ollama
+ollamaGateway = toGateway ollama
 
 -- | Create a LLMGateway for a custom Ollama instance.
 ollamaGatewayWith :: Url 'Http -> Option 'Http -> LLMGateway
-ollamaGatewayWith baseUrl baseOpts = toProvider (ollamaWith baseUrl baseOpts)
+ollamaGatewayWith baseUrl baseOpts = toGateway (ollamaWith baseUrl baseOpts)
 
 -- | Build request body — same as OpenAI but without stream_options
 -- since Ollama doesn't support include_usage.

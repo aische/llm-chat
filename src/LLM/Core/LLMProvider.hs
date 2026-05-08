@@ -1,6 +1,6 @@
 module LLM.Core.LLMProvider
   ( LLMProvider (..),
-    toProvider,
+    toGateway,
     genericGenerateText,
     genericStreamText,
   )
@@ -86,8 +86,8 @@ genericStreamText p hooks r callback = do
 
 -- | Convert any LLMProvider instance into a LLMGateway.
 -- Hooks are not baked in — they are passed at call time via 'ChatEnv'.
-toProvider :: LLMProvider -> LLMGateway
-toProvider p =
+toGateway :: LLMProvider -> LLMGateway
+toGateway p =
   LLMGateway
     { gwName = providerName p,
       gwGenerateText = genericGenerateText p,

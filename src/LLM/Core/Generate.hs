@@ -62,7 +62,7 @@ import LLM.Core.Utils
 -- Bundles together everything needed to reach one model endpoint.
 -- Use a list of these in 'ChatEnv' for fallback across models/providers.
 data ModelConfig = ModelConfig
-  { mcProvider :: LLMGateway,
+  { mcGateway :: LLMGateway,
     mcModel :: Text,
     mcPricing :: PricingInfo,
     mcMaxTokens :: Int,
@@ -131,7 +131,7 @@ generateTextConversation unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call = gwGenerateText (mcProvider mc) (envHooks env)
+    let call = gwGenerateText (mcGateway mc) (envHooks env)
      in chatLoop env mc call 0 u c
 
 -- | Like 'generateText', but streams text deltas via a callback as they arrive.
@@ -155,7 +155,7 @@ streamTextConversation unsafeEnv conv callback = do
       logIt = onLog (envHooks env)
   logIt Info $ "streamText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call req = gwStreamText (mcProvider mc) (envHooks env) req callback
+    let call req = gwStreamText (mcGateway mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
 
 type GeneratedResult a = Either (LLMError, Conversation, Usage) a
@@ -214,7 +214,7 @@ generateObjectConversationUntyped unsafeEnv schema conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call = gwGenerateObject (mcProvider mc) (envHooks env) schema
+    let call = gwGenerateObject (mcGateway mc) (envHooks env) schema
         logIt = onLog (envHooks env)
         request = mkRequest env mc c
      in do
@@ -254,13 +254,13 @@ withFallback env conv tryModel = go (envModel env : envFallbacks env) conv empty
   where
     go [] c u = pure $ Left (NetworkError "all models failed", c, u)
     go [mc] c u = do
-      onLog (envHooks env) Info $ "Using model: " <> mcModel mc <> " via " <> gwName (mcProvider mc)
+      onLog (envHooks env) Info $ "Using model: " <> mcModel mc <> " via " <> gwName (mcGateway mc)
       result <- tryModel mc c u
       pure $ case result of
         Left (err, c', u') -> Left (err, c', u')
         Right r -> Right r
     go (mc : rest) c u = do
-      onLog (envHooks env) Info $ "Trying model: " <> mcModel mc <> " via " <> gwName (mcProvider mc)
+      onLog (envHooks env) Info $ "Trying model: " <> mcModel mc <> " via " <> gwName (mcGateway mc)
       result <- tryModel mc c u
       case result of
         Left (Aborted, c', u') -> pure $ Left (Aborted, c', u')
