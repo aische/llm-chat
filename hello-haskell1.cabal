@@ -60,10 +60,12 @@ library
     exposed-modules:
         LLM
         LLM.Core.Abort
-        LLM.Core.Chat
-        LLM.Core.ChatStep
-        LLM.Core.ChatStepInterpreter
-        LLM.Core.Generate
+        LLM.Generate.Chat
+        LLM.Generate.ChatStep
+        LLM.Generate.ChatStepInterpreter
+        LLM.Generate.Generate
+        LLM.Generate.Types
+        LLM.Generate.Utils
         LLM.Core.Types
         LLM.Core.LLMProvider
         LLM.Providers.Gemini

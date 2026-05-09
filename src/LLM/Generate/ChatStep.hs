@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module LLM.Core.ChatStep
+module LLM.Generate.ChatStep
   ( ChatStep (..),
     buildChatStep,
     mkRequest,
@@ -13,13 +13,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Logger (LogLevel (..))
 import LLM.Core.Types
-  ( ChatEnv (..),
-    ChatRequest (..),
+  ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, ToolLoopExceeded),
     LLMTextResult,
-    ModelConfig (..),
     Tool (toolDef),
     ToolCall (tcName),
     ToolResult (trContent, trName),
@@ -27,6 +25,10 @@ import LLM.Core.Types
   )
 import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
+import LLM.Generate.Types
+  ( ChatEnv (..),
+    ModelConfig (..),
+  )
 
 -- | A reified chat program. Each constructor is an effect the loop
 -- needs, paired with a continuation that accepts the result.

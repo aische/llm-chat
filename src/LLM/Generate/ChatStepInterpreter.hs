@@ -1,4 +1,4 @@
-module LLM.Core.ChatStepInterpreter
+module LLM.Generate.ChatStepInterpreter
   ( generateTextWith,
     streamTextWith,
     ChatStepInterpreter,
@@ -12,21 +12,23 @@ import Control.Retry (RetryPolicyM)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal)
-import LLM.Core.ChatStep (ChatStep (..), buildChatStep)
 import LLM.Core.Logger (Hooks (..), LogLevel (..), safeHooks)
 import LLM.Core.Types
-  ( ChatEnv (..),
-    ChatRequest,
+  ( ChatRequest,
     Conversation (..),
     LLMError (..),
     LLMGateway (..),
     LLMTextResult,
-    ModelConfig (..),
     StreamEvent,
     Tool,
     Turn (..),
   )
 import LLM.Core.Usage (Usage, emptyUsage)
+import LLM.Generate.ChatStep (ChatStep (..), buildChatStep)
+import LLM.Generate.Types
+  ( ChatEnv (..),
+    ModelConfig (..),
+  )
 
 -- | A step interpreter runs a 'ChatStep' program to completion.
 -- Both 'runStepIO' and @runStepServer store sid@ satisfy this type.
@@ -51,14 +53,14 @@ generateTextWith ::
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateTextWith interp unsafeEnv conv msg =
   let conv' = Conversation {unConversation = unConversation conv ++ [UserTurn msg]}
-   in generateConversationTextWith interp unsafeEnv conv'
+   in generateTextConversationWith interp unsafeEnv conv'
 
-generateConversationTextWith ::
+generateTextConversationWith ::
   ChatStepInterpreter ->
   ChatEnv ->
   Conversation ->
   IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-generateConversationTextWith interp unsafeEnv conv = do
+generateTextConversationWith interp unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->

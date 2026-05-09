@@ -2,7 +2,9 @@ module LLM
   ( module LLM.Core.Abort,
     module LLM.Core.Types,
     module LLM.Core.Utils,
-    module LLM.Core.Generate,
+    module LLM.Generate.Generate,
+    module LLM.Generate.Utils,
+    module LLM.Generate.Types,
     module LLM.Core.LLMProvider,
     module LLM.Core.ProviderUtils,
     module LLM.Providers.Gemini,
@@ -15,13 +17,15 @@ module LLM
 where
 
 import LLM.Core.Abort
-import LLM.Core.Generate
 import LLM.Core.LLMProvider
 import LLM.Core.Logger
 import LLM.Core.ProviderUtils
 import LLM.Core.Types
 import LLM.Core.Usage
 import LLM.Core.Utils
+import LLM.Generate.Generate
+import LLM.Generate.Types
+import LLM.Generate.Utils
 import LLM.Providers.Claude
 import LLM.Providers.Gemini
 import LLM.Providers.Ollama

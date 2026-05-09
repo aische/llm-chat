@@ -9,16 +9,17 @@ import Control.Exception (SomeException, catch)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM.Core.Generate (Generatable, GeneratedResult, generateObject)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,
     withJsonDump,
     withStderrLogger,
   )
-import LLM.Core.Types (ChatEnv (..))
 import LLM.Core.Usage (Usage)
-import LLM.Core.Utils (createChatEnv, emptyConversation)
+import LLM.Core.Utils (emptyConversation)
+import LLM.Generate.Generate (Generatable, GeneratedResult, generateObject)
+import LLM.Generate.Types (ChatEnv (..))
+import LLM.Generate.Utils (createChatEnv)
 
 data ExampleObject = ExampleObject
   { title :: Text,

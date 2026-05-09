@@ -3,7 +3,6 @@ module AllModels (getAllModels, AllModels (..)) where
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.Types (ModelConfig (..))
 import LLM.Core.Usage
   ( PricingInfo
       ( PricingInfo,
@@ -11,6 +10,7 @@ import LLM.Core.Usage
         pricePerMillionOutput
       ),
   )
+import LLM.Generate.Types (ModelConfig (..))
 import LLM.Providers.Claude (claudeGateway)
 import LLM.Providers.Gemini (geminiGateway)
 import LLM.Providers.Ollama (ollamaGateway)

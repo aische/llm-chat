@@ -1,4 +1,4 @@
-module LLM.Core.Generate
+module LLM.Generate.Generate
   ( generateText,
     generateTextConversation,
     streamText,
@@ -29,14 +29,12 @@ import LLM.Core.Logger
   )
 import LLM.Core.ProviderUtils (stripBoundsAndComments)
 import LLM.Core.Types
-  ( ChatEnv (..),
-    ChatRequest (..),
+  ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
     LLMGateway (..),
     LLMTextResult,
-    ModelConfig (..),
     StreamEvent,
     Tool (toolDef),
     ToolCall (tcName),
@@ -52,6 +50,10 @@ import LLM.Core.Utils
     withConversation,
     withRetry,
     withTimeout,
+  )
+import LLM.Generate.Types
+  ( ChatEnv (..),
+    ModelConfig (..),
   )
 
 -- | Run a non-streaming chat with automatic tool-call handling.
@@ -305,17 +307,16 @@ chatLoop env mc call rounds acc conv
                             withConversation conv (++ [AssistantTurn (respText resp) []])
                       pure $ Right (respText resp, finalConv, acc')
 
--- | Build a ChatRequest from the model config and a conversation.
--- When 'envContextWindow' is set, only the last N user messages (and their
--- associated replies) are sent to the model.
-mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
-
 -- | Check whether the abort signal has been fired.
 checkAbort :: ChatEnv -> IO Bool
 checkAbort env = case envAbortSignal env of
   Nothing -> pure False
   Just sig -> isAborted sig
 
+-- | Build a ChatRequest from the model config and a conversation.
+-- When 'envContextWindow' is set, only the last N user messages (and their
+-- associated replies) are sent to the model.
+mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
 mkRequest env mc conv =
   ChatRequest
     { reqModel = mcModel mc,

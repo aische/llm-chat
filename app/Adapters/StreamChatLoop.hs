@@ -7,16 +7,19 @@ import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Generate (generateText, streamText)
 import LLM.Core.Types
-  ( ChatEnv,
-    Conversation (..),
+  ( Conversation (..),
     StreamEvent (StreamDelta, StreamToolCall),
   )
 import LLM.Core.Usage
   ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
     emptyUsage,
+  )
+import LLM.Generate.Generate (generateText, streamText)
+import LLM.Generate.Types
+  ( ChatEnv (..),
+    ModelConfig (..),
   )
 import Text.Printf (printf)
 

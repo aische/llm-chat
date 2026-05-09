@@ -7,9 +7,13 @@ import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import LLM (createChatEnv, toGateway, toTool)
 import LLM.Core.LLMProvider (LLMProvider)
-import LLM.Core.Types (ChatEnv (..), Conversation (Conversation), ModelConfig (..))
+import LLM.Core.Types (Conversation (Conversation))
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
+import LLM.Generate.Types
+  ( ChatEnv (..),
+    ModelConfig (..),
+  )
 import LLM.Providers.OpenAI (openAIProvider)
 import LLM.TestKit
   ( loadRecordedConversation,

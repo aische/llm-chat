@@ -14,8 +14,9 @@ import LLM.Core.Logger
     withJsonDump,
     withStderrLogger,
   )
-import LLM.Core.Types (ChatEnv (..))
-import LLM.Core.Utils (createChatEnv, toTool)
+import LLM.Generate.Types (ChatEnv (..))
+import LLM.Core.Utils (toTool)
+import LLM.Generate.Utils (createChatEnv)
 import LLM.Tools.FsConfig (mkFsConfig)
 import LLM.Tools.History (historyToolTyped)
 import LLM.Tools.Readdir (readdirToolTyped)

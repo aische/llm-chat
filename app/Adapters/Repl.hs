@@ -5,12 +5,15 @@ module Adapters.Repl (repl) where
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Generate (streamText)
-import LLM.Core.Types (ChatEnv, Conversation (..), StreamEvent (..))
+import LLM.Core.Types (Conversation (..), StreamEvent (..))
 import LLM.Core.Usage
   ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
     emptyUsage,
+  )
+import LLM.Generate.Generate (streamText)
+import LLM.Generate.Types
+  ( ChatEnv (..),
   )
 import System.Exit (exitSuccess)
 import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdin, stdout)

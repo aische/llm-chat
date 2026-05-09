@@ -1,4 +1,4 @@
-module LLM.Core.Chat
+module LLM.Generate.Chat
   ( generateTextSimple,
     streamTextSimple,
     simpleChatStepInterpreter,
@@ -11,18 +11,20 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 -- import Data.Text qualified as T
 import LLM.Core.Abort (isAborted)
-import LLM.Core.ChatStep (ChatStep (..), windowOffset)
-import LLM.Core.ChatStepInterpreter (ChatStepInterpreter, generateTextWith, streamTextWith)
 import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
-  ( ChatEnv (..),
-    Conversation (..),
+  ( Conversation (..),
     LLMError (..),
     StreamEvent,
     ToolContext (..),
   )
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (executeToolsWithAbort, withRetry, withTimeout)
+import LLM.Generate.ChatStep (ChatStep (..), windowOffset)
+import LLM.Generate.ChatStepInterpreter (ChatStepInterpreter, generateTextWith, streamTextWith)
+import LLM.Generate.Types
+  ( ChatEnv (..),
+  )
 
 -- import System.Timeout (timeout)
 
