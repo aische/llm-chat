@@ -4,11 +4,14 @@
 
 module Main where
 
+import Adapters.Repl (repl)
+import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSession), sessionChat)
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
+import CreateEnv (createDefaultEnv)
+import Data.Text qualified as T
 import Example (example)
-import Main1 (main1)
 import Options.Applicative
 import TestExample (testExample)
 
@@ -27,27 +30,23 @@ main = main0 =<< execParser opts
         )
 
 main0 :: RuntimeArgs -> IO ()
-main0 ReplArgs = pure ()
-main0 (SessionClear sid) = pure ()
-main0 (SessionShow sid) = pure ()
-main0 (SessionPrompt sid p) = pure ()
-main0 (TestRecorderArgs provider stream) = do
-  print provider
-  -- print model
-  print stream
-
-main1 :: IO ()
-main1 = do
-  loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
-  AllModels {gemini_2_5_flash, claude_haiku_4_5, llama_3_2, gpt_4_1, gpt_5_nano} <- getAllModels
-  testExample False llama_3_2
+main0 args = do
+  case args of
+    ReplArgs -> createDefaultEnv >>= repl
+    (TestRecorderArgs name stream) -> do
+      print name
+      print stream
+      testExample name stream
+    (SessionClear sid) -> createDefaultEnv >>= \env -> sessionChat env ClearSession
+    (SessionShow sid) -> createDefaultEnv >>= \env -> sessionChat env ShowSession
+    (SessionPrompt sid p) -> createDefaultEnv >>= \env -> sessionChat env (PromptSession (T.pack p))
 
 runtimeArgsParser :: Parser RuntimeArgs
 runtimeArgsParser = testRecorderArgs <|> replArgs <|> sessionClear <|> sessionPrompt <|> sessionShow
 
 data RuntimeArgs
   = TestRecorderArgs
-      { provider :: String,
+      { name :: String,
         stream :: Bool
       }
   | ReplArgs
@@ -61,6 +60,28 @@ data RuntimeArgs
       { sid :: String,
         prompt :: String
       }
+
+testRecorderArgs :: Parser RuntimeArgs
+testRecorderArgs =
+  TestRecorderArgs
+    <$> strOption
+      ( long "test"
+          <> metavar "MODELNAME"
+          <> help "run test conversation"
+      )
+    <*> switch
+      ( long "stream"
+          <> short 's'
+          <> help "Whether to use streaming"
+      )
+
+replArgs :: Parser RuntimeArgs
+replArgs =
+  flag'
+    ReplArgs
+    ( long "repl"
+        <> help "Run chat repl"
+    )
 
 sessionClear :: Parser RuntimeArgs
 sessionClear =
@@ -89,25 +110,3 @@ sessionPrompt =
           <> help "run session"
       )
     <*> argument str (metavar "PROMPT")
-
-testRecorderArgs :: Parser RuntimeArgs
-testRecorderArgs =
-  TestRecorderArgs
-    <$> strOption
-      ( long "test"
-          <> metavar "PROVIDER"
-          <> help "run test conversation"
-      )
-    <*> switch
-      ( long "stream"
-          <> short 's'
-          <> help "Whether to use streaming"
-      )
-
-replArgs :: Parser RuntimeArgs
-replArgs =
-  flag'
-    ReplArgs
-    ( long "repl"
-        <> help "Run chat repl"
-    )

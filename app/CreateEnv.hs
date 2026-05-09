@@ -1,9 +1,10 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module Main1 where
+module CreateEnv
+  ( createDefaultEnv,
+  )
+where
 
-import Adapters.Repl (repl)
--- import Adapters.SessionChat (sessionChat)
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
@@ -23,8 +24,8 @@ import LLM.Tools.ReplaceInFile (replaceInFileToolTyped)
 import LLM.Tools.Writefile (writefileToolTyped)
 import System.Environment (getEnv)
 
-main1 :: IO ()
-main1 = do
+createDefaultEnv :: IO ChatEnv
+createDefaultEnv = do
   loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
   userProjectPath <- getEnv "USER_PROJECT_PATH"
   AllModels {gemini_2_5_flash, claude_haiku_4_5, llama_3_2, gpt_4_1, gpt_5_nano} <- getAllModels
@@ -53,7 +54,7 @@ main1 = do
           { envHooks = hooks,
             envContextWindow = Just 5
           }
-      gpt41Env =
+      _gpt41Env =
         (createChatEnv gpt_4_1 systemPrompt tools)
           { envHooks = hooks,
             envContextWindow = Just 3
@@ -63,4 +64,4 @@ main1 = do
           { envHooks = hooks,
             envContextWindow = Just 3
           }
-  repl gpt41Env
+  pure _llamaEnv

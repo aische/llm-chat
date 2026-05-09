@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Adapters.SessionChat (sessionChat) where
+module Adapters.SessionChat (sessionChat, SessionCommand (..)) where
 
 import Data.Aeson (FromJSON, ToJSON, eitherDecodeFileStrict', encodeFile)
 import Data.Text (Text)
@@ -58,32 +58,22 @@ freshSession = SessionFile (Conversation []) emptyUsage
 saveSessionFile :: SessionFile -> IO ()
 saveSessionFile = encodeFile sessionPath
 
--- | CLI adapter: takes the prompt from command-line args, prints the
--- streamed response, persists the conversation for next invocation.
---
--- Usage:
---   cabal run hello-haskell1 -- "What is the weather?"
---   cabal run hello-haskell1 -- "And in Berlin?"    # continues conversation
---   cabal run hello-haskell1 -- --clear              # reset session
---   cabal run hello-haskell1 -- --history            # show conversation so far
-sessionChat :: ChatEnv -> IO ()
-sessionChat env = do
+data SessionCommand
+  = ClearSession
+  | ShowSession
+  | PromptSession Text
+
+sessionChat :: ChatEnv -> SessionCommand -> IO ()
+sessionChat env command = do
   hSetBuffering stdout NoBuffering
-  args <- getArgs
-  case args of
-    ["--clear"] -> do
+  case command of
+    ClearSession -> do
       saveSessionFile freshSession
       putStrLn "Session cleared."
-    ["--history"] -> do
+    ShowSession -> do
       sf <- loadSessionFile
       printHistory (sfConversation sf) (sfUsage sf)
-    [] -> do
-      progName <- getProgName
-      putStrLn $ "Usage: " <> progName <> " \"<prompt>\""
-      putStrLn $ "       " <> progName <> " --history"
-      putStrLn $ "       " <> progName <> " --clear"
-    promptParts -> do
-      let prompt = T.pack (unwords promptParts)
+    PromptSession prompt -> do
       sf <- loadSessionFile
       result <- streamText env (sfConversation sf) prompt $ \case
         StreamDelta txt -> TIO.putStr txt
