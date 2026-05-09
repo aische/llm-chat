@@ -40,8 +40,8 @@ mockProvider mp adapter =
     { sendRequest = \val -> do
         case M.lookup val mp of
           Nothing ->
-            -- error (show val <> "\n" <> show (fst $ head $ M.toList mp))
-            error ("value not found for:" <> show val)
+            error (show val <> "\n" <> show (fst $ head $ M.toList mp))
+          -- error ("value not found for:" <> show val)
           Just r -> pure (200, r),
       sendStreamRequest = \body callback -> do
         case M.lookup body mp of

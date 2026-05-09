@@ -1,6 +1,8 @@
 module LLM.Providers.OpenAI
   ( openAIGateway,
     openAIGatewayWith,
+    openAIProvider,
+    openAIProviderWith,
     parseOpenAIResponse,
     parseOpenAIUsage,
     buildMessages,
@@ -73,8 +75,11 @@ import Network.HTTP.Req
     (/:),
   )
 
-openAIProvider :: Url scheme -> Option scheme -> Text -> LLMProvider
-openAIProvider baseUrl baseOpts apiKey =
+openAIProvider :: Text -> LLMProvider
+openAIProvider = openAIProviderWith (https "api.openai.com") mempty
+
+openAIProviderWith :: Url scheme -> Option scheme -> Text -> LLMProvider
+openAIProviderWith baseUrl baseOpts apiKey =
   LLMProvider
     { providerName = "openai",
       buildBody = openAIBuildBody,
@@ -122,11 +127,11 @@ openAIProvider baseUrl baseOpts apiKey =
 
 -- | Create an OpenAI client for api.openai.com
 openAIGateway :: Text -> LLMGateway
-openAIGateway apiKey = toGateway $ openAIProvider (https "api.openai.com") mempty apiKey
+openAIGateway apiKey = toGateway $ openAIProvider apiKey
 
 -- | Create an OpenAI-compatible client with a custom base URL.
 openAIGatewayWith :: Url scheme -> Option scheme -> Text -> LLMGateway
-openAIGatewayWith baseUrl baseOpts apiKey = toGateway (openAIProvider baseUrl baseOpts apiKey)
+openAIGatewayWith baseUrl baseOpts apiKey = toGateway (openAIProviderWith baseUrl baseOpts apiKey)
 
 authHeader :: Text -> Option scheme
 authHeader apiKey

@@ -1,4 +1,4 @@
-module LLM.Claude2Spec (spec) where
+module LLM.OpenAI2Spec (spec) where
 
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Aeson (eitherDecodeFileStrict')
@@ -9,27 +9,30 @@ import LLM.Core.Generate (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Types
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
-import LLM.Providers.Claude (claudeProvider)
+import LLM.Providers.OpenAI (openAIProvider)
 import LLM.TestKit
 import LLM.Tools.Weather (weatherToolTyped)
 import Test.Hspec
 
-claudeConversationGeneratedFilePath :: String
-claudeConversationGeneratedFilePath = "./test/fixtures/claude-conversation-generated.json"
+openAIConversationGeneratedFilePath :: String
+openAIConversationGeneratedFilePath = "./test/fixtures/openai-conversation-generated.json"
 
-claudeConversationStreamedFilePath :: String
-claudeConversationStreamedFilePath = "./test/fixtures/claude-conversation-streamed.json"
+openAIConversationStreamedFilePath :: String
+openAIConversationStreamedFilePath = "./test/fixtures/openai-conversation-streamed.json"
+
+-- ollamaConversationStreamedFilePath :: String
+-- ollamaConversationStreamedFilePath = "./test/fixtures/ollama-conversation-streamed.json"
 
 spec :: Spec
-spec = describe "Claude" $ do
+spec = describe "OpenAI" $ do
   describe "recorded conversation" $ do
     it "generateText" $ do
-      (m, p) <- loadRecordedConversation claudeConversationGeneratedFilePath
-      let provider = toGateway $ mockProvider m (claudeProvider "")
+      (m, p) <- loadRecordedConversation openAIConversationGeneratedFilePath
+      let provider = toGateway $ mockProvider m (openAIProvider "")
           modelConf =
             ModelConfig
               { mcGateway = provider,
-                mcModel = "claude-haiku-4-5-20251001",
+                mcModel = "gpt-4.1-2025-04-14",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
                 mcTemperature = Nothing,
@@ -51,12 +54,12 @@ spec = describe "Claude" $ do
       length turns `shouldBe` 8
 
     it "streamText" $ do
-      (m, p) <- loadRecordedConversation claudeConversationStreamedFilePath
-      let provider = toGateway $ mockProvider m (claudeProvider "")
+      (m, p) <- loadRecordedConversation openAIConversationStreamedFilePath
+      let provider = toGateway $ mockProvider m (openAIProvider "")
           modelConf =
             ModelConfig
               { mcGateway = provider,
-                mcModel = "claude-haiku-4-5-20251001",
+                mcModel = "gpt-4.1-2025-04-14",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
                 mcTemperature = Nothing,

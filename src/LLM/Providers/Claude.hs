@@ -1,6 +1,12 @@
 {-# LANGUAGE DataKinds #-}
 
-module LLM.Providers.Claude (claudeGateway, parseClaudeResponse, parseClaudeUsage) where
+module LLM.Providers.Claude
+  ( claudeGateway,
+    claudeProvider,
+    parseClaudeResponse,
+    parseClaudeUsage,
+  )
+where
 
 import Data.Aeson
   ( KeyValue ((.=)),

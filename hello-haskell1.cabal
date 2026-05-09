@@ -135,6 +135,8 @@ test-suite hello-haskell1-test
     main-is:            Spec.hs
     other-modules:      LLM.ClaudeSpec
                         LLM.Claude2Spec
+                        LLM.OpenAI2Spec
+                        LLM.Ollama2Spec
                         LLM.GeminiSpec
                         LLM.OpenAISpec
                         LLM.TypesSpec

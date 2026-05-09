@@ -1,4 +1,4 @@
-module LLM.Claude2Spec (spec) where
+module LLM.Ollama2Spec (spec) where
 
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Aeson (eitherDecodeFileStrict')
@@ -9,27 +9,28 @@ import LLM.Core.Generate (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Types
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
-import LLM.Providers.Claude (claudeProvider)
+import LLM.Providers.Claude (parseClaudeResponse, parseClaudeUsage)
+import LLM.Providers.Ollama (ollama)
 import LLM.TestKit
 import LLM.Tools.Weather (weatherToolTyped)
 import Test.Hspec
 
-claudeConversationGeneratedFilePath :: String
-claudeConversationGeneratedFilePath = "./test/fixtures/claude-conversation-generated.json"
+ollamaConversationGeneratedFilePath :: String
+ollamaConversationGeneratedFilePath = "./test/fixtures/ollama-conversation-generated.json"
 
-claudeConversationStreamedFilePath :: String
-claudeConversationStreamedFilePath = "./test/fixtures/claude-conversation-streamed.json"
+ollamaConversationStreamedFilePath :: String
+ollamaConversationStreamedFilePath = "./test/fixtures/ollama-conversation-streamed.json"
 
 spec :: Spec
-spec = describe "Claude" $ do
+spec = describe "Ollama" $ do
   describe "recorded conversation" $ do
-    it "generateText" $ do
-      (m, p) <- loadRecordedConversation claudeConversationGeneratedFilePath
-      let provider = toGateway $ mockProvider m (claudeProvider "")
+    it "ollama generateText" $ do
+      (m, p) <- loadRecordedConversation ollamaConversationGeneratedFilePath
+      let provider = toGateway $ mockProvider m ollama
           modelConf =
             ModelConfig
               { mcGateway = provider,
-                mcModel = "claude-haiku-4-5-20251001",
+                mcModel = "llama3.2:latest",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
                 mcTemperature = Nothing,
@@ -50,13 +51,13 @@ spec = describe "Claude" $ do
       Conversation turns <- streamChatLoop False env p
       length turns `shouldBe` 8
 
-    it "streamText" $ do
-      (m, p) <- loadRecordedConversation claudeConversationStreamedFilePath
-      let provider = toGateway $ mockProvider m (claudeProvider "")
+    it "ollama streamText" $ do
+      (m, p) <- loadRecordedConversation ollamaConversationStreamedFilePath
+      let provider = toGateway $ mockProvider m ollama
           modelConf =
             ModelConfig
               { mcGateway = provider,
-                mcModel = "claude-haiku-4-5-20251001",
+                mcModel = "llama3.2:latest",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
                 mcTemperature = Nothing,
