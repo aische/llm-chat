@@ -4,10 +4,10 @@ module LLM.Generate.Utils
   )
 where
 
-import LLM.Generate.Types (ChatEnv (..), ModelConfig (..))
 import Data.Text (Text)
-import LLM.Core.Types (Tool)
 import LLM.Core.Logger (noHooks)
+import LLM.Core.Types (Tool)
+import LLM.Generate.Types (ChatEnv (..), ModelConfig (..))
 
 -- | Sensible defaults — single model, no fallback.
 defaultChatEnv :: ModelConfig -> ChatEnv

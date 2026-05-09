@@ -12,11 +12,10 @@ module LLM.Generate.Generate
   )
 where
 
-import Autodocodec (HasCodec)
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
-import Data.Aeson (FromJSON, Value)
+import Data.Aeson (Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -24,7 +23,7 @@ import Data.Text qualified as T
 import LLM.Core.Abort (isAborted)
 import LLM.Core.Logger
   ( Hooks (onLog),
-    LogLevel (Debug, Error, Info, Warn),
+    LogLevel (Debug, Error, Info),
     safeHooks,
   )
 import LLM.Core.ProviderUtils (stripBoundsAndComments)
@@ -32,7 +31,7 @@ import LLM.Core.Types
   ( ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
-    LLMError (Aborted, NetworkError, ParseError, ToolLoopExceeded),
+    LLMError (Aborted, ParseError, ToolLoopExceeded),
     LLMGateway (..),
     LLMTextResult,
     StreamEvent,
@@ -53,8 +52,11 @@ import LLM.Core.Utils
   )
 import LLM.Generate.Types
   ( ChatEnv (..),
+    Generatable,
+    GeneratedResult,
     ModelConfig (..),
   )
+import LLM.Generate.WithFallback (withFallback)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.
@@ -101,10 +103,6 @@ streamTextConversation unsafeEnv conv callback = do
   withFallback env conv $ \mc c u ->
     let call req = gwStreamText (mcGateway mc) (envHooks env) req callback
      in chatLoop env mc call 0 u c
-
-type GeneratedResult a = Either (LLMError, Conversation, Usage) a
-
-class (HasCodec t, FromJSON t) => Generatable t
 
 generateObject ::
   (Generatable t) =>
@@ -180,38 +178,6 @@ generateObjectConversationUntyped unsafeEnv schema conv = do
                   cost = estimateCost (mcPricing mc) responseUsage
                   u' = addUsage u (responseUsage {usageTotalCost = cost})
                in pure $ Right (value, u')
-
--- | Try each 'ModelConfig' in order. Falls back on retryable errors.
--- On fallback, the next model continues from the partial conversation
--- and accumulated usage of the failed model, rather than starting over.
-withFallback ::
-  ChatEnv ->
-  Conversation ->
-  (ModelConfig -> Conversation -> Usage -> IO (GeneratedResult a)) ->
-  IO (GeneratedResult a)
--- withFallback ::
---   ChatEnv ->
---   Conversation ->
---   (ModelConfig -> Conversation -> Usage -> IO (GeneratedResult (Text, Conversation, Usage))) ->
---   IO (GeneratedResult (Text, Conversation, Usage))
-withFallback env conv tryModel = go (envModel env : envFallbacks env) conv emptyUsage
-  where
-    go [] c u = pure $ Left (NetworkError "all models failed", c, u)
-    go [mc] c u = do
-      onLog (envHooks env) Info $ "Using model: " <> mcModel mc <> " via " <> gwName (mcGateway mc)
-      result <- tryModel mc c u
-      pure $ case result of
-        Left (err, c', u') -> Left (err, c', u')
-        Right r -> Right r
-    go (mc : rest) c u = do
-      onLog (envHooks env) Info $ "Trying model: " <> mcModel mc <> " via " <> gwName (mcGateway mc)
-      result <- tryModel mc c u
-      case result of
-        Left (Aborted, c', u') -> pure $ Left (Aborted, c', u')
-        Left (err, c', u') -> do
-          onLog (envHooks env) Warn $ "Falling back from " <> mcModel mc <> ": " <> T.pack (show err)
-          go rest c' u'
-        Right r -> pure $ Right r
 
 -- | Shared loop used by both generateText and streamText.
 -- The @call@ parameter abstracts over streaming vs non-streaming.

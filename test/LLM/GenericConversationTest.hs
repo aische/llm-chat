@@ -28,7 +28,8 @@ data GenericConversationTextOps = GenericConversationTextOps
     specProvider :: LLMProvider,
     modelName :: String,
     filePathGenerated :: String,
-    filePathStreamed :: String
+    filePathStreamed :: String,
+    useInterpreter :: Bool
   }
 
 createSpec :: GenericConversationTextOps -> Spec
@@ -57,7 +58,7 @@ createSpec opts = describe (specTitle opts) $ do
             { envTools = [toTool weatherToolTyped]
             }
 
-    Conversation turns <- streamChatLoop False env p
+    Conversation turns <- streamChatLoop False (useInterpreter opts) env p
     length turns `shouldBe` 8
 
   it "streamText" $ do
@@ -84,5 +85,5 @@ createSpec opts = describe (specTitle opts) $ do
             { envTools = [toTool weatherToolTyped]
             }
 
-    Conversation turns <- streamChatLoop True env p
+    Conversation turns <- streamChatLoop True (useInterpreter opts) env p
     length turns `shouldBe` 8

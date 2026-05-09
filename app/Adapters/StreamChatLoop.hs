@@ -16,6 +16,7 @@ import LLM.Core.Usage
     addUsage,
     emptyUsage,
   )
+import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
 import LLM.Generate.Generate (generateText, streamText)
 import LLM.Generate.Types
   ( ChatEnv (..),
@@ -34,11 +35,15 @@ streamChatLoopMain stream env = do
   _ <- streamChatLoop stream env prompts
   pure ()
 
+useInterpreter = True
+
 -- | Interactive streaming loop — runs a list of prompts, printing
 -- streamed deltas and usage stats as it goes.
 streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
 streamChatLoop stream env = aux emptyUsage (Conversation [])
   where
+    streamIt = if useInterpreter then streamTextSimple else streamText
+    generateIt = if useInterpreter then generateTextSimple else generateText
     aux totalUsage conv [] = do
       putStrLn $
         "\n  Total: "
@@ -54,14 +59,14 @@ streamChatLoop stream env = aux emptyUsage (Conversation [])
       firstChunkRef <- newIORef True
       result <-
         if stream
-          then streamText env conv prompt $ \case
+          then streamIt env conv prompt $ \case
             StreamDelta txt -> do
               _ <- readIORef firstChunkRef
               writeIORef firstChunkRef False
               TIO.putStr txt
             StreamToolCall _ -> pure ()
           else
-            generateText env conv prompt
+            generateIt env conv prompt
       case result of
         Left (err, _, _) -> do
           putStrLn $ "Error: " <> show err

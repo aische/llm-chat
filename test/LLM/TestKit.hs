@@ -7,6 +7,7 @@ import Data.Map qualified as M
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import LLM (ChatEnv, ChatResponse (..), Conversation (..), LLMProvider (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
+import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
 
 data MockRequestResponse = MockRequestResponse
   { prompt :: Maybe Text,
@@ -53,15 +54,17 @@ mockProvider mp adapter =
             Just chatResponse -> pure $ Right chatResponse
     }
 
-streamChatLoopMain :: Bool -> ChatEnv -> [Text] -> IO ()
-streamChatLoopMain stream env prompts = do
+streamChatLoopMain :: Bool -> Bool -> ChatEnv -> [Text] -> IO ()
+streamChatLoopMain stream withInterp env prompts = do
   putStrLn "\n=== Ollama (with Claude  and Gemini fallbacks) ==="
-  _ <- streamChatLoop stream env prompts
+  _ <- streamChatLoop stream withInterp env prompts
   pure ()
 
-streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
-streamChatLoop stream env = aux emptyUsage (Conversation [])
+streamChatLoop :: Bool -> Bool -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop stream withInterp env = aux emptyUsage (Conversation [])
   where
+    streamIt = if withInterp then streamTextSimple else streamText
+    generateIt = if withInterp then generateTextSimple else generateText
     aux totalUsage conv [] = do
       return conv
     aux totalUsage conv (prompt : rest) = do

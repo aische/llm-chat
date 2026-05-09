@@ -40,31 +40,41 @@ openAIConversationStreamedFilePath = "./test/fixtures/openai-conversation-stream
 
 spec =
   describe "recorded conversation" $ do
-    createSpec $
-      GenericConversationTextOps
-        "Ollama"
-        ollama
-        "llama3.2:latest"
-        "./test/fixtures/ollama-conversation-generated.json"
-        "./test/fixtures/ollama-conversation-streamed.json"
-    createSpec $
-      GenericConversationTextOps
-        "Claude"
-        (claudeProvider "")
-        "claude-haiku-4-5-20251001"
-        "./test/fixtures/claude-conversation-generated.json"
-        "./test/fixtures/claude-conversation-streamed.json"
-    createSpec $
-      GenericConversationTextOps
-        "Gemini"
-        (geminiProvider "")
-        "gemini-2.5-flash"
-        "./test/fixtures/gemini-conversation-generated.json"
-        "./test/fixtures/gemini-conversation-streamed.json"
-    createSpec $
-      GenericConversationTextOps
-        "OpenAI"
-        (openAIProvider "")
-        "gpt-4.1-2025-04-14"
-        "./test/fixtures/openai-conversation-generated.json"
-        "./test/fixtures/openai-conversation-streamed.json"
+    describe "not interpreted" $ do
+      createSpec' False
+    describe "interpreted" $ do
+      createSpec' True
+
+createSpec' useInterpreter = do
+  createSpec $
+    GenericConversationTextOps
+      "Ollama"
+      ollama
+      "llama3.2:latest"
+      "./test/fixtures/ollama-conversation-generated.json"
+      "./test/fixtures/ollama-conversation-streamed.json"
+      useInterpreter
+  createSpec $
+    GenericConversationTextOps
+      "Claude"
+      (claudeProvider "")
+      "claude-haiku-4-5-20251001"
+      "./test/fixtures/claude-conversation-generated.json"
+      "./test/fixtures/claude-conversation-streamed.json"
+      useInterpreter
+  createSpec $
+    GenericConversationTextOps
+      "Gemini"
+      (geminiProvider "")
+      "gemini-2.5-flash"
+      "./test/fixtures/gemini-conversation-generated.json"
+      "./test/fixtures/gemini-conversation-streamed.json"
+      useInterpreter
+  createSpec $
+    GenericConversationTextOps
+      "OpenAI"
+      (openAIProvider "")
+      "gpt-4.1-2025-04-14"
+      "./test/fixtures/openai-conversation-generated.json"
+      "./test/fixtures/openai-conversation-streamed.json"
+      useInterpreter

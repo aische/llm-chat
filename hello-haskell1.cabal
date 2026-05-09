@@ -66,6 +66,7 @@ library
         LLM.Generate.Generate
         LLM.Generate.Types
         LLM.Generate.Utils
+        LLM.Generate.WithFallback
         LLM.Core.Types
         LLM.Core.LLMProvider
         LLM.Providers.Gemini

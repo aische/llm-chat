@@ -1,11 +1,13 @@
-module LLM.Generate.Types (ModelConfig (..), ChatEnv (..)) where
+module LLM.Generate.Types (ModelConfig (..), ChatEnv (..), Generatable, GeneratedResult) where
 
+import Autodocodec (HasCodec)
 import Control.Retry (RetryPolicyM)
+import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Logger (Hooks)
-import LLM.Core.Types (LLMGateway (..), Tool)
-import LLM.Core.Usage (PricingInfo (..))
+import LLM.Core.Types (Conversation, LLMError, LLMGateway (..), Tool)
+import LLM.Core.Usage (PricingInfo (..), Usage)
 
 -- | Infrastructure-level configuration for a specific model.
 -- Bundles together everything needed to reach one model endpoint.
@@ -33,3 +35,7 @@ data ChatEnv = ChatEnv
     envHooks :: Hooks,
     envAbortSignal :: Maybe AbortSignal
   }
+
+class (HasCodec t, FromJSON t) => Generatable t
+
+type GeneratedResult a = Either (LLMError, Conversation, Usage) a
