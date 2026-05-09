@@ -134,10 +134,6 @@ test-suite hello-haskell1-test
     type:               exitcode-stdio-1.0
     main-is:            Spec.hs
     other-modules:      LLM.ClaudeSpec
-                        LLM.Claude2Spec
-                        LLM.OpenAI2Spec
-                        LLM.Ollama2Spec
-                        LLM.Gemini2Spec
                         LLM.GeminiSpec
                         LLM.GenericConversationTest
                         LLM.RecordedConversationSpec

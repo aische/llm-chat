@@ -50,7 +50,7 @@ spec =
         "./test/fixtures/ollama-conversation-streamed.json"
     createSpec $
       GenericConversationTextOps
-        "Claude XXXXXXXXXXX"
+        "Claudess"
         (claudeProvider "")
         "claude-haiku-4-5-20251001"
         "./test/fixtures/claude-conversation-generated.json"
