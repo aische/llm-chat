@@ -15,34 +15,28 @@ import Example (example)
 import Options.Applicative
 import TestExample (testExample)
 
--- main :: IO ()
--- main = main1
-
 main :: IO ()
-main = main0 =<< execParser opts
+main = mainInternal =<< execParser opts
   where
     opts =
       info
         (runtimeArgsParser <**> helper)
         ( fullDesc
-            <> progDesc "blabla"
-            <> header "blub"
+            <> progDesc "simple terminal based llm chat"
+            <> header "\n"
         )
 
-main0 :: RuntimeArgs -> IO ()
-main0 args = do
+mainInternal :: RuntimeArgs -> IO ()
+mainInternal args = do
   case args of
     ReplArgs -> createDefaultEnv >>= repl
     (TestRecorderArgs name stream) -> do
       print name
       print stream
       testExample name stream
-    (SessionClear sid) -> createDefaultEnv >>= \env -> sessionChat env ClearSession
-    (SessionShow sid) -> createDefaultEnv >>= \env -> sessionChat env ShowSession
-    (SessionPrompt sid p) -> createDefaultEnv >>= \env -> sessionChat env (PromptSession (T.pack p))
-
-runtimeArgsParser :: Parser RuntimeArgs
-runtimeArgsParser = testRecorderArgs <|> replArgs <|> sessionClear <|> sessionPrompt <|> sessionShow
+    SessionClear -> createDefaultEnv >>= \env -> sessionChat env ClearSession
+    SessionShow -> createDefaultEnv >>= \env -> sessionChat env ShowSession
+    (SessionPrompt p) -> createDefaultEnv >>= \env -> sessionChat env (PromptSession (T.pack p))
 
 data RuntimeArgs
   = TestRecorderArgs
@@ -51,15 +45,20 @@ data RuntimeArgs
       }
   | ReplArgs
   | SessionClear
-      { sid :: String
-      }
   | SessionShow
-      { sid :: String
-      }
   | SessionPrompt
-      { sid :: String,
-        prompt :: String
+      { prompt :: String
       }
+
+runtimeArgsParser :: Parser RuntimeArgs
+runtimeArgsParser =
+  hsubparser
+    ( command "test-recorder" (info testRecorderArgs (progDesc "Start the test recorder"))
+        <> command "repl" (info (pure ReplArgs) (progDesc "Start the REPL (not saved in session)"))
+        <> command "clear" (info (pure SessionClear) (progDesc "Clear the session"))
+        <> command "show" (info (pure SessionShow) (progDesc "Show session history"))
+        <> command "prompt" (info sessionPrompt (progDesc "Interactive session prompt (saved in session)"))
+    )
 
 testRecorderArgs :: Parser RuntimeArgs
 testRecorderArgs =
@@ -75,38 +74,7 @@ testRecorderArgs =
           <> help "Whether to use streaming"
       )
 
-replArgs :: Parser RuntimeArgs
-replArgs =
-  flag'
-    ReplArgs
-    ( long "repl"
-        <> help "Run chat repl"
-    )
-
-sessionClear :: Parser RuntimeArgs
-sessionClear =
-  SessionClear
-    <$> strOption
-      ( long "clear-session"
-          <> metavar "SESSIONID"
-          <> help "run session"
-      )
-
-sessionShow :: Parser RuntimeArgs
-sessionShow =
-  SessionShow
-    <$> strOption
-      ( long "show-session"
-          <> metavar "SESSIONID"
-          <> help "run session"
-      )
-
 sessionPrompt :: Parser RuntimeArgs
 sessionPrompt =
   SessionPrompt
-    <$> strOption
-      ( long "prompt-session"
-          <> metavar "SESSIONID"
-          <> help "run session"
-      )
-    <*> argument str (metavar "PROMPT")
+    <$> argument str (metavar "PROMPT")
