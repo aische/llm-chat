@@ -137,6 +137,7 @@ test-suite hello-haskell1-test
                         LLM.Claude2Spec
                         LLM.OpenAI2Spec
                         LLM.Ollama2Spec
+                        LLM.Gemini2Spec
                         LLM.GeminiSpec
                         LLM.OpenAISpec
                         LLM.TypesSpec

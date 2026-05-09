@@ -1,6 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
 
-module LLM.Providers.Gemini (geminiGateway, parseGeminiResponse, parseGeminiUsage) where
+module LLM.Providers.Gemini
+  ( geminiGateway,
+    geminiProvider,
+    parseGeminiResponse,
+    parseGeminiUsage,
+  )
+where
 
 import Control.Applicative ((<|>))
 import Data.Aeson

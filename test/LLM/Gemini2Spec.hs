@@ -1,4 +1,4 @@
-module LLM.Ollama2Spec (spec) where
+module LLM.Gemini2Spec (spec) where
 
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Aeson (eitherDecodeFileStrict')
@@ -10,27 +10,27 @@ import LLM.Core.Types
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
 import LLM.Providers.Claude (parseClaudeResponse, parseClaudeUsage)
-import LLM.Providers.Ollama (ollama)
+import LLM.Providers.Gemini (geminiProvider)
 import LLM.TestKit
 import LLM.Tools.Weather (weatherToolTyped)
 import Test.Hspec
 
-ollamaConversationGeneratedFilePath :: String
-ollamaConversationGeneratedFilePath = "./test/fixtures/ollama-conversation-generated.json"
+geminiConversationGeneratedFilePath :: String
+geminiConversationGeneratedFilePath = "./test/fixtures/gemini-conversation-generated.json"
 
-ollamaConversationStreamedFilePath :: String
-ollamaConversationStreamedFilePath = "./test/fixtures/ollama-conversation-streamed.json"
+geminiConversationStreamedFilePath :: String
+geminiConversationStreamedFilePath = "./test/fixtures/gemini-conversation-streamed.json"
 
 spec :: Spec
-spec = describe "Ollama" $ do
+spec = describe "Gemini" $ do
   describe "recorded conversation" $ do
     it "generateText" $ do
-      (m, p) <- loadRecordedConversation ollamaConversationGeneratedFilePath
-      let provider = toGateway $ mockProvider m ollama
+      (m, p) <- loadRecordedConversation geminiConversationGeneratedFilePath
+      let provider = toGateway $ mockProvider m (geminiProvider "")
           modelConf =
             ModelConfig
               { mcGateway = provider,
-                mcModel = "llama3.2:latest",
+                mcModel = "gemini-2.5-flash",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
                 mcTemperature = Nothing,
@@ -52,12 +52,12 @@ spec = describe "Ollama" $ do
       length turns `shouldBe` 8
 
     it "streamText" $ do
-      (m, p) <- loadRecordedConversation ollamaConversationStreamedFilePath
-      let provider = toGateway $ mockProvider m ollama
+      (m, p) <- loadRecordedConversation geminiConversationStreamedFilePath
+      let provider = toGateway $ mockProvider m (geminiProvider "")
           modelConf =
             ModelConfig
               { mcGateway = provider,
-                mcModel = "llama3.2:latest",
+                mcModel = "gemini-2.5-flash",
                 mcPricing = PricingInfo {pricePerMillionInput = 0.0, pricePerMillionOutput = 0.0},
                 mcMaxTokens = 1024,
                 mcTemperature = Nothing,
