@@ -139,6 +139,8 @@ test-suite hello-haskell1-test
                         LLM.Ollama2Spec
                         LLM.Gemini2Spec
                         LLM.GeminiSpec
+                        LLM.GenericConversationTest
+                        LLM.RecordedConversationSpec
                         LLM.OpenAISpec
                         LLM.TypesSpec
                         LLM.ChatSpec
