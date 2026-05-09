@@ -6,24 +6,24 @@ import Control.Retry (limitRetries)
 import Data.Aeson (object, (.=))
 import LLM.Core.Abort (abort, newAbortSignal)
 import LLM.Core.Generate
-  ( ChatEnv (..),
-    ModelConfig (..),
-    defaultChatEnv,
-    generateText,
+  ( generateText,
   )
 import LLM.Core.Types
-  ( ChatRequest (reqConversation),
+  ( ChatEnv (..),
+    ChatRequest (reqConversation),
     ChatResponse (ChatResponse),
     ContentBlock (TextBlock, ToolCallBlock),
     Conversation (..),
     LLMError (Aborted, HttpError, NetworkError, ToolLoopExceeded),
     LLMGateway (..),
+    ModelConfig (..),
     Tool (..),
     ToolCall (ToolCall),
     ToolDef (ToolDef, toolDescription, toolName, toolParameters),
     Turn (ToolTurn),
   )
 import LLM.Core.Usage (PricingInfo (..), Usage (Usage))
+import LLM.Core.Utils (defaultChatEnv)
 import Test.Hspec
   ( Spec,
     describe,

@@ -11,14 +11,15 @@ where
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import LLM.Core.LLMProvider (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Logger (LogLevel (..))
 import LLM.Core.Types
-  ( ChatRequest (..),
+  ( ChatEnv (..),
+    ChatRequest (..),
     ChatResponse (respText, respUsage),
     Conversation (..),
     LLMError (Aborted, ToolLoopExceeded),
     LLMTextResult,
+    ModelConfig (..),
     Tool (toolDef),
     ToolCall (tcName),
     ToolResult (trContent, trName),

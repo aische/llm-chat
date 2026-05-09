@@ -8,14 +8,15 @@ import Control.Exception (SomeException, catch)
 import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Text qualified as T
 import LLM (PricingInfo (..), claudeGateway, geminiGateway, ollamaGateway, openAIGateway)
-import LLM.Core.Generate (ChatEnv (..), ModelConfig (..), createChatEnv)
+import LLM.Core.Generate ()
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,
     withJsonDump,
     withStderrLogger,
   )
-import LLM.Core.Utils (toTool)
+import LLM.Core.Types (ChatEnv (..), ModelConfig (..))
+import LLM.Core.Utils (createChatEnv, toTool)
 import LLM.Tools.Weather (weatherToolTyped)
 import System.Environment (getEnv)
 

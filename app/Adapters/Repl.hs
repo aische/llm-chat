@@ -5,8 +5,8 @@ module Adapters.Repl (repl) where
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM.Core.Generate (ChatEnv, streamText)
-import LLM.Core.Types (Conversation (..), StreamEvent (..))
+import LLM.Core.Generate (streamText)
+import LLM.Core.Types (ChatEnv, Conversation (..), StreamEvent (..))
 import LLM.Core.Usage
   ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,

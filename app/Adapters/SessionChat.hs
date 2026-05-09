@@ -7,9 +7,10 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
-import LLM.Core.Generate (ChatEnv, streamText)
+import LLM.Core.Generate (streamText)
 import LLM.Core.Types
-  ( Conversation (..),
+  ( ChatEnv,
+    Conversation (..),
     StreamEvent (..),
     ToolResult (trName),
     Turn (..),

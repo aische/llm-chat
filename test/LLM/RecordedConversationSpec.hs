@@ -5,8 +5,7 @@ import Data.Aeson (eitherDecodeFileStrict')
 import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
 import LLM (createChatEnv, geminiProvider, ollama, openAIProvider, toGateway, toTool)
-import LLM.Core.Generate (ChatEnv (..), ModelConfig (..))
-import LLM.Core.Types
+import LLM.Core.Types (ChatEnv (..), ModelConfig (..))
 import LLM.Core.Usage (PricingInfo (..), Usage (..))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
 import LLM.GenericConversationTest (GenericConversationTextOps (..), createSpec)
@@ -50,7 +49,7 @@ spec =
         "./test/fixtures/ollama-conversation-streamed.json"
     createSpec $
       GenericConversationTextOps
-        "Claudess"
+        "Claude"
         (claudeProvider "")
         "claude-haiku-4-5-20251001"
         "./test/fixtures/claude-conversation-generated.json"

@@ -13,10 +13,10 @@ import Data.Text (Text)
 import LLM.Core.Abort (isAborted)
 import LLM.Core.ChatStep (ChatStep (..), windowOffset)
 import LLM.Core.ChatStepInterpreter (ChatStepInterpreter, generateTextWith, streamTextWith)
-import LLM.Core.LLMProvider (ChatEnv (..))
 import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
-  ( Conversation (..),
+  ( ChatEnv (..),
+    Conversation (..),
     LLMError (..),
     StreamEvent,
     ToolContext (..),

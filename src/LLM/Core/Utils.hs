@@ -14,6 +14,8 @@ module LLM.Core.Utils
     streamResponseJson,
     printValue,
     parseChatResponse,
+    defaultChatEnv,
+    createChatEnv,
   )
 where
 
@@ -28,13 +30,15 @@ import Data.ByteString.Lazy.Char8 qualified as L8
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
-import LLM.Core.Logger (LogLevel (Warn), Logger)
+import LLM.Core.Logger (LogLevel (Warn), Logger, noHooks)
 import LLM.Core.Types
-  ( ChatResponse (..),
+  ( ChatEnv (..),
+    ChatResponse (..),
     ContentBlock (..),
     Conversation (..),
     LLMError (..),
     LLMResult,
+    ModelConfig (..),
     Tool (..),
     ToolCall (..),
     ToolContext (..),
@@ -198,4 +202,31 @@ toTool t@(TypedTool name descr exec) =
         case AE.fromJSON argsvalue of
           AE.Error _e -> pure "Error: Parsing arguments failed" -- TODO: e not used
           AE.Success args -> exec ctx args
+    }
+
+-- | Sensible defaults — single model, no fallback.
+defaultChatEnv :: ModelConfig -> ChatEnv
+defaultChatEnv mc =
+  ChatEnv
+    { envModel = mc,
+      envFallbacks = [],
+      envSystem = Nothing,
+      envTools = [],
+      envMaxToolRounds = 10,
+      envContextWindow = Nothing,
+      envHooks = noHooks,
+      envAbortSignal = Nothing
+    }
+
+createChatEnv :: ModelConfig -> Text -> [Tool] -> ChatEnv
+createChatEnv mc system tools =
+  ChatEnv
+    { envModel = mc,
+      envFallbacks = [],
+      envSystem = Just system,
+      envTools = tools,
+      envMaxToolRounds = 10,
+      envContextWindow = Nothing,
+      envHooks = noHooks,
+      envAbortSignal = Nothing
     }

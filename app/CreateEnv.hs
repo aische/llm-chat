@@ -8,14 +8,14 @@ where
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import LLM.Core.Generate (ChatEnv (..), createChatEnv)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,
     withJsonDump,
     withStderrLogger,
   )
-import LLM.Core.Utils (toTool)
+import LLM.Core.Types (ChatEnv (..))
+import LLM.Core.Utils (createChatEnv, toTool)
 import LLM.Tools.FsConfig (mkFsConfig)
 import LLM.Tools.History (historyToolTyped)
 import LLM.Tools.Readdir (readdirToolTyped)
