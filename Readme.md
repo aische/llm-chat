@@ -4,7 +4,7 @@ A library for building chat applications with LLMs.
 
 ## Status
 
-This library is in an early stage: APIs and behavior may still change. It is work in progress, and test coverage is incomplete — some functionality is not yet covered by automated tests.
+This library is in an early stage: APIs and behavior may still change. It is work in progress, and test coverage is incomplete.
 
 ## Examples
 
@@ -128,6 +128,30 @@ USER_PROJECT_PATH="path/to/user/project"
 - generateObject (typed response)
 - generateObjectUntyped (schema and result are Value objects)
 - tools (typed)
+    - Readfile
+    - Writefile
+    - ReplaceInFile
+    - Readdir
 - token counting / cost estimation
 - hooks for logging and other side effects
 - model fallback mechanism
+
+## executable
+
+- simple repl
+
+```
+> llm-chat repl
+```
+
+- simple session based chat
+
+```
+> llm-chat prompt "what is the capital of France?"
+$ "The capital of France is Faris"
+> llm-chat prompt "and Germany?"
+$ "It's Berlin"
+> llm-chat show
+$ ... shows the full conversation ...
+> llm-chat clear
+```
