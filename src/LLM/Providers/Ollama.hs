@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
-module LLM.Providers.Ollama (Ollama (..), ollama, ollamaWith, ollamaGateway, ollamaGatewayWith) where
+module LLM.Providers.Ollama (ollama, ollamaWith, ollamaGateway, ollamaGatewayWith) where
 
 import Data.Aeson
   ( KeyValue ((.=)),
@@ -42,13 +42,6 @@ import Network.HTTP.Req
     runReq,
     (/:),
   )
-
--- | Ollama provider configuration.
--- Connects to a local Ollama instance via its OpenAI-compatible API.
-data Ollama = Ollama
-  { ollamaBaseUrl :: Url 'Http,
-    ollamaBaseOpts :: Option 'Http
-  }
 
 -- | Default Ollama provider at localhost:11434.
 ollama :: LLMProvider
