@@ -23,12 +23,11 @@ A library for building chat applications with LLMs.
 ## Frontends
 
 - chat repl
+- session chat
 - non-interactive command line chat interface, persists conversation history in a local file
 
 ## TODO
 
-- for ollama generateText and streamText there is a test that uses recorded conversation and a mock-request function. need to do that for the other 3 providers as well, and for generateObject
-
-- other tests use fake data that should be replaced with real data in the fixtures. Real data can be obtained from the dumps when withJsonDump is applied to the logging hooks.
+- some tests use fake data that should be replaced with real data in the fixtures. 
 
 - abort was added but not used or tested at all
