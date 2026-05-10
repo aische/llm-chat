@@ -6,10 +6,9 @@ module LLM.Generate.Chat
 where
 
 import Control.Concurrent (threadDelay)
--- import Control.Retry (RetryPolicyM, RetryStatus (..), retrying, rsIterNumber)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
--- import Data.Text qualified as T
 import LLM.Core.Abort (isAborted)
 import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
@@ -26,45 +25,47 @@ import LLM.Generate.Types
   ( ChatEnv (..),
   )
 
--- import System.Timeout (timeout)
-
 -- | Run a non-streaming chat. Uses the standard in-memory interpreter.
 generateTextSimple ::
+  (MonadIO m) =>
   ChatEnv ->
   Conversation ->
   Text ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateTextSimple = generateTextWith simpleChatStepInterpreter
 
 -- | Like 'generateTextSimple', but streams text deltas via a callback.
 streamTextSimple ::
+  (MonadIO m) =>
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamTextSimple = streamTextWith simpleChatStepInterpreter
 
 -- | Standard IO interpreter for 'ChatStep'. Executes effects directly:
 -- logging, throttling, LLM calls (with retry/timeout), and tool execution.
-simpleChatStepInterpreter :: ChatStepInterpreter
+simpleChatStepInterpreter :: (MonadIO m) => ChatStepInterpreter m
 simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
   where
+    go :: (MonadIO m) => ChatStep -> m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
     go (Done result) = pure result
     go (Log _level msg next) = do
-      onLog hooks _level msg
+      liftIO $ onLog hooks _level msg
       go next
     go (Throttle ms next) = do
-      threadDelay (ms * 1000)
+      liftIO $ threadDelay (ms * 1000)
       go next
     go (CheckAbort k) = do
-      aborted <- maybe (pure False) isAborted abortSig
+      aborted <- liftIO $ maybe (pure False) isAborted abortSig
       go (k aborted)
     go (CallLLM req k) = do
       result <-
-        withTimeout reqTimeout $
-          withRetry retryPolicy (onLog hooks) $
-            call req
+        liftIO $
+          withTimeout reqTimeout $
+            withRetry retryPolicy (onLog hooks) $
+              call req
       go (k result)
     go step@ExecTools {} = do
       let conv = esConv step
@@ -77,5 +78,5 @@ simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout 
                 tcWindowOffset = offset,
                 tcAbortSignal = abortSig
               }
-      results <- executeToolsWithAbort abortSig ctx tools (esCalls step)
+      results <- liftIO $ executeToolsWithAbort abortSig ctx tools (esCalls step)
       go (esCont step results)

@@ -5,8 +5,7 @@ module LLM.Generate.ChatStepInterpreter
   )
 where
 
--- import Control.Concurrent (threadDelay)
--- import Control.Retry (RetryPolicyM, RetryStatus (..), retrying, rsIterNumber)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Retry (RetryPolicyM)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -32,7 +31,7 @@ import LLM.Generate.WithFallback (withFallback)
 
 -- | A step interpreter runs a 'ChatStep' program to completion.
 -- Both 'runStepIO' and @runStepServer store sid@ satisfy this type.
-type ChatStepInterpreter =
+type ChatStepInterpreter m =
   Hooks ->
   Maybe AbortSignal ->
   [Tool] ->
@@ -41,28 +40,30 @@ type ChatStepInterpreter =
   Maybe Int -> -- request timeout
   (ChatRequest -> IO LLMTextResult) ->
   ChatStep ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 
 -- | Generic non-streaming chat with a pluggable interpreter.
 -- Use with @runStepServer store sid@ for persistence, or any custom interpreter.
 generateTextWith ::
-  ChatStepInterpreter ->
+  (MonadIO m) =>
+  ChatStepInterpreter m ->
   ChatEnv ->
   Conversation ->
   Text ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateTextWith interp unsafeEnv conv msg =
   let conv' = Conversation {unConversation = unConversation conv ++ [UserTurn msg]}
    in generateTextConversationWith interp unsafeEnv conv'
 
 generateTextConversationWith ::
-  ChatStepInterpreter ->
+  (MonadIO m) =>
+  ChatStepInterpreter m ->
   ChatEnv ->
   Conversation ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateTextConversationWith interp unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-  onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
+  liftIO $ onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call = gwGenerateText (mcGateway mc) (envHooks env)
         step = buildChatStep env mc 0 u c
@@ -70,26 +71,28 @@ generateTextConversationWith interp unsafeEnv conv = do
 
 -- | Generic streaming chat with a pluggable interpreter.
 streamTextWith ::
-  ChatStepInterpreter ->
+  (MonadIO m) =>
+  ChatStepInterpreter m ->
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamTextWith interp unsafeEnv conv msg callback = do
   let conv' = Conversation {unConversation = unConversation conv ++ [UserTurn msg]}
    in streamTextConversationWith interp unsafeEnv conv' callback
 
 streamTextConversationWith ::
-  ChatStepInterpreter ->
+  (MonadIO m) =>
+  ChatStepInterpreter m ->
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
-  IO (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamTextConversationWith interp unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-  onLog (envHooks env) Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
+  liftIO $ onLog (envHooks env) Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call req = gwStreamText (mcGateway mc) (envHooks env) req callback
+    let call req = liftIO $ gwStreamText (mcGateway mc) (envHooks env) req callback
         step = buildChatStep env mc 0 u c
      in interp (envHooks env) (envAbortSignal env) (envTools env) (envContextWindow env) (mcRetry mc) (mcRequestTimeout mc) call step
