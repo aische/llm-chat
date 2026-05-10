@@ -33,12 +33,13 @@ loop env totalUsage conv = do
   if eof
     then printSummary totalUsage
     else do
-      input <- TIO.getLine
+      input <- T.strip <$> TIO.getLine
       case parseCommand input of
         Quit -> printSummary totalUsage
         Clear -> do
           putStrLn "(conversation cleared)"
           loop env emptyUsage (Conversation [])
+        Chat "" -> loop env totalUsage conv
         Chat msg -> do
           result <- streamText env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt

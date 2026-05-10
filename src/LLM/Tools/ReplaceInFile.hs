@@ -23,8 +23,8 @@ instance AC.HasCodec ReplaceInFileToolArgs where
     AC.object "ReplaceInFileToolArgs" $
       ReplaceInFileToolArgs
         <$> AC.requiredField "path" "Relative file path to write to" AC..= path
-        <*> AC.requiredField "old" "The text content to write to the file" AC..= old
-        <*> AC.requiredField "new" "The text content to write to the file" AC..= new
+        <*> AC.requiredField "old" "The text content to be replaced in the file" AC..= old
+        <*> AC.requiredField "new" "The replacement text content to write to the file" AC..= new
 
 replaceInFileToolTyped :: FsConfig -> TypedTool ReplaceInFileToolArgs
 replaceInFileToolTyped cfg =

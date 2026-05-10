@@ -21,7 +21,7 @@ import LLM.Core.Types
     Tool (toolDef),
     ToolCall (tcName),
     ToolResult (trContent, trName),
-    Turn (AssistantTurn, ToolTurn, UserTurn),
+    Turn (AssistantTurn, ToolTurn),
   )
 import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
@@ -29,6 +29,7 @@ import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
+import LLM.Generate.Utils (windowOffset)
 
 -- | A reified chat program. Each constructor is an effect the loop
 -- needs, paired with a continuation that accepts the result.
@@ -151,18 +152,3 @@ mkRequest env mc conv =
     }
   where
     offset = windowOffset (envContextWindow env) conv
-
--- | Compute the index where the visible window starts.
-windowOffset :: Maybe Int -> Conversation -> Int
-windowOffset Nothing _ = 0
-windowOffset (Just n) conv = findNthUserFromEnd n conv
-
-findNthUserFromEnd :: Int -> Conversation -> Int
-findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
-  where
-    go idx remaining
-      | idx < 0 = 0
-      | remaining <= 0 = idx + 1
-      | otherwise = case unConversation conv !! idx of
-          UserTurn _ -> go (idx - 1) (remaining - 1)
-          _ -> go (idx - 1) remaining

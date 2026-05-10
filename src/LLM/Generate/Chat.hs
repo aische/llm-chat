@@ -7,7 +7,6 @@ where
 
 import Control.Concurrent (threadDelay)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import LLM.Core.Abort (isAborted)
 import LLM.Core.Logger (Hooks (..))
@@ -70,7 +69,7 @@ simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout 
     go step@ExecTools {} = do
       let conv = esConv step
           usage = esUsage step
-          offset = windowOffset (Just (fromMaybe maxBound ctxWindow)) conv
+          offset = windowOffset ctxWindow conv
           ctx =
             ToolContext
               { tcConversation = conv,

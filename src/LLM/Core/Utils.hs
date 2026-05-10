@@ -25,6 +25,7 @@ import Data.Aeson (FromJSON, Value, encode, object, (.=))
 import Data.Aeson qualified as AE
 import Data.Aeson.Types (Parser)
 import Data.ByteString.Lazy.Char8 qualified as L8
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal, isAborted)
@@ -44,7 +45,7 @@ import LLM.Core.Types
     TypedTool (TypedTool),
   )
 import LLM.Core.Usage (Usage (..))
-import System.Directory.Internal.Prelude (fromMaybe, timeout)
+import System.Timeout (timeout)
 
 withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
 withConversation (Conversation turns) f = Conversation (f turns)
@@ -175,8 +176,6 @@ parseChatResponse = AE.withObject "ChatResponse" $ \v -> do
     parseUsage = AE.withObject "Usage" $ \o -> do
       input <- o AE..: "input_tokens"
       output <- o AE..: "output_tokens"
-      -- Da usageTotalCost nicht im JSON von streamResponseJson war,
-      -- setzen wir es hier auf 0.0 oder einen Standardwert.
       pure $ Usage input output 0.0
 
 printValue :: Value -> IO ()

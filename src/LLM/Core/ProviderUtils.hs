@@ -55,7 +55,7 @@ normalizeSchemaOpenAI (Object o) =
                 _ -> []
               withAP = KM.insert "additionalProperties" (Bool False) o'
            in -- withReq = KM.insert "required" (Array (V.fromList (map (String . toText) props))) withAP
-              withAP
+              withAP -- TODO
         _ -> o'
    in Object fixed
 normalizeSchemaOpenAI (Array a) = Array (fmap normalizeSchemaOpenAI a)

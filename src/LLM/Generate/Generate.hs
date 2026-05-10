@@ -57,6 +57,7 @@ import LLM.Generate.Types
     ModelConfig (..),
   )
 import LLM.Generate.WithFallback (withFallback)
+import LLM.Generate.Utils (windowOffset)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.
@@ -295,23 +296,3 @@ mkRequest env mc conv =
   where
     offset = windowOffset (envContextWindow env) conv
 
--- | Compute the index where the visible window starts.
--- The window includes the last @n@ user messages and all turns that follow
--- each of them (assistant replies, tool rounds, etc.).
--- Returns 0 (no windowing) when the window is 'Nothing' or the conversation
--- contains fewer than @n@ user messages.
-windowOffset :: Maybe Int -> Conversation -> Int
-windowOffset Nothing _ = 0
-windowOffset (Just n) conv = findNthUserFromEnd n conv
-
--- | Find the index of the Nth 'UserTurn' from the end of a conversation.
--- Returns 0 if there are fewer than @n@ user messages.
-findNthUserFromEnd :: Int -> Conversation -> Int
-findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
-  where
-    go idx remaining
-      | idx < 0 = 0
-      | remaining <= 0 = idx + 1
-      | otherwise = case unConversation conv !! idx of
-          UserTurn _ -> go (idx - 1) (remaining - 1)
-          _ -> go (idx - 1) remaining

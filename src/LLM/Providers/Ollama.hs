@@ -14,7 +14,7 @@ import Data.Aeson.Types (Parser, parseMaybe)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import LLM.Core.LLMProvider (LLMProvider (..), toGateway)
-import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI)
+import LLM.Core.ProviderUtils (handleStreamResponse, lenientConfig, normalizeSchemaOpenAI, stripJsonFences)
 import LLM.Core.Types
   ( ChatRequest
       ( reqMaxTokens,
@@ -82,7 +82,7 @@ ollamaProvider baseUrl baseOpts =
       sendObjectRequest = sendRequest,
       parseObjectResponse = \v -> case parseMaybe parseObject v of
         Nothing -> pure $ Left EmptyResponse
-        Just contentStr -> case decodeStrict' (encodeUtf8 contentStr) of
+        Just contentStr -> case decodeStrict' (encodeUtf8 (stripJsonFences contentStr)) of
           Nothing -> pure $ Left EmptyResponse
           Just obj -> pure $ Right (obj, parseOpenAIUsage v)
     }
