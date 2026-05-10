@@ -8,7 +8,7 @@ module LLM.Core.ProviderUtils
   )
 where
 
-import Data.Aeson (Value (..))
+import Data.Aeson (Value (..), ToJSON (toJSON))
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString qualified as BS
 import Data.Text (Text)
@@ -50,12 +50,12 @@ normalizeSchemaOpenAI (Object o) =
   let o' = fmap normalizeSchemaOpenAI o
       fixed = case KM.lookup "type" o' of
         Just (String "object") ->
-          let _props = case KM.lookup "properties" o' of
+          let propKeys = case KM.lookup "properties" o' of
                 Just (Object p) -> KM.keys p
                 _ -> []
               withAP = KM.insert "additionalProperties" (Bool False) o'
-           in -- withReq = KM.insert "required" (Array (V.fromList (map (String . toText) props))) withAP
-              withAP -- TODO
+              withReq = KM.insert "required" (toJSON propKeys) withAP
+           in withReq
         _ -> o'
    in Object fixed
 normalizeSchemaOpenAI (Array a) = Array (fmap normalizeSchemaOpenAI a)

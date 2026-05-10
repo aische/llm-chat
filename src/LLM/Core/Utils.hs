@@ -195,6 +195,6 @@ toTool t@(TypedTool name descr exec) =
           },
       toolExecute = \ctx argsvalue ->
         case AE.fromJSON argsvalue of
-          AE.Error _e -> pure "Error: Parsing arguments failed" -- TODO: e not used
+          AE.Error e -> pure $ "Error: Parsing arguments failed " <> T.pack (show e)
           AE.Success args -> exec ctx args
     }

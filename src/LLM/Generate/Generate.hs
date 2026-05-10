@@ -56,8 +56,8 @@ import LLM.Generate.Types
     GeneratedResult,
     ModelConfig (..),
   )
-import LLM.Generate.WithFallback (withFallback)
 import LLM.Generate.Utils (windowOffset)
+import LLM.Generate.WithFallback (withFallback)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.
@@ -135,7 +135,7 @@ generateObjectConversationInternal unsafeEnv codec conv = do
     Left (e, conv', u) -> pure (Left (e, conv', u))
     Right (v, u) -> do
       case AE.fromJSON v of
-        AE.Error _e -> pure $ Left (ParseError "Can't decode object returned from generateObjectUntyped", conv, emptyUsage) -- TODO: e not used
+        AE.Error e -> pure $ Left (ParseError $ "Can't decode object returned from generateObjectUntyped" <> T.pack (show e), conv, emptyUsage) -- TODO: e not used
         AE.Success a -> pure $ Right (a, u)
 
 generateObjectUntyped ::
@@ -295,4 +295,3 @@ mkRequest env mc conv =
     }
   where
     offset = windowOffset (envContextWindow env) conv
-
