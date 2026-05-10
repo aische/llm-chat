@@ -49,7 +49,7 @@
                                     "arguments": "{\"location\":\"London\"}",
                                     "name": "get_weather"
                                 },
-                                "id": "call_r1wzhv0v",
+                                "id": "call_2w0ddvhy",
                                 "index": 0,
                                 "type": "function"
                             }
@@ -57,8 +57,8 @@
                     }
                 }
             ],
-            "created": 1778233847,
-            "id": "chatcmpl-435",
+            "created": 1778438588,
+            "id": "chatcmpl-133",
             "model": "llama3.2:latest",
             "object": "chat.completion",
             "system_fingerprint": "fp_ollama",
@@ -88,7 +88,7 @@
                                 "arguments": "{\"location\":\"London\"}",
                                 "name": "get_weather"
                             },
-                            "id": "call_r1wzhv0v",
+                            "id": "call_2w0ddvhy",
                             "type": "function"
                         }
                     ]
@@ -96,7 +96,7 @@
                 {
                     "content": "Weather in London is partly cloudy, 18°C, light breeze from the west.",
                     "role": "tool",
-                    "tool_call_id": "call_r1wzhv0v"
+                    "tool_call_id": "call_2w0ddvhy"
                 }
             ],
             "model": "llama3.2:latest",
@@ -128,20 +128,20 @@
                     "finish_reason": "stop",
                     "index": 0,
                     "message": {
-                        "content": "According to Dark Sky, the current weather in London is:\n\n* Sky Conditions: Partly Cloudy\n* Temperature: 18°C (64°F)\n* Wind: Light breeze from the west at 7 mph (11 km/h)",
+                        "content": "According to current weather conditions, London has a partly cloudy sky with a temperature of 18°C and a light breeze coming from the west. Would you like me to check the forecast for a specific date or get more detailed information?",
                         "role": "assistant"
                     }
                 }
             ],
-            "created": 1778233848,
-            "id": "chatcmpl-699",
+            "created": 1778438589,
+            "id": "chatcmpl-838",
             "model": "llama3.2:latest",
             "object": "chat.completion",
             "system_fingerprint": "fp_ollama",
             "usage": {
-                "completion_tokens": 49,
+                "completion_tokens": 47,
                 "prompt_tokens": 137,
-                "total_tokens": 186
+                "total_tokens": 184
             }
         }
     },
@@ -165,7 +165,7 @@
                                 "arguments": "{\"location\":\"London\"}",
                                 "name": "get_weather"
                             },
-                            "id": "call_r1wzhv0v",
+                            "id": "call_2w0ddvhy",
                             "type": "function"
                         }
                     ]
@@ -173,10 +173,10 @@
                 {
                     "content": "Weather in London is partly cloudy, 18°C, light breeze from the west.",
                     "role": "tool",
-                    "tool_call_id": "call_r1wzhv0v"
+                    "tool_call_id": "call_2w0ddvhy"
                 },
                 {
-                    "content": "According to Dark Sky, the current weather in London is:\n\n* Sky Conditions: Partly Cloudy\n* Temperature: 18°C (64°F)\n* Wind: Light breeze from the west at 7 mph (11 km/h)",
+                    "content": "According to current weather conditions, London has a partly cloudy sky with a temperature of 18°C and a light breeze coming from the west. Would you like me to check the forecast for a specific date or get more detailed information?",
                     "role": "assistant"
                 },
                 {
@@ -218,10 +218,10 @@
                         "tool_calls": [
                             {
                                 "function": {
-                                    "arguments": "{\"location\":{\"type\":\"string\",\"value\":\"Paris\"}}",
+                                    "arguments": "{\"location\":\"Paris\"}",
                                     "name": "get_weather"
                                 },
-                                "id": "call_lca5vkox",
+                                "id": "call_291p7a0i",
                                 "index": 0,
                                 "type": "function"
                             }
@@ -229,15 +229,15 @@
                     }
                 }
             ],
-            "created": 1778233849,
-            "id": "chatcmpl-629",
+            "created": 1778438589,
+            "id": "chatcmpl-165",
             "model": "llama3.2:latest",
             "object": "chat.completion",
             "system_fingerprint": "fp_ollama",
             "usage": {
-                "completion_tokens": 27,
-                "prompt_tokens": 286,
-                "total_tokens": 313
+                "completion_tokens": 17,
+                "prompt_tokens": 284,
+                "total_tokens": 301
             }
         }
     },
@@ -260,7 +260,7 @@
                                 "arguments": "{\"location\":\"London\"}",
                                 "name": "get_weather"
                             },
-                            "id": "call_r1wzhv0v",
+                            "id": "call_2w0ddvhy",
                             "type": "function"
                         }
                     ]
@@ -268,10 +268,10 @@
                 {
                     "content": "Weather in London is partly cloudy, 18°C, light breeze from the west.",
                     "role": "tool",
-                    "tool_call_id": "call_r1wzhv0v"
+                    "tool_call_id": "call_2w0ddvhy"
                 },
                 {
-                    "content": "According to Dark Sky, the current weather in London is:\n\n* Sky Conditions: Partly Cloudy\n* Temperature: 18°C (64°F)\n* Wind: Light breeze from the west at 7 mph (11 km/h)",
+                    "content": "According to current weather conditions, London has a partly cloudy sky with a temperature of 18°C and a light breeze coming from the west. Would you like me to check the forecast for a specific date or get more detailed information?",
                     "role": "assistant"
                 },
                 {
@@ -283,18 +283,18 @@
                     "tool_calls": [
                         {
                             "function": {
-                                "arguments": "{\"location\":{\"type\":\"string\",\"value\":\"Paris\"}}",
+                                "arguments": "{\"location\":\"Paris\"}",
                                 "name": "get_weather"
                             },
-                            "id": "call_lca5vkox",
+                            "id": "call_291p7a0i",
                             "type": "function"
                         }
                     ]
                 },
                 {
-                    "content": "Error: Parsing arguments failed",
+                    "content": "Weather in Paris is sunny, 23°C, no wind.",
                     "role": "tool",
-                    "tool_call_id": "call_lca5vkox"
+                    "tool_call_id": "call_291p7a0i"
                 }
             ],
             "model": "llama3.2:latest",
@@ -326,20 +326,20 @@
                     "finish_reason": "stop",
                     "index": 0,
                     "message": {
-                        "content": "Unfortunately, I was unable to get the weather forecast for Paris.\n\nHowever, I can suggest checking a weather website or app such as AccuWeather or OpenWeatherMap for the current weather in Paris. \n\nWould you like me to find that information instead?",
+                        "content": "According to current weather conditions, Paris has a sunny sky with a temperature of 23°C and wind speed at 0 meters per second. It's a beautiful day to explore the City of Light! Would you like me to check the forecast for another city or get more detailed information about the current weather?",
                         "role": "assistant"
                     }
                 }
             ],
-            "created": 1778233849,
-            "id": "chatcmpl-365",
+            "created": 1778438591,
+            "id": "chatcmpl-823",
             "model": "llama3.2:latest",
             "object": "chat.completion",
             "system_fingerprint": "fp_ollama",
             "usage": {
-                "completion_tokens": 52,
-                "prompt_tokens": 237,
-                "total_tokens": 289
+                "completion_tokens": 62,
+                "prompt_tokens": 236,
+                "total_tokens": 298
             }
         }
     }
