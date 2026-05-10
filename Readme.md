@@ -1,6 +1,26 @@
+work in progress
+
 # LLM-Chat
 
 A library for building chat applications with LLMs.
+
+```haskell
+module Main where
+
+import Data.Text.IO qualified as TIO
+import LLM (createChatEnv, createModelConfig, emptyConversation, ollamaGateway)
+import LLM.Generate.Generate (generateText)
+
+main :: IO ()
+main = do
+    let mc = createModelConfig ollamaGateway "llama3.2"
+        env = createChatEnv mc "" []
+
+    result <- generateText env emptyConversation "what is the capital of france?"
+    case result of
+        Left e -> print e
+        Right (answer, _, _) -> TIO.putStrLn answer
+```
 
 ## Providers
 
@@ -19,15 +39,3 @@ A library for building chat applications with LLMs.
 - token counting / cost estimation
 - hooks for logging and other side effects
 - model fallback mechanism
-
-## Frontends
-
-- chat repl
-- session chat
-- non-interactive command line chat interface, persists conversation history in a local file
-
-## TODO
-
-- some tests use fake data that should be replaced with real data in the fixtures. 
-
-- abort was added but not used or tested at all
