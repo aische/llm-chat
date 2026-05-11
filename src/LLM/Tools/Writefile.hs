@@ -14,8 +14,7 @@ data WritefileToolArgs = WritefileToolArgs
     content :: Text
   }
   deriving (Generic)
-
-instance FromJSON WritefileToolArgs
+  deriving anyclass (FromJSON)
 
 instance AC.HasCodec WritefileToolArgs where
   codec =

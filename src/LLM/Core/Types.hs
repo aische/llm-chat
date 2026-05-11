@@ -33,11 +33,7 @@ data ToolCall = ToolCall
     tcName :: Text,
     tcArguments :: Value
   }
-  deriving (Show, Eq, Generic)
-
-instance ToJSON ToolCall
-
-instance FromJSON ToolCall
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 -- | The result of executing a tool, sent back to the model
 data ToolResult = ToolResult
@@ -45,33 +41,22 @@ data ToolResult = ToolResult
     trName :: Text, -- function name (matches tcName)
     trContent :: Text
   }
-  deriving (Show, Eq, Generic)
-
-instance ToJSON ToolResult
-
-instance FromJSON ToolResult
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 -- | A single turn in a conversation
 data Turn
   = UserTurn Text
   | AssistantTurn Text [ToolCall] -- text (possibly empty) + any tool calls
   | ToolTurn [ToolResult]
-  deriving (Show, Eq, Generic)
-
-instance ToJSON Turn
-
-instance FromJSON Turn
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 -- | A full conversation history
 newtype Conversation = Conversation {unConversation :: [Turn]}
   deriving (Show, Eq, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 instance Semigroup Conversation where
   Conversation a <> Conversation b = Conversation (a ++ b)
-
-instance ToJSON Conversation
-
-instance FromJSON Conversation
 
 -- | Context passed to tool implementations during execution.
 -- Provides read access to the full (unwindowed) conversation and

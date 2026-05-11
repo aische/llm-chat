@@ -18,8 +18,7 @@ newtype HistoryToolArgs = HistoryToolArgs
   { chunk :: Int
   }
   deriving (Generic)
-
-instance FromJSON HistoryToolArgs
+  deriving anyclass (FromJSON)
 
 instance AC.HasCodec HistoryToolArgs where
   codec =

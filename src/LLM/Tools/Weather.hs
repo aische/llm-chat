@@ -10,8 +10,7 @@ newtype WeatherToolArgs = WeatherToolArgs
   { location :: Text
   }
   deriving (Generic)
-
-instance FromJSON WeatherToolArgs
+  deriving anyclass (FromJSON)
 
 instance AC.HasCodec WeatherToolArgs where
   codec =

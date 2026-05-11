@@ -25,10 +25,7 @@ data ExampleObject = ExampleObject
     rating :: Int,
     flag :: Bool
   }
-  deriving (Show, Generic)
-
-instance FromJSON ExampleObject
-
+  deriving (Show, Generic, FromJSON)
 instance AC.HasCodec ExampleObject where
   codec =
     AC.object "ExampleObject" $

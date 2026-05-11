@@ -13,8 +13,7 @@ newtype ReadfileToolArgs = ReadfileToolArgs
   { path :: Text
   }
   deriving (Generic)
-
-instance FromJSON ReadfileToolArgs
+  deriving anyclass (FromJSON)
 
 instance AC.HasCodec ReadfileToolArgs where
   codec =

@@ -15,8 +15,7 @@ data MockRequestResponse = MockRequestResponse
     response :: Value
   }
   deriving (Generic)
-
-instance FromJSON MockRequestResponse
+  deriving anyclass (FromJSON)
 
 type MockConversation = [MockRequestResponse]
 

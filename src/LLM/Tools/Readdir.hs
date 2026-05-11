@@ -14,8 +14,7 @@ newtype ReaddirToolArgs = ReaddirToolArgs
   { path :: Text
   }
   deriving (Generic)
-
-instance FromJSON ReaddirToolArgs
+  deriving anyclass (FromJSON)
 
 instance AC.HasCodec ReaddirToolArgs where
   codec :: AC.JSONCodec ReaddirToolArgs

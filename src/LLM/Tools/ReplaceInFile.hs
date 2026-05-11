@@ -15,8 +15,7 @@ data ReplaceInFileToolArgs = ReplaceInFileToolArgs
     new :: Text
   }
   deriving (Generic)
-
-instance FromJSON ReplaceInFileToolArgs
+  deriving anyclass (FromJSON)
 
 instance AC.HasCodec ReplaceInFileToolArgs where
   codec =

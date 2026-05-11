@@ -57,6 +57,7 @@ common opts
         ConstraintKinds
         DataKinds
         DeriveAnyClass
+        DerivingStrategies
         LambdaCase
         OverloadedStrings
 
