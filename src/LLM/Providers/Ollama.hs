@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-
 module LLM.Providers.Ollama (ollama, ollamaWith, ollamaGateway, ollamaGatewayWith) where
 
 import Data.Aeson

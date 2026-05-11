@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module LLM.Providers.Gemini
   ( geminiGateway,
     geminiProvider,

@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-
 module Example where
 
 import AllModels (AllModels (..), getAllModels)

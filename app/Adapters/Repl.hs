@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Adapters.Repl (repl) where
 
 import Data.Text (Text)

@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-
 module LLM.Providers.Claude
   ( claudeGateway,
     claudeProvider,

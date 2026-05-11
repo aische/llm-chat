@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Adapters.StreamChatLoop (streamChatLoop, streamChatLoopMain) where
 
 import AllModels (AllModels (..), getAllModels)

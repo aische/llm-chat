@@ -54,8 +54,11 @@ extra-doc-files:    CHANGELOG.md
 common opts
     default-language: GHC2021
     default-extensions:
-        OverloadedStrings
         ConstraintKinds
+        DataKinds
+        DeriveAnyClass
+        LambdaCase
+        OverloadedStrings
 
 common warnings
     ghc-options: 

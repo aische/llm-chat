@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wall #-}
-
 module TestExample where
 
 import Adapters.StreamChatLoop (streamChatLoopMain)

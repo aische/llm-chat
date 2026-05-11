@@ -16,11 +16,7 @@ data Usage = Usage
     usageOutputTokens :: !Int,
     usageTotalCost :: !Double
   }
-  deriving (Show, Eq, Generic)
-
-instance FromJSON Usage
-
-instance ToJSON Usage
+  deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 emptyUsage :: Usage
 emptyUsage = Usage {usageInputTokens = 0, usageOutputTokens = 0, usageTotalCost = 0}

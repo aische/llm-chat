@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Adapters.SessionChat (sessionChat, SessionCommand (..)) where
 
 import Data.Aeson (FromJSON, ToJSON, eitherDecodeFileStrict', encodeFile)
@@ -32,11 +30,7 @@ data SessionFile = SessionFile
   { sfConversation :: Conversation,
     sfUsage :: Usage
   }
-  deriving (Show, Generic)
-
-instance ToJSON SessionFile
-
-instance FromJSON SessionFile
+  deriving (Show, Generic, ToJSON, FromJSON)
 
 sessionPath :: FilePath
 sessionPath = ".session.json"

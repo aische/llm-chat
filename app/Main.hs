@@ -1,7 +1,3 @@
-{-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
-
 module Main where
 
 import Adapters.Repl (repl)

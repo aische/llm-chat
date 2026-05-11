@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module LLM.Core.Types
   ( Turn (..),
     Conversation (..),
@@ -22,6 +20,7 @@ module LLM.Core.Types
 where
 
 import Data.Aeson (FromJSON, ToJSON, Value)
+import Data.Semigroup (Semigroup)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import LLM.Core.Abort (AbortSignal)
@@ -65,7 +64,10 @@ instance FromJSON Turn
 
 -- | A full conversation history
 newtype Conversation = Conversation {unConversation :: [Turn]}
-  deriving (Show, Eq, Generic, Semigroup)
+  deriving (Show, Eq, Generic)
+
+instance Semigroup Conversation where
+  Conversation a <> Conversation b = Conversation (a ++ b)
 
 instance ToJSON Conversation
 
@@ -146,11 +148,7 @@ data LLMError
   | EmptyResponse -- valid JSON, but no content in it
   | ToolLoopExceeded Int -- hit the max tool rounds limit
   | Aborted -- user cancelled the request
-  deriving (Show, Eq, Generic)
-
-instance FromJSON LLMError
-
-instance ToJSON LLMError
+  deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 -- | Result of an LLM operation: either an error, a chat response, or a generated object
 type LLMTextResult = LLMResult ChatResponse

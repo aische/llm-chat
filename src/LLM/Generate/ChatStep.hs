@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module LLM.Generate.ChatStep
   ( ChatStep (..),
     buildChatStep,
