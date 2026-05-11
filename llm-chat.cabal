@@ -51,12 +51,19 @@ extra-doc-files:    CHANGELOG.md
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
+common opts
+    default-language: GHC2021
+    default-extensions:
+        OverloadedStrings
+        ConstraintKinds
+
 common warnings
     ghc-options: 
         -Wall 
         -Wunused-imports
 
 library
+    import: opts
     exposed-modules:
         LLM
         LLM.Core.Abort
@@ -105,13 +112,9 @@ library
         time           >=1.11  && <1.15,
         unordered-containers >=0.2 && < 0.3,
         vector         >=0.13,
-    default-language:   GHC2021
-    default-extensions: OverloadedStrings
-    ghc-options: 
-        -Wall 
-        -Wunused-imports
 
 executable llm-chat
+    import: opts
     main-is:          Main.hs
     other-modules:    AllModels,
                       CreateEnv,
@@ -134,10 +137,9 @@ executable llm-chat
         dotenv         >=0.9   && <0.13,
         optparse-applicative >= 0.16 && <0.19,
         retry          >=0.9   && <0.10
-    default-language:   GHC2021
-    default-extensions: OverloadedStrings
 
 test-suite llm-chat-test
+    import: opts
     type:               exitcode-stdio-1.0
     main-is:            Spec.hs
     other-modules:      LLM.ClaudeSpec
@@ -157,6 +159,4 @@ test-suite llm-chat-test
         hspec          >=2.10  && <2.12,
         llm-chat,
         retry          >=0.9   && <0.10
-    default-language:   GHC2021
-    default-extensions: OverloadedStrings
     build-tool-depends: hspec-discover:hspec-discover

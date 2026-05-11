@@ -36,6 +36,6 @@ data ChatEnv = ChatEnv
     envAbortSignal :: Maybe AbortSignal
   }
 
-class (HasCodec t, FromJSON t) => Generatable t
+type Generatable t = (FromJSON t, HasCodec t)
 
 type GeneratedResult a = Either (LLMError, Conversation, Usage) a

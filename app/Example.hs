@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DataKinds #-}
 
 module Example where
 
@@ -39,8 +39,6 @@ instance AC.HasCodec ExampleObject where
         <*> AC.requiredField "content" "content of the example" AC..= content
         <*> AC.requiredField "rating" "quality of the example (1..10)" AC..= rating
         <*> AC.requiredField "flag" "is the example good?" AC..= flag
-
-instance Generatable ExampleObject
 
 generateExample :: ChatEnv -> Text -> IO (GeneratedResult (ExampleObject, Usage))
 generateExample env = generateObject env emptyConversation
