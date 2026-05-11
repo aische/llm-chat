@@ -19,14 +19,14 @@ data MockRequestResponse = MockRequestResponse
 
 type MockConversation = [MockRequestResponse]
 
-type MockConversationMap = (M.Map Value Value, [Text])
+type MockConversationMap = M.Map Value Value
 
 -- | Reads a JSON file and returns the Value.
 -- Returns Nothing if the file doesn't exist or contains invalid JSON.
 readMockRequestResponse :: FilePath -> IO (Maybe MockConversation)
 readMockRequestResponse = decodeFileStrict
 
-loadRecordedConversation :: FilePath -> IO MockConversationMap
+loadRecordedConversation :: FilePath -> IO (MockConversationMap, [Text])
 loadRecordedConversation filePath = do
   s <- readMockRequestResponse filePath
   case s of
