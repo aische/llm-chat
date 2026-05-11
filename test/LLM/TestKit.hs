@@ -19,11 +19,14 @@ data MockRequestResponse = MockRequestResponse
 
 type MockConversation = [MockRequestResponse]
 
+type MockConversationMap = (M.Map Value Value, [Text])
+
 -- | Reads a JSON file and returns the Value.
 -- Returns Nothing if the file doesn't exist or contains invalid JSON.
 readMockRequestResponse :: FilePath -> IO (Maybe MockConversation)
 readMockRequestResponse = decodeFileStrict
 
+loadRecordedConversation :: FilePath -> IO MockConversationMap
 loadRecordedConversation filePath = do
   s <- readMockRequestResponse filePath
   case s of
@@ -34,7 +37,7 @@ loadRecordedConversation filePath = do
           prompts = rrs >>= \rsp -> case prompt rsp of Nothing -> []; Just p -> [p]
        in pure (rrMap, prompts)
 
-mockProvider :: M.Map Value Value -> LLMProvider -> LLMProvider
+mockProvider :: MockConversationMap -> LLMProvider -> LLMProvider
 mockProvider mp adapter =
   adapter
     { sendRequest = \val -> do
