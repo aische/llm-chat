@@ -46,7 +46,8 @@ createSpec opts = describe (specTitle opts) $ do
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Nothing,
-              mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 3,
+              mcJitterBackoff = 1_000
             }
         systemPrompt = "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to, but use only the tools that are available."
         env =
@@ -73,7 +74,8 @@ createSpec opts = describe (specTitle opts) $ do
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Nothing,
-              mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 3,
+              mcJitterBackoff = 1_000
             }
         systemPrompt = "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to, but use only the tools that are available."
         env =

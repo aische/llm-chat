@@ -4,10 +4,11 @@ module LLM.Generate.Utils
     createModelConfig,
     windowOffset,
     findNthUserFromEnd,
+    modelRetryPolicy,
   )
 where
 
-import Control.Retry (fullJitterBackoff, limitRetries)
+import Control.Retry (RetryPolicyM, fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import LLM.Core.Logger (noHooks)
 import LLM.Core.Types (Conversation (unConversation), LLMGateway, Tool, Turn (UserTurn))
@@ -51,7 +52,8 @@ createModelConfig gateway modelName =
       mcTemperature = Nothing,
       mcRequestTimeout = Nothing,
       mcThrottleDelay = Nothing,
-      mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+      mcRetryCount = 0,
+      mcJitterBackoff = 1_000
     }
 
 -- | Compute the index where the visible window starts.
@@ -75,3 +77,6 @@ findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
       | otherwise = case unConversation conv !! idx of
           UserTurn _ -> go (idx - 1) (remaining - 1)
           _ -> go (idx - 1) remaining
+
+modelRetryPolicy :: ModelConfig -> RetryPolicyM IO
+modelRetryPolicy mc = limitRetries (mcRetryCount mc) <> fullJitterBackoff (mcJitterBackoff mc * 1000)

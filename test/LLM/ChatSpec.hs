@@ -83,7 +83,8 @@ mockModel gw =
       mcTemperature = Nothing,
       mcRequestTimeout = Nothing,
       mcThrottleDelay = Nothing,
-      mcRetry = limitRetries 0
+      mcRetryCount = 0,
+      mcJitterBackoff = 0
     }
 
 weatherTool :: Tool

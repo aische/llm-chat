@@ -45,7 +45,8 @@ getAllModels =
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Nothing,
-              mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 0,
+              mcJitterBackoff = 1_000
             }
         gpt_5_4_nano =
           ModelConfig
@@ -56,7 +57,8 @@ getAllModels =
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Nothing,
-              mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 0,
+              mcJitterBackoff = 1_000
             }
         gpt_4_1 =
           ModelConfig
@@ -67,7 +69,8 @@ getAllModels =
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Just 1_000,
-              mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 0,
+              mcJitterBackoff = 1_000
             }
         gemini_2_5_flash =
           ModelConfig
@@ -78,7 +81,8 @@ getAllModels =
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Just 1_000,
-              mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 0,
+              mcJitterBackoff = 1_000
             }
         claude_haiku_4_5 =
           ModelConfig
@@ -89,7 +93,8 @@ getAllModels =
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Nothing,
-              mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 3,
+              mcJitterBackoff = 1_000
             }
         llama_3_2 =
           ModelConfig
@@ -100,7 +105,8 @@ getAllModels =
               mcTemperature = Nothing,
               mcRequestTimeout = Nothing,
               mcThrottleDelay = Nothing,
-              mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+              mcRetryCount = 3,
+              mcJitterBackoff = 1_000
             }
     return $
       AllModels

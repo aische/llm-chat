@@ -50,7 +50,8 @@ getModelConfig name =
             mcTemperature = Nothing,
             mcRequestTimeout = Nothing,
             mcThrottleDelay = Nothing,
-            mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+            mcRetryCount = 3,
+            mcJitterBackoff = 1_000
           }
     "openai" -> do
       apiKey <- T.pack <$> getEnv "OPENAI_API_KEY"
@@ -63,7 +64,8 @@ getModelConfig name =
             mcTemperature = Nothing,
             mcRequestTimeout = Nothing,
             mcThrottleDelay = Just 1_000,
-            mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+            mcRetryCount = 0,
+            mcJitterBackoff = 1_000
           }
     "gemini" -> do
       apiKey <- T.pack <$> getEnv "GEMINI_API_KEY"
@@ -76,7 +78,8 @@ getModelConfig name =
             mcTemperature = Nothing,
             mcRequestTimeout = Nothing,
             mcThrottleDelay = Just 1_000,
-            mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+            mcRetryCount = 0,
+            mcJitterBackoff = 1_000
           }
     "claude" -> do
       apiKLey <- T.pack <$> getEnv "CLAUDE_API_KEY"
@@ -89,6 +92,7 @@ getModelConfig name =
             mcTemperature = Nothing,
             mcRequestTimeout = Nothing,
             mcThrottleDelay = Nothing,
-            mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+            mcRetryCount = 3,
+            mcJitterBackoff = 1_000
           }
     _ -> error "unknown model name. name should be one of:\n ollama\n claude\n gemini\n openai"

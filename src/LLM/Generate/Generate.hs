@@ -15,6 +15,7 @@ where
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
+import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Aeson (Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
@@ -56,7 +57,7 @@ import LLM.Generate.Types
     GeneratedResult,
     ModelConfig (..),
   )
-import LLM.Generate.Utils (windowOffset)
+import LLM.Generate.Utils (modelRetryPolicy, windowOffset)
 import LLM.Generate.WithFallback (withFallback)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
@@ -168,7 +169,7 @@ generateObjectConversationUntyped unsafeEnv schema conv = do
             Nothing -> pure ()
           result <-
             withTimeout (mcRequestTimeout mc) $
-              withRetry (mcRetry mc) logIt $
+              withRetry (modelRetryPolicy mc) logIt $
                 call request
           case result of
             Left err -> do
@@ -219,7 +220,7 @@ chatLoop env mc call rounds acc conv
             Nothing -> pure ()
           result <-
             withTimeout (mcRequestTimeout mc) $
-              withRetry (mcRetry mc) logIt $
+              withRetry (modelRetryPolicy mc) logIt $
                 call request
           case result of
             Left err -> do

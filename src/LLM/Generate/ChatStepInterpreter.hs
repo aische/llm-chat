@@ -6,7 +6,7 @@ module LLM.Generate.ChatStepInterpreter
 where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Retry (RetryPolicyM)
+import Control.Retry (RetryPolicyM, fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal)
@@ -27,6 +27,7 @@ import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
+import LLM.Generate.Utils (modelRetryPolicy)
 import LLM.Generate.WithFallback (withFallback)
 
 -- | A step interpreter runs a 'ChatStep' program to completion.
@@ -67,7 +68,15 @@ generateTextConversationWith interp unsafeEnv conv = do
   withFallback env conv $ \mc c u ->
     let call = gwGenerateText (mcGateway mc) (envHooks env)
         step = buildChatStep env mc 0 u c
-     in interp (envHooks env) (envAbortSignal env) (envTools env) (envContextWindow env) (mcRetry mc) (mcRequestTimeout mc) call step
+     in interp
+          (envHooks env)
+          (envAbortSignal env)
+          (envTools env)
+          (envContextWindow env)
+          (modelRetryPolicy mc)
+          (mcRequestTimeout mc)
+          call
+          step
 
 -- | Generic streaming chat with a pluggable interpreter.
 streamTextWith ::
@@ -95,4 +104,12 @@ streamTextConversationWith interp unsafeEnv conv callback = do
   withFallback env conv $ \mc c u ->
     let call req = liftIO $ gwStreamText (mcGateway mc) (envHooks env) req callback
         step = buildChatStep env mc 0 u c
-     in interp (envHooks env) (envAbortSignal env) (envTools env) (envContextWindow env) (mcRetry mc) (mcRequestTimeout mc) call step
+     in interp
+          (envHooks env)
+          (envAbortSignal env)
+          (envTools env)
+          (envContextWindow env)
+          (modelRetryPolicy mc)
+          (mcRequestTimeout mc)
+          call
+          step

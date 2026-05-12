@@ -20,7 +20,9 @@ data ModelConfig = ModelConfig
     mcTemperature :: Maybe Double,
     mcRequestTimeout :: Maybe Int, -- milliseconds; timeout the whole request if it takes too long
     mcThrottleDelay :: Maybe Int, -- milliseconds; wait before each API call
-    mcRetry :: RetryPolicyM IO
+    -- mcRetry :: RetryPolicyM IO,
+    mcRetryCount :: Int,
+    mcJitterBackoff :: Int -- milliseconds; wait before each retry
   }
 
 -- | Application-level chat configuration.
