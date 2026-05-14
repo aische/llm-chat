@@ -2,18 +2,27 @@
     {
         "chatEnvName": "default",
         "model": "llama_3_2",
-        "fallbacks": [],
+        "fallbacks": ["gemini_lite"],
         "systemPrompt": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to.",
         "tools": ["read_file", "read_dir", "write_file"],
         "maximumToolRounds": 3,
         "contextWindowSize": 3
     },
     {
-        "chatEnvName": "default-readonly",
-        "model": "llama_3_2",
-        "fallbacks": [],
-        "systemPrompt": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to.",
-        "tools": ["read_file", "read_dir"],
+        "chatEnvName": "funny",
+        "model": "gpt_4_1",
+        "fallbacks": ["llama_3_2"],
+        "systemPrompt": "You are funny assistand and answer in an funny and friendly way",
+        "tools": [],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "angry",
+        "model": "gpt_4_1",
+        "fallbacks": ["llama_3_2"],
+        "systemPrompt": "You are unfriendly asistant and answer in an angry way",
+        "tools": [],
         "maximumToolRounds": 3,
         "contextWindowSize": 3
     }

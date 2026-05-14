@@ -8,6 +8,7 @@ import Data.Text qualified as T
 import Example1 qualified as E1
 import Example2 qualified as E2
 import Example3 qualified as E3
+import Example4 qualified as E4
 import Options.Applicative
 import RecordTestConversation (testExample)
 
@@ -38,6 +39,7 @@ mainInternal args = do
     Example1 -> E1.main
     Example2 -> E2.main
     Example3 -> E3.main
+    Example4 -> E4.main
 
 data RuntimeArgs
   = TestRecorderArgs
@@ -53,6 +55,7 @@ data RuntimeArgs
   | Example1
   | Example2
   | Example3
+  | Example4
 
 runtimeArgsParser :: Parser RuntimeArgs
 runtimeArgsParser =
@@ -65,6 +68,7 @@ runtimeArgsParser =
         <> command "example1" (info (pure Example1) (progDesc "Example1 from Readme.md"))
         <> command "example2" (info (pure Example2) (progDesc "Example2 from Readme.md"))
         <> command "example3" (info (pure Example3) (progDesc "Example3 from Readme.md (generateObject)"))
+        <> command "example4" (info (pure Example4) (progDesc "Example4 using json configs for models and envs"))
     )
 
 testRecorderArgs :: Parser RuntimeArgs

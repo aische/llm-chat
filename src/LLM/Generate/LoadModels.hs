@@ -125,7 +125,7 @@ createChatEnv models toolMap conf = do
     ChatEnv
       { envModel = modelConfig,
         envFallbacks = fb,
-        envSystem = Nothing,
+        envSystem = systemPrompt conf,
         envTools = tools,
         envMaxToolRounds = maximumToolRounds conf,
         envContextWindow = contextWindowSize conf,
@@ -165,8 +165,8 @@ loadDefaultEnvOrThrow hooks = do
     Left err -> error err
     Right env -> pure env
 
-loadDefaultEnvsOrThrow :: (Each s t Text ChatEnv) => Hooks -> s -> IO t
-loadDefaultEnvsOrThrow hooks names = do
+loadEnvsOrThrow :: (Each s t Text ChatEnv) => Hooks -> s -> IO t
+loadEnvsOrThrow hooks names = do
   envs <- either error id <$> loadEnvs
   case getLoadedEnvs envs hooks names of
     Left err -> error err

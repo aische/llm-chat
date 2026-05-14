@@ -129,6 +129,7 @@ executable llm-chat
                       Example1,
                       Example2,
                       Example3,
+                      Example4,
                       RecordTestConversation
     hs-source-dirs:   app
     build-depends:

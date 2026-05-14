@@ -158,3 +158,127 @@ $ "It's Berlin"
 $ ... shows the full conversation ...
 > llm-chat clear
 ```
+
+## Config files
+
+Instead of hardcoding the model configs and the chat envs, they can live in JSON files:
+
+model-catalog.json:
+
+```json
+[
+    {
+        "modelConfigName": "gpt_4_1",
+        "providerName": "openai",
+        "modelName": "gpt-4.1-2025-04-14",
+        "pricing": {
+            "pricePerMillionInput": 2.0,
+            "pricePerMillionOutput": 8.0
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "llama_3_2",
+        "providerName": "ollama",
+        "modelName": "llama3.2:latest",
+        "pricing": {
+            "pricePerMillionInput": 0.0,
+            "pricePerMillionOutput": 0.0
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "gemini_2_5_flash",
+        "providerName": "gemini",
+        "modelName": "gemini-2.5-flash",
+        "pricing": {
+            "pricePerMillionInput": 0.1,
+            "pricePerMillionOutput": 0.4
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "gemini_lite",
+        "providerName": "gemini",
+        "modelName": "gemini-3.1-flash-lite",
+        "pricing": {
+            "pricePerMillionInput": 0.1,
+            "pricePerMillionOutput": 0.4
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    }
+]
+```
+
+chat-env-catalog.json:
+
+```json
+[
+    {
+        "chatEnvName": "default",
+        "model": "llama_3_2",
+        "fallbacks": ["gemini_lite"],
+        "systemPrompt": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to.",
+        "tools": ["read_file", "read_dir", "write_file"],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "funny",
+        "model": "gpt_4_1",
+        "fallbacks": ["llama_3_2"],
+        "systemPrompt": "You are funny assistand and answer in an funny and friendly way",
+        "tools": [],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "angry",
+        "model": "gpt_4_1",
+        "fallbacks": ["llama_3_2"],
+        "systemPrompt": "You are unfriendly asistant and answer in an angry way",
+        "tools": [],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
+    }
+]
+```
+
+example that uses the config files:
+
+```haskell
+module Example4 where
+
+import LLM (LogLevel (Debug), generateText, noHooks, withJsonDump, withStderrLogger)
+import LLM.Core.Utils (emptyConversation)
+import LLM.Generate.LoadModels (loadEnvsOrThrow)
+
+main :: IO ()
+main = do
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+  (funnyEnv, angryEnv) <- loadEnvsOrThrow hooks ("funny", "angry")
+  r <- generateText funnyEnv emptyConversation "what is the capital of france?"
+  print r
+  r2 <- generateText angryEnv emptyConversation "what is the capital of france?"
+  print r2
+```
