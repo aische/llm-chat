@@ -4,11 +4,10 @@ import Adapters.Repl (repl)
 import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSession), sessionChat)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import Data.Map qualified as Map
 import Data.Text qualified as T
 import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
-import LLM.Generate.LoadModels (loadEnvs)
-import LLM.Generate.Types (ChatEnv (envHooks))
+import LLM.Generate.LoadModels (getLoadedEnv, loadEnvs)
+import LLM.Generate.Types (ChatEnv (..))
 import Options.Applicative
 import TestExample (testExample)
 
@@ -27,12 +26,11 @@ main = do
 
 createDefaultEnv :: IO ChatEnv
 createDefaultEnv = do
-  (chatEnvs, _modelConfigs, _gateways) <- either error id <$> loadEnvs
-  print $ Map.keys chatEnvs
-  case Map.lookup "default" chatEnvs of
-    Nothing -> error "default env not found"
-    Just env ->
-      pure env {envHooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks}
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+  envs <- either error id <$> loadEnvs
+  case getLoadedEnv envs hooks "default" of
+    Left err -> error err
+    Right env -> pure env
 
 mainInternal :: RuntimeArgs -> IO ()
 mainInternal args = do

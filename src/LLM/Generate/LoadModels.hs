@@ -11,7 +11,7 @@ import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
-import LLM (ChatEnv (..), Tool (toolDef), ToolDef (toolName), claudeGateway, geminiGateway, noHooks, ollamaGateway, openAIGateway, toTool)
+import LLM (ChatEnv (..), Hooks, Tool (toolDef), ToolDef (toolName), claudeGateway, geminiGateway, noHooks, ollamaGateway, openAIGateway, toTool)
 import LLM.Core.Types (LLMGateway)
 import LLM.Core.Usage (PricingInfo (..))
 import LLM.Generate.Types (ModelConfig (..))
@@ -133,24 +133,37 @@ createChatEnv models toolMap conf = do
         envAbortSignal = Nothing
       }
 
--- loadEnvs :: ExceptT String IO (ChatEnvMap, ModelConfigMap, GatewayMap)
-loadEnvs :: IO (Either String (ChatEnvMap, ModelConfigMap, GatewayMap))
+data LoadedEnvs = LoadedEnvs
+  { chatEnvs :: ChatEnvMap,
+    modelConfigs :: ModelConfigMap,
+    gateways :: GatewayMap,
+    toolMap :: ToolMap,
+    fsConf :: Maybe FsConfig
+  }
+
+loadEnvs :: IO (Either String LoadedEnvs)
 loadEnvs = runExceptT $ do
   gateways <- liftIO loadGateways
   modelConfigs <- loadModelConfigs modelCatalogFilePath gateways
-  toolMap <- liftIO loadTools
+  (toolMap, mbFsConfig) <- liftIO loadTools
   chatEnvs <- loadChatEnvs chatEnvCatalogFilePath modelConfigs toolMap
-  pure (chatEnvs, modelConfigs, gateways)
+  pure $ LoadedEnvs chatEnvs modelConfigs gateways toolMap mbFsConfig
+
+getLoadedEnv :: LoadedEnvs -> Hooks -> Text -> Either String ChatEnv
+getLoadedEnv loadedEnvs hooks name =
+  case Map.lookup name (chatEnvs loadedEnvs) of
+    Nothing -> Left (T.unpack name <> " env not found")
+    Just env -> pure env {envHooks = hooks}
 
 type ToolMap = Map Text Tool
 
-loadTools :: IO ToolMap
+loadTools :: IO (ToolMap, Maybe FsConfig)
 loadTools = do
   userProjectPath <- lookupEnv "USER_PROJECT_PATH"
   fsConfig <- case userProjectPath of
     Nothing -> pure Nothing
     Just p -> Just <$> mkFsConfig p
-  pure $ getTools fsConfig
+  pure (getTools fsConfig, fsConfig)
 
 getTools :: Maybe FsConfig -> ToolMap
 getTools fsConfig =
