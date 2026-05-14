@@ -6,7 +6,7 @@ module LLM.Generate.ChatStepInterpreter
 where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Retry (RetryPolicyM, fullJitterBackoff, limitRetries)
+import Control.Retry (RetryPolicyM)
 import Data.Text (Text)
 import Data.Text qualified as T
 import LLM.Core.Abort (AbortSignal)

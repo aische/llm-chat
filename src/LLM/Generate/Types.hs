@@ -1,7 +1,6 @@
 module LLM.Generate.Types (ModelConfig (..), ChatEnv (..), Generatable, GeneratedResult) where
 
 import Autodocodec (HasCodec)
-import Control.Retry (RetryPolicyM)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import LLM.Core.Abort (AbortSignal)

@@ -1,20 +1,14 @@
 module LLM.GenericConversationTest (createSpec, GenericConversationTextOps (..)) where
 
-import Control.Retry (fullJitterBackoff, limitRetries)
-import Data.Aeson (eitherDecodeFileStrict')
-import Data.Functor ((<&>))
-import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import LLM (createChatEnv, toGateway, toTool)
 import LLM.Core.LLMProvider (LLMProvider)
 import LLM.Core.Types (Conversation (Conversation))
-import LLM.Core.Usage (PricingInfo (..), Usage (..))
-import LLM.Core.Utils (getToolCalls, hasToolCalls)
+import LLM.Core.Usage (PricingInfo (..))
 import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
-import LLM.Providers.OpenAI (openAIProvider)
 import LLM.TestKit
   ( loadRecordedConversation,
     mockProvider,

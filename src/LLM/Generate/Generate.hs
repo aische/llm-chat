@@ -15,7 +15,6 @@ where
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
-import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Aeson (Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)

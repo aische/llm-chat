@@ -3,7 +3,6 @@ module TestExample where
 import Adapters.StreamChatLoop (streamChatLoopMain)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Text qualified as T
 import LLM (PricingInfo (..), claudeGateway, geminiGateway, ollamaGateway, openAIGateway)
 import LLM.Core.Logger

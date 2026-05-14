@@ -3,8 +3,7 @@ module LLM.Generate.LoadModels where
 import Control.Monad (forM)
 import Control.Monad.Except (ExceptT (ExceptT), liftEither, runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Retry (fullJitterBackoff, limitRetries)
-import Data.Aeson (FromJSON, ToJSON, decode', decodeFileStrict, eitherDecodeFileStrict)
+import Data.Aeson (FromJSON, ToJSON, eitherDecodeFileStrict)
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -12,9 +11,8 @@ import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
-import GHC.RTS.Flags (TraceFlags (user))
 import LLM (ChatEnv (..), Tool (toolDef), ToolDef (toolName), claudeGateway, geminiGateway, noHooks, ollamaGateway, openAIGateway, toTool)
-import LLM.Core.Types (LLMGateway, Tool)
+import LLM.Core.Types (LLMGateway)
 import LLM.Core.Usage (PricingInfo (..))
 import LLM.Generate.Types (ModelConfig (..))
 import LLM.Tools.Age (ageTool)
@@ -159,11 +157,11 @@ getTools fsConfig =
   let fsTools =
         maybe
           []
-          ( \fsConfig ->
-              [ toTool (readfileToolTyped fsConfig),
-                toTool (writefileToolTyped fsConfig),
-                toTool (readdirToolTyped fsConfig),
-                toTool (replaceInFileToolTyped fsConfig)
+          ( \fsc ->
+              [ toTool (readfileToolTyped fsc),
+                toTool (writefileToolTyped fsc),
+                toTool (readdirToolTyped fsc),
+                toTool (replaceInFileToolTyped fsc)
               ]
           )
       otherTools =

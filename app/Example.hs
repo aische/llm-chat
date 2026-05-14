@@ -1,22 +1,13 @@
 module Example where
 
 import Autodocodec qualified as AC
-import Configuration.Dotenv (defaultConfig, loadFile)
-import Control.Exception (SomeException, catch)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM.Core.Logger
-  ( LogLevel (..),
-    noHooks,
-    withJsonDump,
-    withStderrLogger,
-  )
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (emptyConversation)
-import LLM.Generate.Generate (Generatable, GeneratedResult, generateObject)
+import LLM.Generate.Generate (GeneratedResult, generateObject)
 import LLM.Generate.Types (ChatEnv (..))
-import LLM.Generate.Utils (createChatEnv)
 
 data ExampleObject = ExampleObject
   { title :: Text,

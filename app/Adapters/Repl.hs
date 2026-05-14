@@ -14,7 +14,7 @@ import LLM.Generate.Types
   ( ChatEnv (..),
   )
 import System.Exit (exitSuccess)
-import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdin, stdout)
+import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdout)
 import Text.Printf (printf)
 
 repl :: ChatEnv -> IO ()

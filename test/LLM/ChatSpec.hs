@@ -2,7 +2,6 @@
 
 module LLM.ChatSpec (spec) where
 
-import Control.Retry (limitRetries)
 import Data.Aeson (object, (.=))
 import LLM.Core.Abort (abort, newAbortSignal)
 import LLM.Core.Types
@@ -10,7 +9,7 @@ import LLM.Core.Types
     ChatResponse (ChatResponse),
     ContentBlock (TextBlock, ToolCallBlock),
     Conversation (..),
-    LLMError (Aborted, HttpError, NetworkError, ToolLoopExceeded),
+    LLMError (Aborted, HttpError, ToolLoopExceeded),
     LLMGateway (..),
     Tool (..),
     ToolCall (ToolCall),

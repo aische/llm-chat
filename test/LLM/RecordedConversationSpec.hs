@@ -1,18 +1,11 @@
 module LLM.RecordedConversationSpec (spec) where
 
-import Control.Retry (fullJitterBackoff, limitRetries)
-import Data.Aeson (eitherDecodeFileStrict')
-import Data.Functor ((<&>))
-import Data.Maybe (fromMaybe)
-import LLM (createChatEnv, geminiProvider, ollama, openAIProvider, toGateway, toTool)
-import LLM.Core.Usage (PricingInfo (..), Usage (..))
-import LLM.Core.Utils (getToolCalls, hasToolCalls)
-import LLM.Generate.Types (ChatEnv (..), ModelConfig (..))
+import LLM.Providers.Gemini ( geminiProvider )
+import LLM.Providers.Ollama ( ollama )
+import LLM.Providers.OpenAI ( openAIProvider )
 import LLM.GenericConversationTest (GenericConversationTextOps (..), createSpec)
 import LLM.Providers.Claude (claudeProvider)
-import LLM.TestKit
-import LLM.Tools.Weather (weatherToolTyped)
-import Test.Hspec
+import Test.Hspec (SpecWith, describe)
 
 ollamaConversationGeneratedFilePath :: String
 ollamaConversationGeneratedFilePath = "./test/fixtures/ollama-conversation-generated.json"
@@ -38,6 +31,7 @@ openAIConversationGeneratedFilePath = "./test/fixtures/openai-conversation-gener
 openAIConversationStreamedFilePath :: String
 openAIConversationStreamedFilePath = "./test/fixtures/openai-conversation-streamed.json"
 
+spec :: SpecWith ()
 spec =
   describe "recorded conversation" $ do
     describe "not interpreted" $ do
@@ -45,36 +39,37 @@ spec =
     describe "interpreted" $ do
       createSpec' True
 
+createSpec' :: Bool -> SpecWith ()
 createSpec' useInterpreter = do
   createSpec $
     GenericConversationTextOps
       "Ollama"
       ollama
       "llama3.2:latest"
-      "./test/fixtures/ollama-conversation-generated.json"
-      "./test/fixtures/ollama-conversation-streamed.json"
+      ollamaConversationGeneratedFilePath
+      ollamaConversationStreamedFilePath
       useInterpreter
   createSpec $
     GenericConversationTextOps
       "Claude"
       (claudeProvider "")
       "claude-haiku-4-5-20251001"
-      "./test/fixtures/claude-conversation-generated.json"
-      "./test/fixtures/claude-conversation-streamed.json"
+      claudeConversationGeneratedFilePath
+      claudeConversationStreamedFilePath
       useInterpreter
   createSpec $
     GenericConversationTextOps
       "Gemini"
       (geminiProvider "")
       "gemini-2.5-flash"
-      "./test/fixtures/gemini-conversation-generated.json"
-      "./test/fixtures/gemini-conversation-streamed.json"
+      geminiConversationGeneratedFilePath
+      geminiConversationStreamedFilePath
       useInterpreter
   createSpec $
     GenericConversationTextOps
       "OpenAI"
       (openAIProvider "")
       "gpt-4.1-2025-04-14"
-      "./test/fixtures/openai-conversation-generated.json"
-      "./test/fixtures/openai-conversation-streamed.json"
+      openAIConversationGeneratedFilePath
+      openAIConversationStreamedFilePath
       useInterpreter

@@ -20,7 +20,6 @@ module LLM.Core.Types
 where
 
 import Data.Aeson (FromJSON, ToJSON, Value)
-import Data.Semigroup (Semigroup)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import LLM.Core.Abort (AbortSignal)

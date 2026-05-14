@@ -2,11 +2,11 @@ module LLM.TestKit where
 
 import Data.Aeson (FromJSON, Value, decodeFileStrict)
 import Data.Aeson.Types (parseMaybe)
-import Data.IORef (newIORef)
+-- import Data.IORef (newIORef)
 import Data.Map qualified as M
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM (ChatEnv, ChatResponse (..), Conversation (..), LLMProvider (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
+import LLM (ChatEnv, Conversation (..), LLMProvider (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
 import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
 
 data MockRequestResponse = MockRequestResponse
@@ -46,7 +46,7 @@ mockProvider mp adapter =
             error (show val <> "\n" <> show (fst $ head $ M.toList mp))
           -- error ("value not found for:" <> show val)
           Just r -> pure (200, r),
-      sendStreamRequest = \body callback -> do
+      sendStreamRequest = \body _callback -> do
         case M.lookup body mp of
           Nothing ->
             -- error (show body <> "\n" <> show (fst $ head $ M.toList mp))
@@ -67,13 +67,14 @@ streamChatLoop stream withInterp env = aux emptyUsage (Conversation [])
   where
     streamIt = if withInterp then streamTextSimple else streamText
     generateIt = if withInterp then generateTextSimple else generateText
-    aux totalUsage conv [] = do
+    aux _totalUsage conv [] = do
       return conv
     aux totalUsage conv (prompt : rest) = do
-      firstChunkRef <- newIORef True
-      result <- if stream then streamText env conv prompt $ const (pure ()) else generateText env conv prompt
+      -- firstChunkRef <- newIORef True
+      result <- if stream then streamIt env conv prompt $ const (pure ()) else generateIt env conv prompt
       case result of
         Left (err, _, _) -> do
+          print err
           pure conv
         Right (_, conv', usage) -> do
           aux (addUsage totalUsage usage) conv' rest

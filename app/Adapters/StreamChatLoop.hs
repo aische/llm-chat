@@ -17,7 +17,6 @@ import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
 import LLM.Generate.Generate (generateText, streamText)
 import LLM.Generate.Types
   ( ChatEnv (..),
-    ModelConfig (..),
   )
 import Text.Printf (printf)
 
@@ -32,6 +31,7 @@ streamChatLoopMain stream env = do
   _ <- streamChatLoop stream env prompts
   pure ()
 
+useInterpreter :: Bool
 useInterpreter = True
 
 -- | Interactive streaming loop — runs a list of prompts, printing

@@ -21,7 +21,6 @@ import LLM.Generate.Types
   ( ChatEnv (..),
   )
 import System.Directory (doesFileExist)
-import System.Environment (getArgs, getProgName)
 import System.IO (BufferMode (NoBuffering), hSetBuffering, stdout)
 import Text.Printf (printf)
 
