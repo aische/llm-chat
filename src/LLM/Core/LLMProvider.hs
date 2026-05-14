@@ -42,7 +42,7 @@ data LLMProvider = LLMProvider
     parseObjectResponse :: Value -> IO LLMObjectResult
   }
 
--- | Generic non-streaming chat via the typeclass.
+-- | Generic non-streaming chat via the LLMProvider.
 genericGenerateText :: LLMProvider -> Hooks -> ChatRequest -> IO LLMTextResult
 genericGenerateText p hooks r = do
   let body = buildBody p False r
@@ -56,7 +56,7 @@ genericGenerateText p hooks r = do
         then parseResponse p respBody
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
--- | Generic object generation via the typeclass.
+-- | Generic object generation via the LLMProvider.
 genericGenerateObject :: LLMProvider -> Hooks -> Value -> ChatRequest -> IO LLMObjectResult
 genericGenerateObject p hooks schema r = do
   let body = buildObjectBody p r {reqTools = []} schema
@@ -70,7 +70,7 @@ genericGenerateObject p hooks schema r = do
         then parseObjectResponse p respBody
         else pure $ Left $ HttpError status (T.pack $ show respBody)
 
--- | Generic streaming chat via the typeclass.
+-- | Generic streaming chat via the LLMProvider.
 genericStreamText :: LLMProvider -> Hooks -> ChatRequest -> (StreamEvent -> IO ()) -> IO LLMTextResult
 genericStreamText p hooks r callback = do
   let body = buildBody p True r

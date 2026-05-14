@@ -114,7 +114,7 @@ geminiProvider apiKey =
     sendRequest body =
       runReq lenientConfig $ do
         -- For non-streaming we need the model name from the body to construct the URL.
-        -- We extract it from the request body JSON since the typeclass only passes Value.
+        -- We extract it from the request body JSON since the LLMProvider only passes Value.
         let model = extractModel body
             url =
               https "generativelanguage.googleapis.com"
