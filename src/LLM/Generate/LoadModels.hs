@@ -1,10 +1,10 @@
 module LLM.Generate.LoadModels where
 
+import Control.Lens (Each, each, mapMOf, (<&>))
 import Control.Monad (forM)
 import Control.Monad.Except (ExceptT (ExceptT), liftEither, runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Aeson (FromJSON, ToJSON, eitherDecodeFileStrict)
-import Data.Functor ((<&>))
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (catMaybes)
@@ -154,6 +154,9 @@ getLoadedEnv loadedEnvs hooks name =
   case Map.lookup name (chatEnvs loadedEnvs) of
     Nothing -> Left (T.unpack name <> " env not found")
     Just env -> pure env {envHooks = hooks}
+
+getLoadedEnvs :: (Each s t Text ChatEnv) => LoadedEnvs -> Hooks -> s -> Either String t
+getLoadedEnvs loadedEnvs hooks = mapMOf each (getLoadedEnv loadedEnvs hooks)
 
 type ToolMap = Map Text Tool
 

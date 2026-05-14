@@ -6,7 +6,7 @@ import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
 import Data.Text qualified as T
 import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
-import LLM.Generate.LoadModels (getLoadedEnv, loadEnvs)
+import LLM.Generate.LoadModels (getLoadedEnv, getLoadedEnvs, loadEnvs)
 import LLM.Generate.Types (ChatEnv (..))
 import Options.Applicative
 import TestExample (testExample)
@@ -32,9 +32,17 @@ createDefaultEnv = do
     Left err -> error err
     Right env -> pure env
 
+createDefaultEnvs :: IO (ChatEnv, ChatEnv)
+createDefaultEnvs = do
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+  envs <- either error id <$> loadEnvs
+  case getLoadedEnvs envs hooks ("default", "default-readonly") of
+    Left err -> error err
+    Right env -> pure env
+
 mainInternal :: RuntimeArgs -> IO ()
 mainInternal args = do
-  env <- createDefaultEnv
+  (env, _env2) <- createDefaultEnvs
   case args of
     ReplArgs -> repl env
     (TestRecorderArgs name stream) -> do
