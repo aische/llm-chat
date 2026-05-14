@@ -10,6 +10,7 @@ import Data.Map qualified as Map
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
 import LLM (ChatEnv (..), Hooks, Tool (toolDef), ToolDef (toolName), claudeGateway, geminiGateway, noHooks, ollamaGateway, openAIGateway, toTool)
 import LLM.Core.Types (LLMGateway)
@@ -101,16 +102,16 @@ createModelConfig gatewayMap mci = case Map.lookup (providerName mci) gatewayMap
 loadChatEnvs :: FilePath -> ModelConfigMap -> ToolMap -> ExceptT String IO ChatEnvMap
 loadChatEnvs filePath modelConfigMap toolMap = do
   chatEnvCatalogItems <- ExceptT $ eitherDecodeFileStrict filePath
-  liftEither $ getChatEnvConfigs modelConfigMap toolMap chatEnvCatalogItems
+  getChatEnvConfigs modelConfigMap toolMap chatEnvCatalogItems
 
-getChatEnvConfigs :: ModelConfigMap -> ToolMap -> [ChatEnvConfigItem] -> Either String ChatEnvMap
-getChatEnvConfigs modelConfigMap toolMap chatEnvCatalogItems = Map.fromList <$> configs
-  where
-    configs = forM chatEnvCatalogItems $ \ceci -> do
-      ce <- createChatEnv modelConfigMap toolMap ceci
-      pure (chatEnvName ceci, ce)
+getChatEnvConfigs :: ModelConfigMap -> ToolMap -> [ChatEnvConfigItem] -> ExceptT String IO ChatEnvMap
+getChatEnvConfigs modelConfigMap toolMap chatEnvCatalogItems = do
+  let configs = forM chatEnvCatalogItems $ \ceci -> do
+        ce <- createChatEnv modelConfigMap toolMap ceci
+        pure (chatEnvName ceci, ce)
+  Map.fromList <$> configs
 
-createChatEnv :: ModelConfigMap -> ToolMap -> ChatEnvConfigItem -> Either String ChatEnv
+createChatEnv :: ModelConfigMap -> ToolMap -> ChatEnvConfigItem -> ExceptT String IO ChatEnv
 createChatEnv models toolMap conf = do
   let getModel name = case Map.lookup name models of
         Just mc -> Right mc
@@ -118,14 +119,25 @@ createChatEnv models toolMap conf = do
       getTool name = case Map.lookup name toolMap of
         Just t -> Right t
         Nothing -> Left $ "Tool config not found: " ++ show name
-  modelConfig <- getModel (model conf)
-  fb <- mapM getModel (fallbacks conf)
-  tools <- mapM getTool (tools conf)
+      getSystem :: ExceptT String IO (Maybe Text)
+      getSystem = case systemPrompt conf of
+        Nothing -> pure Nothing
+        Just t ->
+          if T.isPrefixOf "file:" t
+            then
+              let filePath = T.drop 5 t
+               in liftIO $ fmap Just $ TIO.readFile $ T.unpack filePath
+            else pure $ Just t
+
+  modelConfig <- liftEither $ getModel (model conf)
+  fb <- liftEither $ mapM getModel (fallbacks conf)
+  tools <- liftEither $ mapM getTool (tools conf)
+  system <- getSystem
   pure $
     ChatEnv
       { envModel = modelConfig,
         envFallbacks = fb,
-        envSystem = systemPrompt conf,
+        envSystem = system,
         envTools = tools,
         envMaxToolRounds = maximumToolRounds conf,
         envContextWindow = contextWindowSize conf,
