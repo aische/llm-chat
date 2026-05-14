@@ -1,4 +1,4 @@
-module TestExample where
+module RecordTestConversation where
 
 import Adapters.StreamChatLoop (streamChatLoopMain)
 import Configuration.Dotenv (defaultConfig, loadFile)

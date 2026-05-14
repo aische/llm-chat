@@ -5,11 +5,19 @@ import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSe
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
 import Data.Text qualified as T
-import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
+import Example1 qualified as E1
+import Example2 qualified as E2
+import Example3 qualified as E3
+import LLM.Core.Logger
+  ( LogLevel (Debug),
+    noHooks,
+    withJsonDump,
+    withStderrLogger,
+  )
 import LLM.Generate.LoadModels (getLoadedEnv, getLoadedEnvs, loadEnvs)
 import LLM.Generate.Types (ChatEnv (..))
 import Options.Applicative
-import TestExample (testExample)
+import RecordTestConversation (testExample)
 
 main :: IO ()
 main = do
@@ -52,6 +60,9 @@ mainInternal args = do
     SessionClear -> sessionChat env ClearSession
     SessionShow -> sessionChat env ShowSession
     SessionPrompt p -> sessionChat env (PromptSession (T.pack p))
+    Example1 -> E1.main
+    Example2 -> E2.main
+    Example3 -> E3.main
 
 data RuntimeArgs
   = TestRecorderArgs
@@ -64,15 +75,21 @@ data RuntimeArgs
   | SessionPrompt
       { prompt :: String
       }
+  | Example1
+  | Example2
+  | Example3
 
 runtimeArgsParser :: Parser RuntimeArgs
 runtimeArgsParser =
   hsubparser
-    ( command "test-recorder" (info testRecorderArgs (progDesc "Start the test recorder"))
+    ( command "record-test-conversation" (info testRecorderArgs (progDesc "Start the test recorder"))
         <> command "repl" (info (pure ReplArgs) (progDesc "Start the REPL (not saved in session)"))
         <> command "clear" (info (pure SessionClear) (progDesc "Clear the session"))
         <> command "show" (info (pure SessionShow) (progDesc "Show session history"))
         <> command "prompt" (info sessionPrompt (progDesc "Interactive session prompt (saved in session)"))
+        <> command "example1" (info (pure Example1) (progDesc "Example1 from Readme.md"))
+        <> command "example2" (info (pure Example2) (progDesc "Example2 from Readme.md"))
+        <> command "example3" (info (pure Example3) (progDesc "Example3 from Readme.md (generateObject)"))
     )
 
 testRecorderArgs :: Parser RuntimeArgs
@@ -80,7 +97,7 @@ testRecorderArgs =
   TestRecorderArgs
     <$> strOption
       ( long "test"
-          <> metavar "MODELNAME"
+          <> metavar "PROVIDERNAME"
           <> help "run test conversation"
       )
     <*> switch

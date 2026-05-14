@@ -1,9 +1,10 @@
-module Example where
+module Example3 where
 
 import Autodocodec qualified as AC
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import LLM (createChatEnv, createModelConfig, ollamaGateway)
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (emptyConversation)
 import LLM.Generate.Generate (GeneratedResult, generateObject)
@@ -33,3 +34,9 @@ example :: ChatEnv -> IO ()
 example env = do
   x <- generateExample env "createn an example of a poem"
   print x
+
+main :: IO ()
+main = do
+  let mc = createModelConfig ollamaGateway "llama3.2"
+      env = createChatEnv mc "" []
+  example env
