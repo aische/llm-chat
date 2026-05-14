@@ -1,21 +1,13 @@
 module Main where
 
-import Adapters.Repl (repl)
-import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSession), sessionChat)
+import Adapters.Repl (replMain)
+import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSession), sessionChatMain)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
 import Data.Text qualified as T
 import Example1 qualified as E1
 import Example2 qualified as E2
 import Example3 qualified as E3
-import LLM.Core.Logger
-  ( LogLevel (Debug),
-    noHooks,
-    withJsonDump,
-    withStderrLogger,
-  )
-import LLM.Generate.LoadModels (getLoadedEnv, getLoadedEnvs, loadEnvs)
-import LLM.Generate.Types (ChatEnv (..))
 import Options.Applicative
 import RecordTestConversation (testExample)
 
@@ -32,34 +24,17 @@ main = do
             <> header "\n"
         )
 
-createDefaultEnv :: IO ChatEnv
-createDefaultEnv = do
-  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  envs <- either error id <$> loadEnvs
-  case getLoadedEnv envs hooks "default" of
-    Left err -> error err
-    Right env -> pure env
-
-createDefaultEnvs :: IO (ChatEnv, ChatEnv)
-createDefaultEnvs = do
-  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  envs <- either error id <$> loadEnvs
-  case getLoadedEnvs envs hooks ("default", "default-readonly") of
-    Left err -> error err
-    Right env -> pure env
-
 mainInternal :: RuntimeArgs -> IO ()
 mainInternal args = do
-  (env, _env2) <- createDefaultEnvs
   case args of
-    ReplArgs -> repl env
+    ReplArgs -> replMain
     (TestRecorderArgs name stream) -> do
       print name
       print stream
       testExample name stream
-    SessionClear -> sessionChat env ClearSession
-    SessionShow -> sessionChat env ShowSession
-    SessionPrompt p -> sessionChat env (PromptSession (T.pack p))
+    SessionClear -> sessionChatMain ClearSession
+    SessionShow -> sessionChatMain ShowSession
+    SessionPrompt p -> sessionChatMain (PromptSession (T.pack p))
     Example1 -> E1.main
     Example2 -> E2.main
     Example3 -> E3.main

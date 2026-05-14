@@ -1,10 +1,11 @@
-module Adapters.SessionChat (sessionChat, SessionCommand (..)) where
+module Adapters.SessionChat (sessionChat, sessionChatMain, SessionCommand (..)) where
 
 import Data.Aeson (FromJSON, ToJSON, eitherDecodeFileStrict', encodeFile)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
+import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
 import LLM.Core.Types
   ( Conversation (..),
     StreamEvent (..),
@@ -17,6 +18,7 @@ import LLM.Core.Usage
     emptyUsage,
   )
 import LLM.Generate.Generate (streamText)
+import LLM.Generate.LoadModels (loadDefaultEnvOrThrow)
 import LLM.Generate.Types
   ( ChatEnv (..),
   )
@@ -58,6 +60,12 @@ data SessionCommand
   = ClearSession
   | ShowSession
   | PromptSession Text
+
+sessionChatMain :: SessionCommand -> IO ()
+sessionChatMain command = do
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+  env <- loadDefaultEnvOrThrow hooks
+  sessionChat env command
 
 sessionChat :: ChatEnv -> SessionCommand -> IO ()
 sessionChat env command = do

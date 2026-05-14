@@ -1,8 +1,9 @@
-module Adapters.Repl (repl) where
+module Adapters.Repl (repl, replMain) where
 
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
 import LLM.Core.Types (Conversation (..), StreamEvent (..))
 import LLM.Core.Usage
   ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
@@ -10,12 +11,19 @@ import LLM.Core.Usage
     emptyUsage,
   )
 import LLM.Generate.Generate (streamText)
+import LLM.Generate.LoadModels (loadDefaultEnvOrThrow)
 import LLM.Generate.Types
   ( ChatEnv (..),
   )
 import System.Exit (exitSuccess)
 import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdout)
 import Text.Printf (printf)
+
+replMain :: IO ()
+replMain = do
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+  env <- loadDefaultEnvOrThrow hooks
+  repl env
 
 repl :: ChatEnv -> IO ()
 repl env = do

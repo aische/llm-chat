@@ -158,6 +158,20 @@ getLoadedEnv loadedEnvs hooks name =
 getLoadedEnvs :: (Each s t Text ChatEnv) => LoadedEnvs -> Hooks -> s -> Either String t
 getLoadedEnvs loadedEnvs hooks = mapMOf each (getLoadedEnv loadedEnvs hooks)
 
+loadDefaultEnvOrThrow :: Hooks -> IO ChatEnv
+loadDefaultEnvOrThrow hooks = do
+  envs <- either error id <$> loadEnvs
+  case getLoadedEnv envs hooks "default" of
+    Left err -> error err
+    Right env -> pure env
+
+loadDefaultEnvsOrThrow :: (Each s t Text ChatEnv) => Hooks -> s -> IO t
+loadDefaultEnvsOrThrow hooks names = do
+  envs <- either error id <$> loadEnvs
+  case getLoadedEnvs envs hooks names of
+    Left err -> error err
+    Right env -> pure env
+
 type ToolMap = Map Text Tool
 
 loadTools :: IO (ToolMap, Maybe FsConfig)
