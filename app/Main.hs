@@ -37,15 +37,16 @@ createDefaultEnv = do
 
 mainInternal :: RuntimeArgs -> IO ()
 mainInternal args = do
+  env <- createDefaultEnv
   case args of
-    ReplArgs -> createDefaultEnv >>= repl
+    ReplArgs -> repl env
     (TestRecorderArgs name stream) -> do
       print name
       print stream
       testExample name stream
-    SessionClear -> createDefaultEnv >>= \env -> sessionChat env ClearSession
-    SessionShow -> createDefaultEnv >>= \env -> sessionChat env ShowSession
-    SessionPrompt p -> createDefaultEnv >>= \env -> sessionChat env (PromptSession (T.pack p))
+    SessionClear -> sessionChat env ClearSession
+    SessionShow -> sessionChat env ShowSession
+    SessionPrompt p -> sessionChat env (PromptSession (T.pack p))
 
 data RuntimeArgs
   = TestRecorderArgs

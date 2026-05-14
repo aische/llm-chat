@@ -125,7 +125,6 @@ executable llm-chat
     import: opts
     main-is:          Main.hs
     other-modules:    AllModels,
-                      CreateEnv,
                       Adapters.Repl,
                       Adapters.SessionChat,
                       Adapters.StreamChatLoop,
