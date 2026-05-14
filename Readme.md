@@ -31,7 +31,6 @@ It includes a few basic tools and supports ollama, gemini, open-ai and claude:
 ```haskell
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import Control.Retry (fullJitterBackoff, limitRetries)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM
@@ -74,7 +73,8 @@ main = do
             mcTemperature = Nothing,
             mcRequestTimeout = Nothing,
             mcThrottleDelay = Just 1_000,
-            mcRetry = limitRetries 0 <> fullJitterBackoff 1_000_000
+            mcRetryCount = 0,
+            mcJitterBackoff = 1_000
           }
       claude_haiku_4_5 =
         ModelConfig
@@ -85,7 +85,8 @@ main = do
             mcTemperature = Nothing,
             mcRequestTimeout = Nothing,
             mcThrottleDelay = Nothing,
-            mcRetry = limitRetries 3 <> fullJitterBackoff 1_000_000
+            mcRetryCount = 0,
+            mcJitterBackoff = 1_000
           }
       hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
       env =
