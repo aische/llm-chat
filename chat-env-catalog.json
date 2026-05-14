@@ -1,0 +1,11 @@
+[
+    {
+        "chatEnvName": "default",
+        "model": "gpt_4_1",
+        "fallbacks": ["llama_3_2"],
+        "systemPrompt": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to.",
+        "tools": [],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
+    }
+]

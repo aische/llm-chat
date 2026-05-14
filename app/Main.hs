@@ -5,14 +5,20 @@ import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSe
 import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
-import CreateEnv (createDefaultEnv)
+-- import CreateEnv (createDefaultEnv)
+import Data.Map qualified as Map
 import Data.Text qualified as T
 import Example (example)
+import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
+import LLM.Generate.LoadModels (loadEnvs)
+import LLM.Generate.Types (ChatEnv (envHooks))
 import Options.Applicative
 import TestExample (testExample)
 
 main :: IO ()
-main = mainInternal =<< execParser opts
+main = do
+  loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
+  mainInternal =<< execParser opts
   where
     opts =
       info
@@ -21,6 +27,13 @@ main = mainInternal =<< execParser opts
             <> progDesc "simple terminal based llm chat"
             <> header "\n"
         )
+
+createDefaultEnv :: IO ChatEnv
+createDefaultEnv = do
+  (chatEnvs, modelConfigs, gateways) <- either error id <$> loadEnvs
+  print $ Map.keys chatEnvs
+  let env = chatEnvs Map.! "default"
+  pure env {envHooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks}
 
 mainInternal :: RuntimeArgs -> IO ()
 mainInternal args = do
@@ -32,7 +45,7 @@ mainInternal args = do
       testExample name stream
     SessionClear -> createDefaultEnv >>= \env -> sessionChat env ClearSession
     SessionShow -> createDefaultEnv >>= \env -> sessionChat env ShowSession
-    (SessionPrompt p) -> createDefaultEnv >>= \env -> sessionChat env (PromptSession (T.pack p))
+    SessionPrompt p -> createDefaultEnv >>= \env -> sessionChat env (PromptSession (T.pack p))
 
 data RuntimeArgs
   = TestRecorderArgs

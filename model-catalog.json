@@ -1,0 +1,47 @@
+[
+    {
+        "modelConfigName": "gpt_4_1",
+        "providerName": "openai",
+        "modelName": "gpt-4.1-2025-04-14",
+        "pricing": {
+            "pricePerMillionInput": 2.0,
+            "pricePerMillionOutput": 8.0
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "llama_3_2",
+        "providerName": "ollama",
+        "modelName": "llama3.2:latest",
+        "pricing": {
+            "pricePerMillionInput": 0.0,
+            "pricePerMillionOutput": 0.0
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "gemini_2_5_flash",
+        "providerName": "gemini",
+        "modelName": "gemini-2.5-flash",
+        "pricing": {
+            "pricePerMillionInput": 0.1,
+            "pricePerMillionOutput": 0.4
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    }
+]

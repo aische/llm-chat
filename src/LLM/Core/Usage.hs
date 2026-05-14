@@ -34,7 +34,7 @@ data PricingInfo = PricingInfo
   { pricePerMillionInput :: Double,
     pricePerMillionOutput :: Double
   }
-  deriving (Show)
+  deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
 
 estimateCost :: PricingInfo -> Usage -> Double
 estimateCost p u =
