@@ -1,6 +1,5 @@
 module Example where
 
-import AllModels (AllModels (..), getAllModels)
 import Autodocodec qualified as AC
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
@@ -26,6 +25,7 @@ data ExampleObject = ExampleObject
     flag :: Bool
   }
   deriving (Show, Generic, FromJSON)
+
 instance AC.HasCodec ExampleObject where
   codec =
     AC.object "ExampleObject" $
@@ -38,17 +38,7 @@ instance AC.HasCodec ExampleObject where
 generateExample :: ChatEnv -> Text -> IO (GeneratedResult (ExampleObject, Usage))
 generateExample env = generateObject env emptyConversation
 
-example :: IO ()
-example = do
-  loadFile defaultConfig `catch` \(_ :: SomeException) -> pure ()
-  AllModels {claude_haiku_4_5, llama_3_2} <- getAllModels
-  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-      systemPrompt = "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to."
-      env =
-        (createChatEnv llama_3_2 systemPrompt [])
-          { envHooks = hooks,
-            envContextWindow = Just 3,
-            envFallbacks = [claude_haiku_4_5]
-          }
+example :: ChatEnv -> IO ()
+example env = do
   x <- generateExample env "createn an example of a poem"
   print x

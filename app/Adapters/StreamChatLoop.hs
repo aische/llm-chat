@@ -1,6 +1,5 @@
 module Adapters.StreamChatLoop (streamChatLoop, streamChatLoopMain) where
 
-import AllModels (AllModels (..), getAllModels)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.Text qualified as T

@@ -124,8 +124,7 @@ library
 executable llm-chat
     import: opts
     main-is:          Main.hs
-    other-modules:    AllModels,
-                      Adapters.Repl,
+    other-modules:    Adapters.Repl,
                       Adapters.SessionChat,
                       Adapters.StreamChatLoop,
                       TestExample,

@@ -2,7 +2,6 @@ module Main where
 
 import Adapters.Repl (repl)
 import Adapters.SessionChat (SessionCommand (ClearSession, PromptSession, ShowSession), sessionChat)
-import AllModels (AllModels (..), getAllModels)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
 -- import CreateEnv (createDefaultEnv)
