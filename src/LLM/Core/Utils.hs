@@ -1,5 +1,7 @@
 module LLM.Core.Utils
   ( withConversation,
+    appendConversation,
+    prependConversation,
     emptyConversation,
     hasToolCalls,
     getToolCalls,
@@ -49,6 +51,12 @@ import System.Timeout (timeout)
 
 withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
 withConversation (Conversation turns) f = Conversation (f turns)
+
+appendConversation :: Conversation -> [Turn] -> Conversation
+appendConversation (Conversation turns1) turns2 = Conversation (turns1 ++ turns2)
+
+prependConversation :: Conversation -> [Turn] -> Conversation
+prependConversation (Conversation turns1) turns2 = Conversation (turns2 ++ turns1)
 
 emptyConversation :: Conversation
 emptyConversation = Conversation []

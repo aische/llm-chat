@@ -23,11 +23,11 @@ import LLM.Core.Types
   )
 import LLM.Core.Usage (Usage)
 import LLM.Generate.ChatStep (ChatStep (..), buildChatStep)
+import LLM.Generate.Common (modelRetryPolicy)
 import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
-import LLM.Generate.Utils (modelRetryPolicy)
 import LLM.Generate.WithFallback (withFallback)
 
 -- | A step interpreter runs a 'ChatStep' program to completion.

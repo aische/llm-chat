@@ -74,6 +74,7 @@ library
         LLM.Generate.Chat
         LLM.Generate.ChatStep
         LLM.Generate.ChatStepInterpreter
+        LLM.Generate.Common
         LLM.Generate.Generate
         LLM.Generate.Types
         LLM.Generate.Utils

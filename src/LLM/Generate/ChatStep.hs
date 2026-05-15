@@ -15,17 +15,24 @@ import LLM.Core.Types
     Conversation (..),
     LLMError (Aborted, ToolLoopExceeded),
     LLMTextResult,
-    ToolCall (tcName),
-    ToolResult (trContent, trName),
+    ToolCall,
+    ToolResult,
     Turn (AssistantTurn, ToolTurn),
   )
 import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
-import LLM.Core.Utils (getToolCalls, hasToolCalls)
+import LLM.Core.Utils (appendConversation, getToolCalls, hasToolCalls)
+import LLM.Generate.Common
+  ( mkRequest,
+    requestLogMessage,
+    responseLogMessage,
+    toolCallsLogMessage,
+    toolResultsLogMessage,
+    windowOffset,
+  )
 import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
-import LLM.Generate.Utils (mkRequest, windowOffset)
 
 -- | A reified chat program. Each constructor is an effect the loop
 -- needs, paired with a continuation that accepts the result.
@@ -68,7 +75,7 @@ buildChatStep env mc rounds acc conv
               Done (Left (Aborted, conv, acc))
           else
             let request = mkRequest env mc conv (envReadonly env)
-             in Log Debug ("API request: model=" <> mcModel mc <> " round=" <> tshow rounds <> " turns=" <> tshow (length (unConversation $ reqConversation request))) $
+             in Log Debug (requestLogMessage mc rounds request) $
                   maybeThrottle (mcThrottleDelay mc) $
                     CallLLM request $ \case
                       Left err ->
@@ -81,7 +88,7 @@ buildChatStep env mc rounds acc conv
                          in if hasToolCalls resp
                               then
                                 let calls = getToolCalls resp
-                                 in Log Info ("Tool calls: " <> T.intercalate ", " (map tcName calls)) $
+                                 in Log Info (toolCallsLogMessage calls) $
                                       ExecTools
                                         { esRound = rounds,
                                           esCalls = calls,
@@ -93,17 +100,12 @@ buildChatStep env mc rounds acc conv
                                               Log Info "Aborted during tool execution" $
                                                 Done (Left (Aborted, conv, acc'))
                                             Right results ->
-                                              Log Debug ("Tool results: " <> T.intercalate ", " [trName r <> "=" <> T.take 100 (trContent r) | r <- results]) $
-                                                let conv' =
-                                                      Conversation
-                                                        ( unConversation conv
-                                                            ++ [AssistantTurn (respText resp) calls]
-                                                            ++ [ToolTurn results]
-                                                        )
+                                              Log Debug (toolResultsLogMessage results) $
+                                                let conv' = appendConversation conv [AssistantTurn (respText resp) calls, ToolTurn results]
                                                  in buildChatStep env mc (rounds + 1) acc' conv'
                                         }
                               else
-                                Log Info (logResponse resp) $
+                                Log Info (responseLogMessage resp) $
                                   let finalConv = Conversation (unConversation conv ++ [AssistantTurn (respText resp) []])
                                    in Done (Right (respText resp, finalConv, acc'))
 
@@ -115,20 +117,3 @@ maybeThrottle (Just d) next = Throttle d next
 
 tshow :: (Show a) => a -> Text
 tshow = T.pack . show
-
-logResponse :: ChatResponse -> Text
-logResponse resp =
-  "Response: "
-    <> T.take 100 (respText resp)
-    <> maybe
-      ""
-      ( \u ->
-          " usage="
-            <> tshow (usageInputTokens u)
-            <> "+"
-            <> tshow (usageOutputTokens u)
-      )
-      (respUsage resp)
-  where
-    usageInputTokens = LLM.Core.Usage.usageInputTokens
-    usageOutputTokens = LLM.Core.Usage.usageOutputTokens

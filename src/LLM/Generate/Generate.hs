@@ -35,19 +35,27 @@ import LLM.Core.Types
     LLMGateway (..),
     LLMTextResult,
     StreamEvent,
-    ToolCall (tcName),
     ToolContext (..),
-    ToolResult (trContent, trName),
     Turn (AssistantTurn, ToolTurn, UserTurn),
   )
 import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
 import LLM.Core.Utils
-  ( executeToolsWithAbort,
+  ( appendConversation,
+    executeToolsWithAbort,
     getToolCalls,
     hasToolCalls,
     withConversation,
     withRetry,
     withTimeout,
+  )
+import LLM.Generate.Common
+  ( mkRequest,
+    modelRetryPolicy,
+    requestLogMessage,
+    responseLogMessage,
+    toolCallsLogMessage,
+    toolResultsLogMessage,
+    windowOffset,
   )
 import LLM.Generate.Types
   ( ChatEnv (..),
@@ -55,7 +63,6 @@ import LLM.Generate.Types
     GeneratedResult,
     ModelConfig (..),
   )
-import LLM.Generate.Utils (mkRequest, modelRetryPolicy, windowOffset)
 import LLM.Generate.WithFallback (withFallback)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
@@ -204,13 +211,7 @@ chatLoop env mc call rounds acc conv
         else do
           let request = mkRequest env mc conv (envReadonly env)
               logIt = onLog (envHooks env)
-          logIt Debug $
-            "API request: model="
-              <> mcModel mc
-              <> " round="
-              <> T.pack (show rounds)
-              <> " turns="
-              <> T.pack (show (length (unConversation (reqConversation request))))
+          logIt Debug $ requestLogMessage mc rounds request
           case mcThrottleDelay mc of
             Just d -> do
               logIt Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
@@ -231,7 +232,7 @@ chatLoop env mc call rounds acc conv
                in if hasToolCalls resp
                     then do
                       let calls = getToolCalls resp
-                      logIt Info $ "Tool calls: " <> T.intercalate ", " (map tcName calls)
+                      logIt Info $ toolCallsLogMessage calls
                       let offset = windowOffset (envContextWindow env) conv
                           ctx =
                             ToolContext
@@ -246,31 +247,12 @@ chatLoop env mc call rounds acc conv
                           logIt Info "Aborted during tool execution"
                           pure $ Left (Aborted, conv, acc')
                         Right results -> do
-                          logIt Debug $
-                            "Tool results: "
-                              <> T.intercalate
-                                ", "
-                                [trName r <> "=" <> T.take 100 (trContent r) | r <- results]
-                          let conv' =
-                                withConversation
-                                  conv
-                                  (++ [AssistantTurn (respText resp) calls, ToolTurn results])
+                          logIt Debug $ toolResultsLogMessage results
+                          let conv' = appendConversation conv [AssistantTurn (respText resp) calls, ToolTurn results]
                           chatLoop env mc call (rounds + 1) acc' conv'
                     else do
-                      logIt Info $
-                        "Response: "
-                          <> T.take 100 (respText resp)
-                          <> maybe
-                            ""
-                            ( \u ->
-                                " usage="
-                                  <> T.pack (show (usageInputTokens u))
-                                  <> "+"
-                                  <> T.pack (show (usageOutputTokens u))
-                            )
-                            (respUsage resp)
-                      let finalConv =
-                            withConversation conv (++ [AssistantTurn (respText resp) []])
+                      logIt Info $ responseLogMessage resp
+                      let finalConv = withConversation conv (++ [AssistantTurn (respText resp) []])
                       pure $ Right (respText resp, finalConv, acc')
 
 -- | Check whether the abort signal has been fired.

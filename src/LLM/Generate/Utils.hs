@@ -2,20 +2,13 @@ module LLM.Generate.Utils
   ( defaultChatEnv,
     createChatEnv,
     createModelConfig,
-    windowOffset,
-    findNthUserFromEnd,
-    modelRetryPolicy,
-    mkRequest,
-    filterReadonlyTools,
   )
 where
 
-import Control.Retry (RetryPolicyM, fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import LLM.Core.Logger (noHooks)
-import LLM.Core.Types (ChatRequest (..), Conversation (unConversation), LLMGateway, Tool (toolDef), ToolDef (toolReadonly), Turn (UserTurn))
+import LLM.Core.Types (LLMGateway, Tool)
 import LLM.Core.Usage (PricingInfo (..))
-import LLM.Core.Utils (withConversation)
 import LLM.Generate.Types (ChatEnv (..), ModelConfig (..))
 
 -- | Sensible defaults — single model, no fallback.
@@ -60,48 +53,3 @@ createModelConfig gateway modelName =
       mcRetryCount = 0,
       mcJitterBackoff = 1_000
     }
-
--- | Compute the index where the visible window starts.
--- The window includes the last @n@ user messages and all turns that follow
--- each of them (assistant replies, tool rounds, etc.).
--- Returns 0 (no windowing) when the window is 'Nothing' or the conversation
--- contains fewer than @n@ user messages.
-windowOffset :: Maybe Int -> Conversation -> Int
-windowOffset Nothing _ = 0
-windowOffset (Just n) conv = findNthUserFromEnd n conv
-
--- | Find the index of the Nth 'UserTurn' from the end of a conversation.
--- Returns 0 if there are fewer than @n@ user messages.
-findNthUserFromEnd :: Int -> Conversation -> Int
-findNthUserFromEnd 0 _conv = 0
-findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
-  where
-    go idx remaining
-      | idx < 0 = 0
-      | remaining <= 0 = idx + 1
-      | otherwise = case unConversation conv !! idx of
-          UserTurn _ -> go (idx - 1) (remaining - 1)
-          _ -> go (idx - 1) remaining
-
-modelRetryPolicy :: ModelConfig -> RetryPolicyM IO
-modelRetryPolicy mc = limitRetries (mcRetryCount mc) <> fullJitterBackoff (mcJitterBackoff mc * 1000)
-
--- | Build a ChatRequest from the model config and a conversation.
--- When 'envContextWindow' is set, only the last N user messages (and their
--- associated replies) are sent to the model.
-mkRequest :: ChatEnv -> ModelConfig -> Conversation -> Bool -> ChatRequest
-mkRequest env mc conv readonly =
-  ChatRequest
-    { reqModel = mcModel mc,
-      reqConversation = withConversation conv (drop offset),
-      reqSystem = envSystem env,
-      reqMaxTokens = mcMaxTokens mc,
-      reqTemperature = mcTemperature mc,
-      reqTools = map toolDef (filterReadonlyTools readonly $ envTools env)
-    }
-  where
-    offset = windowOffset (envContextWindow env) conv
-
-filterReadonlyTools :: Bool -> [Tool] -> [Tool]
-filterReadonlyTools False tools = tools
-filterReadonlyTools True tools = filter (toolReadonly . toolDef) tools
