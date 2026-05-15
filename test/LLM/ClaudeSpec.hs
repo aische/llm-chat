@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module LLM.ClaudeSpec (spec) where
 
 import Data.Aeson (eitherDecodeFileStrict')
