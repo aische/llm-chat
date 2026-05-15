@@ -33,6 +33,7 @@ replaceInFileToolTyped cfg =
         "Replace the first occurrence of a string in a file. "
           <> "The 'old' string must appear exactly once in the file. "
           <> "Returns an error if the string is not found or appears more than once.",
+      ttoolReadonly = False,
       ttoolExecute = const (replaceExecTyped cfg)
     }
 

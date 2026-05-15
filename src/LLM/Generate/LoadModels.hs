@@ -139,6 +139,7 @@ createChatEnv models toolMap conf = do
         envFallbacks = fb,
         envSystem = system,
         envTools = tools,
+        envReadonly = False,
         envMaxToolRounds = maximumToolRounds conf,
         envContextWindow = contextWindowSize conf,
         envHooks = noHooks,

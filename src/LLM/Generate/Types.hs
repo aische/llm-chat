@@ -31,6 +31,7 @@ data ChatEnv = ChatEnv
     envFallbacks :: [ModelConfig], -- fallbacks, tried in order
     envSystem :: Maybe Text,
     envTools :: [Tool],
+    envReadonly :: Bool,
     envMaxToolRounds :: Int,
     envContextWindow :: Maybe Int, -- max recent turns sent to the model; Nothing = all
     envHooks :: Hooks,

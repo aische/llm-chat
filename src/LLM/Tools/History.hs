@@ -48,6 +48,7 @@ historyToolTyped =
         "Retrieve earlier conversation history that is not in your current context window. "
           <> "Pass chunk=0 for the most recent hidden history, chunk=1 for the one before that, etc. "
           <> "Returns an empty result when there is no more history.",
+      ttoolReadonly = True,
       ttoolExecute = getHistoryExecTyped
     }
 

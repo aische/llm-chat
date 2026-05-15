@@ -35,7 +35,6 @@ import LLM.Core.Types
     LLMGateway (..),
     LLMTextResult,
     StreamEvent,
-    Tool (toolDef),
     ToolCall (tcName),
     ToolContext (..),
     ToolResult (trContent, trName),
@@ -56,7 +55,7 @@ import LLM.Generate.Types
     GeneratedResult,
     ModelConfig (..),
   )
-import LLM.Generate.Utils (modelRetryPolicy, windowOffset)
+import LLM.Generate.Utils (mkRequest, modelRetryPolicy, windowOffset)
 import LLM.Generate.WithFallback (withFallback)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
@@ -159,7 +158,7 @@ generateObjectConversationUntyped unsafeEnv schema conv = do
   withFallback env conv $ \mc c u ->
     let call = gwGenerateObject (mcGateway mc) (envHooks env) schema
         logIt = onLog (envHooks env)
-        request = mkRequest env mc c
+        request = mkRequest env mc c (envReadonly env)
      in do
           case mcThrottleDelay mc of
             Just d -> do
@@ -203,7 +202,7 @@ chatLoop env mc call rounds acc conv
           onLog (envHooks env) Info "Aborted before API call"
           pure $ Left (Aborted, conv, acc)
         else do
-          let request = mkRequest env mc conv
+          let request = mkRequest env mc conv (envReadonly env)
               logIt = onLog (envHooks env)
           logIt Debug $
             "API request: model="
@@ -279,19 +278,3 @@ checkAbort :: ChatEnv -> IO Bool
 checkAbort env = case envAbortSignal env of
   Nothing -> pure False
   Just sig -> isAborted sig
-
--- | Build a ChatRequest from the model config and a conversation.
--- When 'envContextWindow' is set, only the last N user messages (and their
--- associated replies) are sent to the model.
-mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
-mkRequest env mc conv =
-  ChatRequest
-    { reqModel = mcModel mc,
-      reqConversation = withConversation conv (drop offset),
-      reqSystem = envSystem env,
-      reqMaxTokens = mcMaxTokens mc,
-      reqTemperature = mcTemperature mc,
-      reqTools = map toolDef (envTools env)
-    }
-  where
-    offset = windowOffset (envContextWindow env) conv

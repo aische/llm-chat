@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text, toLower)
 import LLM.Core.Types
   ( Tool (..),
-    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
+    ToolDef (..),
   )
 
 ageTool :: Tool
@@ -22,6 +22,7 @@ ageTool =
         ToolDef
           { toolName = "get_age",
             toolDescription = "Get the age of a given person",
+            toolReadonly = True,
             toolParameters = ageSchema
           },
       toolExecute = const getAge

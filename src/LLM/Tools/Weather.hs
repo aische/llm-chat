@@ -23,6 +23,7 @@ weatherToolTyped =
   TypedTool
     { ttoolName = "get_weather",
       ttoolDescription = "Get the current weather for a given location",
+      ttoolReadonly = False,
       ttoolExecute = const getWeather
     }
 

@@ -27,6 +27,7 @@ readfileToolTyped cfg =
       ttoolDescription =
         "Read the contents of a file at the given path (relative to the workspace). "
           <> "Returns the full file content as text.",
+      ttoolReadonly = True,
       ttoolExecute = const (readfileExecTyped cfg)
     }
 

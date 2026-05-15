@@ -13,7 +13,7 @@ import LLM.Core.Types
     LLMGateway (..),
     Tool (..),
     ToolCall (ToolCall),
-    ToolDef (ToolDef, toolDescription, toolName, toolParameters),
+    ToolDef (ToolDef, toolDescription, toolName, toolParameters, toolReadonly),
     Turn (ToolTurn),
   )
 import LLM.Core.Usage (PricingInfo (..), Usage (Usage))
@@ -93,6 +93,7 @@ weatherTool =
         ToolDef
           { toolName = "get_weather",
             toolDescription = "Get weather",
+            toolReadonly = True,
             toolParameters = object ["type" .= ("object" :: String)]
           },
       toolExecute = \_ _ -> pure "Sunny, 22°C"
@@ -193,6 +194,7 @@ spec = describe "Chat" $ do
                   ToolDef
                     { toolName = "slow",
                       toolDescription = "A slow tool",
+                      toolReadonly = True,
                       toolParameters = object ["type" .= ("object" :: String)]
                     },
                 toolExecute = \_ _ -> do

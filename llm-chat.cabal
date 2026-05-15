@@ -63,6 +63,7 @@ common opts
     ghc-options: 
         -Wall 
         -Wunused-imports
+        -Werror=missing-fields
 
 library
     import: opts

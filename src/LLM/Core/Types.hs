@@ -77,7 +77,8 @@ data ToolContext = ToolContext
 data ToolDef = ToolDef
   { toolName :: Text,
     toolDescription :: Text,
-    toolParameters :: Value -- JSON Schema object
+    toolParameters :: Value, -- JSON Schema object
+    toolReadonly :: Bool
   }
   deriving (Show, Eq)
 
@@ -92,6 +93,7 @@ data Tool = Tool
 data TypedTool a = TypedTool
   { ttoolName :: Text,
     ttoolDescription :: Text,
+    ttoolReadonly :: Bool,
     ttoolExecute :: ToolContext -> a -> IO Text
   }
 

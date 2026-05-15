@@ -1,7 +1,6 @@
 module LLM.Generate.ChatStep
   ( ChatStep (..),
     buildChatStep,
-    mkRequest,
     windowOffset,
   )
 where
@@ -16,7 +15,6 @@ import LLM.Core.Types
     Conversation (..),
     LLMError (Aborted, ToolLoopExceeded),
     LLMTextResult,
-    Tool (toolDef),
     ToolCall (tcName),
     ToolResult (trContent, trName),
     Turn (AssistantTurn, ToolTurn),
@@ -27,7 +25,7 @@ import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
-import LLM.Generate.Utils (windowOffset)
+import LLM.Generate.Utils (mkRequest, windowOffset)
 
 -- | A reified chat program. Each constructor is an effect the loop
 -- needs, paired with a continuation that accepts the result.
@@ -69,7 +67,7 @@ buildChatStep env mc rounds acc conv
             Log Info "Aborted before API call" $
               Done (Left (Aborted, conv, acc))
           else
-            let request = mkRequest env mc conv
+            let request = mkRequest env mc conv (envReadonly env)
              in Log Debug ("API request: model=" <> mcModel mc <> " round=" <> tshow rounds <> " turns=" <> tshow (length (unConversation $ reqConversation request))) $
                   maybeThrottle (mcThrottleDelay mc) $
                     CallLLM request $ \case
@@ -134,19 +132,3 @@ logResponse resp =
   where
     usageInputTokens = LLM.Core.Usage.usageInputTokens
     usageOutputTokens = LLM.Core.Usage.usageOutputTokens
-
--- | Build a ChatRequest from the model config and a conversation.
--- When 'envContextWindow' is set, only the last N user messages (and their
--- associated replies) are sent to the model.
-mkRequest :: ChatEnv -> ModelConfig -> Conversation -> ChatRequest
-mkRequest env mc conv =
-  ChatRequest
-    { reqModel = mcModel mc,
-      reqConversation = Conversation (drop offset $ unConversation conv),
-      reqSystem = envSystem env,
-      reqMaxTokens = mcMaxTokens mc,
-      reqTemperature = mcTemperature mc,
-      reqTools = map toolDef (envTools env)
-    }
-  where
-    offset = windowOffset (envContextWindow env) conv

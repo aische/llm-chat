@@ -31,6 +31,7 @@ writefileToolTyped cfg =
         "Write content to a file at the given path (relative to the workspace). "
           <> "Creates the file if it doesn't exist, overwrites if it does. "
           <> "Automatically creates parent directories as needed.",
+      ttoolReadonly = False,
       ttoolExecute = const (writefileExecTyped cfg)
     }
 

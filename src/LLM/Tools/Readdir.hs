@@ -30,6 +30,7 @@ readdirToolTyped fsConfig =
         "List the contents of a directory (relative to the workspace). "
           <> "Returns one entry per line. Directories are suffixed with '/'. "
           <> "Use path '.' or omit it to list the workspace root.",
+      ttoolReadonly = True,
       ttoolExecute = const (readdirExecTyped fsConfig)
     }
 

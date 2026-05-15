@@ -185,12 +185,13 @@ getSchema :: (AC.HasCodec t, FromJSON t) => TypedTool t -> AC.JSONCodec t
 getSchema _ = AC.codec
 
 toTool :: (AC.HasCodec t, FromJSON t) => TypedTool t -> Tool
-toTool t@(TypedTool name descr exec) =
+toTool t@(TypedTool name descr readonly exec) =
   Tool
     { toolDef =
         ToolDef
           { toolName = name,
             toolDescription = descr,
+            toolReadonly = readonly,
             toolParameters = AE.toJSON $ jsonSchemaVia $ getSchema t
           },
       toolExecute = \ctx argsvalue ->
