@@ -10,15 +10,15 @@ import LLM.Core.Types (TypedTool (..))
 import LLM.Tools.FsConfig (FsConfig, sandboxPath)
 
 newtype ReadfileToolArgs = ReadfileToolArgs
-  { path :: Text
+  { _rfPath :: Text
   }
   deriving (Generic)
-  deriving anyclass (FromJSON)
+  deriving (FromJSON) via (AC.Autodocodec ReadfileToolArgs)
 
 instance AC.HasCodec ReadfileToolArgs where
   codec =
     AC.object "ReadfileToolArgs" $
-      ReadfileToolArgs <$> AC.requiredField "path" "Relative file path to read" AC..= path
+      ReadfileToolArgs <$> AC.requiredField "path" "Relative file path to read" AC..= _rfPath
 
 readfileToolTyped :: FsConfig -> TypedTool ReadfileToolArgs
 readfileToolTyped cfg =
@@ -33,6 +33,6 @@ readfileToolTyped cfg =
 
 readfileExecTyped :: FsConfig -> ReadfileToolArgs -> IO Text
 readfileExecTyped cfg args = do
-  let p = path args
+  let p = _rfPath args
   resolved <- sandboxPath cfg (T.unpack p)
   TIO.readFile resolved

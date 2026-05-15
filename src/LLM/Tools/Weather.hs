@@ -7,16 +7,16 @@ import GHC.Generics (Generic)
 import LLM.Core.Types (TypedTool (..))
 
 newtype WeatherToolArgs = WeatherToolArgs
-  { location :: Text
+  { _weatherLocation :: Text
   }
   deriving (Generic)
-  deriving anyclass (FromJSON)
+  deriving (FromJSON) via (AC.Autodocodec WeatherToolArgs)
 
 instance AC.HasCodec WeatherToolArgs where
   codec =
     AC.object "WeatherToolArgs" $
       WeatherToolArgs
-        <$> AC.requiredField "location" "City name, e.g. London" AC..= location
+        <$> AC.requiredField "location" "City name, e.g. London" AC..= _weatherLocation
 
 weatherToolTyped :: TypedTool WeatherToolArgs
 weatherToolTyped =
@@ -30,7 +30,7 @@ weatherToolTyped =
 -- | Dummy implementation — in reality you'd call a weather API
 getWeather :: WeatherToolArgs -> IO Text
 getWeather args = do
-  let loc = location args
+  let loc = _weatherLocation args
   case toLower loc of
     "london" -> pure "Weather in London is partly cloudy, 18°C, light breeze from the west."
     "paris" -> pure "Weather in Paris is sunny, 23°C, no wind."

@@ -10,18 +10,18 @@ import LLM.Core.Types (TypedTool (..))
 import LLM.Tools.FsConfig (FsConfig, sandboxWritePath)
 
 data WritefileToolArgs = WritefileToolArgs
-  { path :: Text,
-    content :: Text
+  { _wfPath :: Text,
+    _wfContent :: Text
   }
   deriving (Generic)
-  deriving anyclass (FromJSON)
+  deriving (FromJSON) via (AC.Autodocodec WritefileToolArgs)
 
 instance AC.HasCodec WritefileToolArgs where
   codec =
     AC.object "WritefileToolArgs" $
       WritefileToolArgs
-        <$> AC.requiredField "path" "Relative file path to write to" AC..= path
-        <*> AC.requiredField "content" "The text content to write to the file" AC..= content
+        <$> AC.requiredField "path" "Relative file path to write to" AC..= _wfPath
+        <*> AC.requiredField "content" "The text content to write to the file" AC..= _wfContent
 
 writefileToolTyped :: FsConfig -> TypedTool WritefileToolArgs
 writefileToolTyped cfg =
@@ -37,8 +37,8 @@ writefileToolTyped cfg =
 
 writefileExecTyped :: FsConfig -> WritefileToolArgs -> IO Text
 writefileExecTyped cfg args = do
-  let p = path args
-      c = content args
+  let p = _wfPath args
+      c = _wfContent args
   resolved <- sandboxWritePath cfg (T.unpack p)
   TIO.writeFile resolved c
   pure $ "Successfully wrote " <> T.pack (show (T.length c)) <> " characters to " <> p

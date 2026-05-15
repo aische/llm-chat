@@ -15,19 +15,19 @@ import LLM.Core.Types
   )
 
 newtype HistoryToolArgs = HistoryToolArgs
-  { chunk :: Int
+  { _historyChunk :: Int
   }
   deriving (Generic)
-  deriving anyclass (FromJSON)
+  deriving (FromJSON) via (AC.Autodocodec HistoryToolArgs)
 
 instance AC.HasCodec HistoryToolArgs where
   codec =
     AC.object "HistoryToolArgs" $
-      HistoryToolArgs <$> AC.requiredField "chunk" "0 = most recent hidden chunk, 1 = the one before that, etc." AC..= chunk
+      HistoryToolArgs <$> AC.requiredField "chunk" "0 = most recent hidden chunk, 1 = the one before that, etc." AC..= _historyChunk
 
 getHistoryExecTyped :: ToolContext -> HistoryToolArgs -> IO Text
 getHistoryExecTyped ctx args = do
-  let chunkIdx = chunk args
+  let chunkIdx = _historyChunk args
       hidden = take (tcWindowOffset ctx) (unConversation $ tcConversation ctx)
   if null hidden
     then pure "(no earlier history)"

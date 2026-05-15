@@ -4,28 +4,35 @@ import Autodocodec qualified as AC
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM (createChatEnv, createModelConfig, ollamaGateway)
+import LLM.Core.Logger
+  ( LogLevel (Debug),
+    noHooks,
+    withJsonDump,
+    withStderrLogger,
+  )
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (emptyConversation)
 import LLM.Generate.Generate (GeneratedResult, generateObject)
+import LLM.Generate.LoadModels (loadDefaultEnvOrThrow)
 import LLM.Generate.Types (ChatEnv (..))
 
 data ExampleObject = ExampleObject
-  { title :: Text,
-    content :: Text,
-    rating :: Int,
-    flag :: Bool
+  { _title :: Text,
+    _content :: Text,
+    _rating :: Int,
+    _flag :: Bool
   }
-  deriving (Show, Generic, FromJSON)
+  deriving (Show, Generic)
+  deriving (FromJSON) via (AC.Autodocodec ExampleObject)
 
 instance AC.HasCodec ExampleObject where
   codec =
     AC.object "ExampleObject" $
       ExampleObject
-        <$> AC.requiredField "title" "title of the example" AC..= title
-        <*> AC.requiredField "content" "content of the example" AC..= content
-        <*> AC.requiredField "rating" "quality of the example (1..10)" AC..= rating
-        <*> AC.requiredField "flag" "is the example good?" AC..= flag
+        <$> AC.requiredField "title" "title of the example" AC..= _title
+        <*> AC.requiredField "content" "content of the example" AC..= _content
+        <*> AC.requiredField "rating" "quality of the example (1..10)" AC..= _rating
+        <*> AC.requiredField "flag" "is the example good?" AC..= _flag
 
 generateExample :: ChatEnv -> Text -> IO (GeneratedResult (ExampleObject, Usage))
 generateExample env = generateObject env emptyConversation
@@ -37,6 +44,6 @@ example env = do
 
 main :: IO ()
 main = do
-  let mc = createModelConfig ollamaGateway "llama3.2"
-      env = createChatEnv mc "" []
+  let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
+  env <- loadDefaultEnvOrThrow hooks
   example env

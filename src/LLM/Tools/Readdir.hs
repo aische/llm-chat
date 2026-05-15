@@ -11,16 +11,16 @@ import LLM.Tools.FsConfig (FsConfig, sandboxPath)
 import System.Directory (doesDirectoryExist, listDirectory)
 
 newtype ReaddirToolArgs = ReaddirToolArgs
-  { path :: Text
+  { _rdPath :: Text
   }
   deriving (Generic)
-  deriving anyclass (FromJSON)
+  deriving (FromJSON) via (AC.Autodocodec ReaddirToolArgs)
 
 instance AC.HasCodec ReaddirToolArgs where
   codec :: AC.JSONCodec ReaddirToolArgs
   codec =
     AC.object "ReaddirToolArgs" $
-      ReaddirToolArgs <$> AC.requiredField "path" "Relative directory path to list" AC..= path
+      ReaddirToolArgs <$> AC.requiredField "path" "Relative directory path to list" AC..= _rdPath
 
 readdirToolTyped :: FsConfig -> TypedTool ReaddirToolArgs
 readdirToolTyped fsConfig =
@@ -36,7 +36,7 @@ readdirToolTyped fsConfig =
 
 readdirExecTyped :: FsConfig -> ReaddirToolArgs -> IO Text
 readdirExecTyped cfg args = do
-  let relPath = T.unpack $ path args
+  let relPath = T.unpack $ _rdPath args
   resolved <- sandboxPath cfg relPath
   entries <- sort <$> listDirectory resolved
   annotated <- mapM (annotateEntry resolved) entries

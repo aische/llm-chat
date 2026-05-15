@@ -10,20 +10,20 @@ import LLM.Core.Types (TypedTool (..))
 import LLM.Tools.FsConfig (FsConfig, sandboxPath)
 
 data ReplaceInFileToolArgs = ReplaceInFileToolArgs
-  { path :: Text,
-    old :: Text,
-    new :: Text
+  { _rifPath :: Text,
+    _rifOld :: Text,
+    _rifNew :: Text
   }
   deriving (Generic)
-  deriving anyclass (FromJSON)
+  deriving (FromJSON) via (AC.Autodocodec ReplaceInFileToolArgs)
 
 instance AC.HasCodec ReplaceInFileToolArgs where
   codec =
     AC.object "ReplaceInFileToolArgs" $
       ReplaceInFileToolArgs
-        <$> AC.requiredField "path" "Relative file path to write to" AC..= path
-        <*> AC.requiredField "old" "The text content to be replaced in the file" AC..= old
-        <*> AC.requiredField "new" "The replacement text content to write to the file" AC..= new
+        <$> AC.requiredField "path" "Relative file path to write to" AC..= _rifPath
+        <*> AC.requiredField "old" "The text content to be replaced in the file" AC..= _rifOld
+        <*> AC.requiredField "new" "The replacement text content to write to the file" AC..= _rifNew
 
 replaceInFileToolTyped :: FsConfig -> TypedTool ReplaceInFileToolArgs
 replaceInFileToolTyped cfg =
@@ -39,15 +39,15 @@ replaceInFileToolTyped cfg =
 
 replaceExecTyped :: FsConfig -> ReplaceInFileToolArgs -> IO Text
 replaceExecTyped cfg args = do
-  let ReplaceInFileToolArgs {path, old, new} = args
-      p = path
+  let ReplaceInFileToolArgs {_rifPath, _rifOld, _rifNew} = args
+      p = _rifPath
   resolved <- sandboxPath cfg (T.unpack p)
   content <- TIO.readFile resolved
-  let occurrences = countOccurrences old content
+  let occurrences = countOccurrences _rifOld content
   case occurrences of
     0 -> pure "Error: the 'old' string was not found in the file"
     1 -> do
-      let replaced = replaceFirst old new content
+      let replaced = replaceFirst _rifOld _rifNew content
       TIO.writeFile resolved replaced
       pure $ "Successfully replaced text in " <> p
     n ->

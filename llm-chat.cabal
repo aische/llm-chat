@@ -58,6 +58,7 @@ common opts
         DataKinds
         DeriveAnyClass
         DerivingStrategies
+        DerivingVia
         LambdaCase
         OverloadedStrings
     ghc-options: 
