@@ -8,6 +8,8 @@ module LLM.Core.Logger
     noLogger,
     stderrLogger,
     safeHooks,
+    debugHooks,
+    defaultDebugHooks,
   )
 where
 
@@ -94,3 +96,9 @@ safeHooks h =
       onRequest = \p v -> void (try (onRequest h p v) :: IO (Either SomeException ())),
       onResponse = \p v -> void (try (onResponse h p v) :: IO (Either SomeException ()))
     }
+
+debugHooks :: FilePath -> Hooks
+debugHooks dir = withJsonDump dir . withStderrLogger Debug $ noHooks
+
+defaultDebugHooks :: Hooks
+defaultDebugHooks = debugHooks "./dumps"

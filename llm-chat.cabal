@@ -96,6 +96,7 @@ library
         LLM.Tools.Readfile
         LLM.Tools.Writefile
         LLM.Tools.ReplaceInFile
+        LLM.Tools.Worker
         LLM.Tools.Readdir
         LLM.Tools.FsConfig
     other-modules:
@@ -133,6 +134,7 @@ executable llm-chat
                       Example2,
                       Example3,
                       Example4,
+                      Example5,
                       RecordTestConversation
     hs-source-dirs:   app
     build-depends:

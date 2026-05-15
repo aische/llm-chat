@@ -48,7 +48,7 @@ sandboxPath cfg relPath = do
     if exists
       then canonicalizePath candidate
       else pure (collapseDots (normalise candidate))
-  unless (base `isPrefixOf` canonical) $
+  unless (base `isPrefixOf` canonical || base `isPrefixOf` (canonical ++ "/")) $
     throwIO $
       SandboxViolation canonical base
   pure canonical

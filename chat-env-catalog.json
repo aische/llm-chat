@@ -25,5 +25,23 @@
         "tools": [],
         "maximumToolRounds": 3,
         "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "orchestrator",
+        "model": "gpt_4_1",
+        "fallbacks": [],
+        "systemPrompt": "You are an orchestrator who coordinates the work of the workers",
+        "tools": ["read_file", "read_dir"],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "worker",
+        "model": "haiku_4_5",
+        "fallbacks": [],
+        "systemPrompt": "You are a worker who executes tasks",
+        "tools": ["read_file", "read_dir", "write_file"],
+        "maximumToolRounds": 3,
+        "contextWindowSize": 3
     }
 ]

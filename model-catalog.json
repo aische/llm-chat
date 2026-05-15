@@ -58,5 +58,20 @@
         "throttleDelay": 1000,
         "retryCount": 3,
         "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "haiku_4_5",
+        "providerName": "claude",
+        "modelName": "claude-haiku-4-5-20251001",
+        "pricing": {
+            "pricePerMillionInput": 1,
+            "pricePerMillionOutput": 5
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
     }
 ]

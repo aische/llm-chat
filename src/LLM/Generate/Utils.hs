@@ -2,6 +2,7 @@ module LLM.Generate.Utils
   ( defaultChatEnv,
     createChatEnv,
     createModelConfig,
+    addTool,
   )
 where
 
@@ -53,3 +54,6 @@ createModelConfig gateway modelName =
       mcRetryCount = 0,
       mcJitterBackoff = 1_000
     }
+
+addTool :: Tool -> ChatEnv -> ChatEnv
+addTool tool env = env {envTools = tool : envTools env}
