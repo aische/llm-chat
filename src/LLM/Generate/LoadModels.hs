@@ -62,6 +62,15 @@ type ModelConfigMap = Map Text ModelConfig
 
 type ChatEnvMap = Map Text ChatEnv
 
+data LoadEnvError
+  = LoadModelConfigError String
+  | LoadProviderError String
+  | LoadChatEnvConfigError String
+  | LoadModelError String
+  | LoadToolError String
+  | LoadChatError String
+  deriving (Show)
+
 loadGateways :: IO GatewayMap
 loadGateways = do
   let ollama = Just ("ollama", ollamaGateway)
@@ -70,19 +79,22 @@ loadGateways = do
   gemini <- lookupEnv "GEMINI_API_KEY" <&> fmap (("gemini",) . geminiGateway . T.pack)
   pure $ Map.fromList $ catMaybes [openai, claude, gemini, ollama]
 
-getModelConfigs :: GatewayMap -> [ModelCatalogItem] -> Either String ModelConfigMap
+getModelConfigs :: GatewayMap -> [ModelCatalogItem] -> Either LoadEnvError ModelConfigMap
 getModelConfigs gatewayMap modelCatalogItems = Map.fromList <$> configs
   where
     configs = forM modelCatalogItems $ \mci -> do
       mc <- createModelConfig gatewayMap mci
       pure (modelConfigName mci, mc)
 
-loadModelConfigs :: FilePath -> GatewayMap -> ExceptT String IO ModelConfigMap
+loadModelConfigs :: FilePath -> GatewayMap -> ExceptT LoadEnvError IO ModelConfigMap
 loadModelConfigs filePath gatewayMap = do
-  modelCatalogItems <- ExceptT $ eitherDecodeFileStrict filePath
+  modelCatalogItems <-
+    ExceptT $
+      either (Left . LoadModelConfigError) Right
+        <$> eitherDecodeFileStrict filePath
   liftEither $ getModelConfigs gatewayMap modelCatalogItems
 
-createModelConfig :: GatewayMap -> ModelCatalogItem -> Either String ModelConfig
+createModelConfig :: GatewayMap -> ModelCatalogItem -> Either LoadEnvError ModelConfig
 createModelConfig gatewayMap mci = case Map.lookup (providerName mci) gatewayMap of
   Just gateway ->
     Right
@@ -97,29 +109,32 @@ createModelConfig gatewayMap mci = case Map.lookup (providerName mci) gatewayMap
           mcRetryCount = retryCount mci,
           mcJitterBackoff = jitterBackoff mci
         }
-  Nothing -> Left $ "Provider not found: " ++ show (providerName mci)
+  Nothing -> Left $ LoadProviderError $ "Provider not found: " ++ show (providerName mci)
 
-loadChatEnvs :: FilePath -> ModelConfigMap -> ToolMap -> ExceptT String IO ChatEnvMap
+loadChatEnvs :: FilePath -> ModelConfigMap -> ToolMap -> ExceptT LoadEnvError IO ChatEnvMap
 loadChatEnvs filePath modelConfigMap toolMap = do
-  chatEnvCatalogItems <- ExceptT $ eitherDecodeFileStrict filePath
+  chatEnvCatalogItems <-
+    ExceptT $
+      either (Left . LoadChatEnvConfigError) Right
+        <$> eitherDecodeFileStrict filePath
   getChatEnvConfigs modelConfigMap toolMap chatEnvCatalogItems
 
-getChatEnvConfigs :: ModelConfigMap -> ToolMap -> [ChatEnvConfigItem] -> ExceptT String IO ChatEnvMap
+getChatEnvConfigs :: ModelConfigMap -> ToolMap -> [ChatEnvConfigItem] -> ExceptT LoadEnvError IO ChatEnvMap
 getChatEnvConfigs modelConfigMap toolMap chatEnvCatalogItems = do
   let configs = forM chatEnvCatalogItems $ \ceci -> do
         ce <- createChatEnv modelConfigMap toolMap ceci
         pure (chatEnvName ceci, ce)
   Map.fromList <$> configs
 
-createChatEnv :: ModelConfigMap -> ToolMap -> ChatEnvConfigItem -> ExceptT String IO ChatEnv
+createChatEnv :: ModelConfigMap -> ToolMap -> ChatEnvConfigItem -> ExceptT LoadEnvError IO ChatEnv
 createChatEnv models toolMap conf = do
   let getModel name = case Map.lookup name models of
         Just mc -> Right mc
-        Nothing -> Left $ "Model config not found: " ++ show name
+        Nothing -> Left $ LoadModelError $ "Model config not found: " ++ show name
       getTool name = case Map.lookup name toolMap of
         Just t -> Right t
-        Nothing -> Left $ "Tool config not found: " ++ show name
-      getSystem :: ExceptT String IO (Maybe Text)
+        Nothing -> Left $ LoadToolError $ "Tool config not found: " ++ show name
+      getSystem :: ExceptT LoadEnvError IO (Maybe Text)
       getSystem = case systemPrompt conf of
         Nothing -> pure Nothing
         Just t ->
@@ -154,7 +169,7 @@ data LoadedEnvs = LoadedEnvs
     fsConf :: Maybe FsConfig
   }
 
-loadEnvs :: IO (Either String LoadedEnvs)
+loadEnvs :: IO (Either LoadEnvError LoadedEnvs)
 loadEnvs = runExceptT $ do
   gateways <- liftIO loadGateways
   modelConfigs <- loadModelConfigs modelCatalogFilePath gateways
@@ -162,27 +177,27 @@ loadEnvs = runExceptT $ do
   chatEnvs <- loadChatEnvs chatEnvCatalogFilePath modelConfigs toolMap
   pure $ LoadedEnvs chatEnvs modelConfigs gateways toolMap mbFsConfig
 
-getLoadedEnv :: LoadedEnvs -> Hooks -> Text -> Either String ChatEnv
+getLoadedEnv :: LoadedEnvs -> Hooks -> Text -> Either LoadEnvError ChatEnv
 getLoadedEnv loadedEnvs hooks name =
   case Map.lookup name (chatEnvs loadedEnvs) of
-    Nothing -> Left (T.unpack name <> " env not found")
+    Nothing -> Left $ LoadChatError $ T.unpack name <> " env not found"
     Just env -> pure env {envHooks = hooks}
 
-getLoadedEnvs :: (Each s t Text ChatEnv) => LoadedEnvs -> Hooks -> s -> Either String t
+getLoadedEnvs :: (Each s t Text ChatEnv) => LoadedEnvs -> Hooks -> s -> Either LoadEnvError t
 getLoadedEnvs loadedEnvs hooks = mapMOf each (getLoadedEnv loadedEnvs hooks)
 
 loadDefaultEnvOrThrow :: Hooks -> IO ChatEnv
 loadDefaultEnvOrThrow hooks = do
-  envs <- either error id <$> loadEnvs
+  envs <- either (error . show) id <$> loadEnvs
   case getLoadedEnv envs hooks "default" of
-    Left err -> error err
+    Left err -> error $ show err
     Right env -> pure env
 
 loadEnvsOrThrow :: (Each s t Text ChatEnv) => Hooks -> s -> IO t
 loadEnvsOrThrow hooks names = do
-  envs <- either error id <$> loadEnvs
+  envs <- either (error . show) id <$> loadEnvs
   case getLoadedEnvs envs hooks names of
-    Left err -> error err
+    Left err -> error $ show err
     Right env -> pure env
 
 type ToolMap = Map Text Tool
