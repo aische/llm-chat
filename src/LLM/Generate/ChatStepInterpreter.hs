@@ -23,10 +23,12 @@ import LLM.Core.Types
   )
 import LLM.Core.Usage (Usage)
 import LLM.Generate.ChatStep (ChatStep (..), buildChatStep)
-import LLM.Generate.Common (modelRetryPolicy)
+import LLM.Generate.Common (getFilteredToolsWithWorkers, modelRetryPolicy)
 import LLM.Generate.Types
   ( ChatEnv (..),
+    GenerateText,
     ModelConfig (..),
+    WorkerMap,
   )
 import LLM.Generate.WithFallback (withFallback)
 
@@ -48,30 +50,32 @@ type ChatStepInterpreter m =
 generateTextWith ::
   (MonadIO m) =>
   ChatStepInterpreter m ->
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   Text ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-generateTextWith interp unsafeEnv conv msg =
+generateTextWith interp mbGenWorkerMap unsafeEnv conv msg =
   let conv' = Conversation {unConversation = unConversation conv ++ [UserTurn msg]}
-   in generateTextConversationWith interp unsafeEnv conv'
+   in generateTextConversationWith interp mbGenWorkerMap unsafeEnv conv'
 
 generateTextConversationWith ::
   (MonadIO m) =>
   ChatStepInterpreter m ->
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-generateTextConversationWith interp unsafeEnv conv = do
+generateTextConversationWith interp mbGenWorkerMap unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   liftIO $ onLog (envHooks env) Info $ "runChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call = gwGenerateText (mcGateway mc) (envHooks env)
-        step = buildChatStep env mc 0 u c
+        step = buildChatStep mbGenWorkerMap env mc 0 u c
      in interp
           (envHooks env)
           (envAbortSignal env)
-          (envTools env)
+          (getFilteredToolsWithWorkers mbGenWorkerMap (envReadonly env) env)
           (envContextWindow env)
           (modelRetryPolicy mc)
           (mcRequestTimeout mc)
@@ -82,32 +86,34 @@ generateTextConversationWith interp unsafeEnv conv = do
 streamTextWith ::
   (MonadIO m) =>
   ChatStepInterpreter m ->
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamTextWith interp unsafeEnv conv msg callback = do
+streamTextWith interp mbGenWorkerMap unsafeEnv conv msg callback = do
   let conv' = Conversation {unConversation = unConversation conv ++ [UserTurn msg]}
-   in streamTextConversationWith interp unsafeEnv conv' callback
+   in streamTextConversationWith interp mbGenWorkerMap unsafeEnv conv' callback
 
 streamTextConversationWith ::
   (MonadIO m) =>
   ChatStepInterpreter m ->
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamTextConversationWith interp unsafeEnv conv callback = do
+streamTextConversationWith interp mbGenWorkerMap unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   liftIO $ onLog (envHooks env) Info $ "streamChat: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call req = liftIO $ gwStreamText (mcGateway mc) (envHooks env) req callback
-        step = buildChatStep env mc 0 u c
+        step = buildChatStep mbGenWorkerMap env mc 0 u c
      in interp
           (envHooks env)
           (envAbortSignal env)
-          (envTools env)
+          (getFilteredToolsWithWorkers mbGenWorkerMap (envReadonly env) env)
           (envContextWindow env)
           (modelRetryPolicy mc)
           (mcRequestTimeout mc)

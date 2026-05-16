@@ -22,7 +22,7 @@ import LLM.Core.Types
 import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
 import LLM.Core.Utils (appendConversation, getToolCalls, hasToolCalls)
 import LLM.Generate.Common
-  ( mkRequest,
+  ( mkRequestWithWorkers,
     requestLogMessage,
     responseLogMessage,
     toolCallsLogMessage,
@@ -31,7 +31,9 @@ import LLM.Generate.Common
   )
 import LLM.Generate.Types
   ( ChatEnv (..),
+    GenerateText,
     ModelConfig (..),
+    WorkerMap,
   )
 
 -- | A reified chat program. Each constructor is an effect the loop
@@ -62,8 +64,15 @@ data ChatStep
 
 -- | Build a pure 'ChatStep' program from a 'ChatEnv' and 'ModelConfig'.
 -- This replaces the old monolithic @chatLoop@ — same logic, zero IO.
-buildChatStep :: ChatEnv -> ModelConfig -> Int -> Usage -> Conversation -> ChatStep
-buildChatStep env mc rounds acc conv
+buildChatStep ::
+  Maybe (GenerateText, WorkerMap) ->
+  ChatEnv ->
+  ModelConfig ->
+  Int ->
+  Usage ->
+  Conversation ->
+  ChatStep
+buildChatStep mbGenWorkerMap env mc rounds acc conv
   | rounds >= envMaxToolRounds env =
       Log Error ("Tool loop exceeded: " <> tshow rounds <> " rounds") $
         Done (Left (ToolLoopExceeded rounds, conv, acc))
@@ -74,7 +83,7 @@ buildChatStep env mc rounds acc conv
             Log Info "Aborted before API call" $
               Done (Left (Aborted, conv, acc))
           else
-            let request = mkRequest env mc conv (envReadonly env)
+            let request = mkRequestWithWorkers mbGenWorkerMap env mc conv (envReadonly env)
              in Log Debug (requestLogMessage mc rounds request) $
                   maybeThrottle (mcThrottleDelay mc) $
                     CallLLM request $ \case
@@ -102,7 +111,7 @@ buildChatStep env mc rounds acc conv
                                             Right results ->
                                               Log Debug (toolResultsLogMessage results) $
                                                 let conv' = appendConversation conv [AssistantTurn (respText resp) calls, ToolTurn results]
-                                                 in buildChatStep env mc (rounds + 1) acc' conv'
+                                                 in buildChatStep mbGenWorkerMap env mc (rounds + 1) acc' conv'
                                         }
                               else
                                 Log Info (responseLogMessage resp) $

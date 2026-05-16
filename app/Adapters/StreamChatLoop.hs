@@ -17,6 +17,7 @@ import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
 import LLM.Generate.Generate (generateText, streamText)
 import LLM.Generate.Types
   ( ChatEnv (..),
+    WorkerMap,
   )
 import Text.Printf (printf)
 
@@ -28,7 +29,7 @@ prompts =
 
 streamChatLoopMain :: Bool -> ChatEnv -> IO ()
 streamChatLoopMain stream env = do
-  _ <- streamChatLoop stream env prompts
+  _ <- streamChatLoop stream Nothing env prompts
   pure ()
 
 useInterpreter :: Bool
@@ -36,11 +37,11 @@ useInterpreter = True
 
 -- | Interactive streaming loop — runs a list of prompts, printing
 -- streamed deltas and usage stats as it goes.
-streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
-streamChatLoop stream env = aux emptyUsage (Conversation [])
+streamChatLoop :: Bool -> Maybe WorkerMap -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop stream mbWorkerMap env = aux emptyUsage (Conversation [])
   where
-    streamIt = if useInterpreter then streamTextSimple else streamText
-    generateIt = if useInterpreter then generateTextSimple else generateText
+    streamIt = if useInterpreter then streamTextSimple mbWorkerMap else streamText
+    generateIt = if useInterpreter then generateTextSimple mbWorkerMap else generateText
     aux totalUsage conv [] = do
       putStrLn $
         "\n  Total: "

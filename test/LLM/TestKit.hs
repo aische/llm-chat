@@ -6,13 +6,13 @@ import Data.Aeson.Types (parseMaybe)
 import Data.Map qualified as M
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM.Core.LLMProvider ( LLMProvider(..) )
-import LLM.Core.Types ( Conversation(..) )
-import LLM.Core.Usage ( addUsage, emptyUsage )
-import LLM.Core.Utils ( parseChatResponse )
-import LLM.Generate.Generate ( generateText, streamText )
-import LLM.Generate.Types ( ChatEnv )
+import LLM.Core.LLMProvider (LLMProvider (..))
+import LLM.Core.Types (Conversation (..))
+import LLM.Core.Usage (addUsage, emptyUsage)
+import LLM.Core.Utils (parseChatResponse)
 import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
+import LLM.Generate.Generate (generateText, streamText)
+import LLM.Generate.Types (ChatEnv)
 
 data MockRequestResponse = MockRequestResponse
   { prompt :: Maybe Text,
@@ -70,8 +70,8 @@ streamChatLoopMain stream withInterp env prompts = do
 streamChatLoop :: Bool -> Bool -> ChatEnv -> [Text] -> IO Conversation
 streamChatLoop stream withInterp env = aux emptyUsage (Conversation [])
   where
-    streamIt = if withInterp then streamTextSimple else streamText
-    generateIt = if withInterp then generateTextSimple else generateText
+    streamIt = if withInterp then streamTextSimple Nothing else streamText
+    generateIt = if withInterp then generateTextSimple Nothing else generateText
     aux _totalUsage conv [] = do
       return conv
     aux totalUsage conv (prompt : rest) = do

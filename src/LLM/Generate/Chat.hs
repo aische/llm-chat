@@ -22,26 +22,33 @@ import LLM.Generate.ChatStep (ChatStep (..), windowOffset)
 import LLM.Generate.ChatStepInterpreter (ChatStepInterpreter, generateTextWith, streamTextWith)
 import LLM.Generate.Types
   ( ChatEnv (..),
+    WorkerMap,
   )
 
 -- | Run a non-streaming chat. Uses the standard in-memory interpreter.
 generateTextSimple ::
   (MonadIO m) =>
+  Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-generateTextSimple = generateTextWith simpleChatStepInterpreter
+generateTextSimple mbWorkerMap = generateTextWith simpleChatStepInterpreter mbGenWorkerMap
+  where
+    mbGenWorkerMap = fmap (generateTextSimple mbWorkerMap,) mbWorkerMap
 
 -- | Like 'generateTextSimple', but streams text deltas via a callback.
 streamTextSimple ::
   (MonadIO m) =>
+  Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamTextSimple = streamTextWith simpleChatStepInterpreter
+streamTextSimple mbWorkerMap unsafeEnv conv msg callback = streamTextWith simpleChatStepInterpreter mbGenWorkerMap unsafeEnv conv msg callback
+  where
+    mbGenWorkerMap = fmap (\c d t -> streamTextSimple mbWorkerMap c d t callback,) mbWorkerMap
 
 -- | Standard IO interpreter for 'ChatStep'. Executes effects directly:
 -- logging, throttling, LLM calls (with retry/timeout), and tool execution.
