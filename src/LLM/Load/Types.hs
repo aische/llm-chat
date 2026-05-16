@@ -36,13 +36,19 @@ data ChatEnvConfigItem = ChatEnvConfigItem
   deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
 
 data WorkerConfigItem = WorkerConfigItem
-  { workerName :: Text,
-    workerEnv :: Text,
+  { name :: Text,
+    env :: Text,
     description :: Text
   }
   deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
 
-type WorkerMap = Map Text WorkerConfigItem
+data Worker = Worker
+  { workerName :: Text,
+    workerEnv :: ChatEnv,
+    workerDescription :: Text
+  }
+
+type WorkerMap = Map Text Worker
 
 type GatewayMap = Map Text LLMGateway
 

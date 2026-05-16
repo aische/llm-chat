@@ -8,6 +8,7 @@ import Data.Text qualified as T
 import LLM.Load.Types
   ( ChatEnvMap,
     LoadEnvError (..),
+    Worker (Worker),
     WorkerConfigItem (..),
     WorkerMap,
   )
@@ -24,13 +25,20 @@ createWorkerMap :: ChatEnvMap -> [WorkerConfigItem] -> Either LoadEnvError Worke
 createWorkerMap chatEnvMap workerCatalogItems = Map.fromList <$> configs
   where
     configs = forM workerCatalogItems $ \wci -> do
-      case Map.lookup (workerEnv wci) chatEnvMap of
+      case Map.lookup (env wci) chatEnvMap of
         Nothing ->
           Left $
             LoadWorkerEnvError
               ( "env "
-                  <> T.unpack (workerEnv wci)
+                  <> T.unpack (env wci)
                   <> " missing for worker"
-                  <> T.unpack (workerName wci)
+                  <> T.unpack (name wci)
               )
-        Just _ -> pure (workerName wci, wci)
+        Just env ->
+          pure
+            ( name wci,
+              Worker
+                (name wci)
+                env
+                (description wci)
+            )
