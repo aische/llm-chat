@@ -2,15 +2,14 @@ module LLM.Load.LoadEnvs where
 
 import Control.Lens (Each, each, mapMOf)
 import Control.Monad (forM, forM_)
-import Control.Monad.Except (ExceptT (ExceptT), liftEither, runExceptT)
+import Control.Monad.Except (ExceptT (..), liftEither, runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Aeson (eitherDecodeFileStrict)
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import LLM.Core.Logger (Hooks, noHooks)
-import LLM.Generate.Types (ChatEnv (..), WorkerMap)
+import LLM.Core.Types (Tool)
+import LLM.Generate.Types (ChatEnv (..), ModelConfig, WorkerMap)
 import LLM.Load.LoadGateways (loadGateways)
 import LLM.Load.LoadModels (loadModelConfigMap)
 import LLM.Load.LoadTools (loadToolMap)
@@ -24,13 +23,15 @@ import LLM.Load.Types
     ModelConfigMap,
     ToolMap,
   )
+import LLM.Load.Utils (decodeJsonFile, getSystemPrompt)
 
 defaultEnvFilePaths :: EnvFilePaths
 defaultEnvFilePaths =
   EnvFilePaths
-    "model-catalog.json"
-    "chat-env-catalog.json"
-    (Just "worker-catalog.json")
+    { modelCatalogFilePath = "model-catalog.json",
+      chatEnvCatalogFilePath = "chat-env-catalog.json",
+      workerCatalogFilePath = Just "worker-catalog.json"
+    }
 
 loadDefaultEnvOrThrow :: EnvFilePaths -> Hooks -> IO (ChatEnv, LoadedEnvs)
 loadDefaultEnvOrThrow envFilePaths = loadEnvOrThrow envFilePaths "default"
@@ -57,7 +58,15 @@ loadEnvs envFilePaths = runExceptT $ do
   chatEnvs <- loadChatEnvMap (chatEnvCatalogFilePath envFilePaths) modelConfigs toolMap
   workerMap <- maybe (pure Nothing) ((<$>) Just . loadWorkerMap chatEnvs) $ workerCatalogFilePath envFilePaths
   liftEither $ validateWorkersExist chatEnvs workerMap
-  pure $ LoadedEnvs chatEnvs modelConfigs gateways toolMap workerMap mbFsConfig
+  pure $
+    LoadedEnvs
+      { chatEnvs = chatEnvs,
+        modelConfigs = modelConfigs,
+        gateways = gateways,
+        toolMap = toolMap,
+        workerMap = workerMap,
+        fsConf = mbFsConfig
+      }
 
 validateWorkersExist :: ChatEnvMap -> Maybe WorkerMap -> Either LoadEnvError ()
 validateWorkersExist _chatEnvs Nothing = pure ()
@@ -82,10 +91,7 @@ getAllLoadedChatEnvs loadedEnvs hooks = mapMOf each (getLoadedChatEnvByName load
 
 loadChatEnvMap :: FilePath -> ModelConfigMap -> ToolMap -> ExceptT LoadEnvError IO ChatEnvMap
 loadChatEnvMap filePath modelConfigMap toolMap = do
-  chatEnvCatalogItems <-
-    ExceptT $
-      either (Left . LoadChatEnvConfigError) Right
-        <$> eitherDecodeFileStrict filePath
+  chatEnvCatalogItems <- decodeJsonFile filePath LoadChatEnvConfigError
   createChatEnvMap modelConfigMap toolMap chatEnvCatalogItems
 
 createChatEnvMap :: ModelConfigMap -> ToolMap -> [ChatEnvConfigItem] -> ExceptT LoadEnvError IO ChatEnvMap
@@ -97,26 +103,10 @@ createChatEnvMap modelConfigMap toolMap chatEnvCatalogItems = do
 
 createChatEnvFromConfigItem :: ModelConfigMap -> ToolMap -> ChatEnvConfigItem -> ExceptT LoadEnvError IO ChatEnv
 createChatEnvFromConfigItem models toolMap conf = do
-  let getModel name = case Map.lookup name models of
-        Just mc -> Right mc
-        Nothing -> Left $ LoadModelError $ "Model config not found: " ++ show name
-      getTool name = case Map.lookup name toolMap of
-        Just t -> Right t
-        Nothing -> Left $ LoadToolError $ "Tool config not found: " ++ show name
-      getSystem :: ExceptT LoadEnvError IO (Maybe Text)
-      getSystem = case systemPrompt conf of
-        Nothing -> pure Nothing
-        Just t ->
-          if T.isPrefixOf "file:" t
-            then
-              let filePath = T.drop 5 t
-               in liftIO $ fmap Just $ TIO.readFile $ T.unpack filePath
-            else pure $ Just t
-
-  modelConfig <- liftEither $ getModel (model conf)
-  fb <- liftEither $ mapM getModel (fallbacks conf)
-  tools <- liftEither $ mapM getTool (tools conf)
-  system <- getSystem
+  modelConfig <- liftEither $ getModel (model conf) models
+  fb <- liftEither $ mapM (`getModel` models) (fallbacks conf)
+  tools <- liftEither $ mapM (`getTool` toolMap) (tools conf)
+  system <- getSystemPrompt (systemPrompt conf)
   pure $
     ChatEnv
       { envModel = modelConfig,
@@ -130,3 +120,13 @@ createChatEnvFromConfigItem models toolMap conf = do
         envWorkers = workers conf,
         envAbortSignal = Nothing
       }
+
+getModel :: Text -> ModelConfigMap -> Either LoadEnvError ModelConfig
+getModel name models = case Map.lookup name models of
+  Just mc -> Right mc
+  Nothing -> Left $ LoadModelError $ "Model config not found: " ++ show name
+
+getTool :: Text -> ToolMap -> Either LoadEnvError Tool
+getTool name toolMap = case Map.lookup name toolMap of
+  Just t -> Right t
+  Nothing -> Left $ LoadToolError $ "Tool config not found: " ++ show name

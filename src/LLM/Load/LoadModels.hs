@@ -1,8 +1,7 @@
 module LLM.Load.LoadModels where
 
 import Control.Monad (forM)
-import Control.Monad.Except (ExceptT (ExceptT), liftEither)
-import Data.Aeson (eitherDecodeFileStrict)
+import Control.Monad.Except (ExceptT, liftEither)
 import Data.Map qualified as Map
 import LLM.Generate.Types (ModelConfig (..))
 import LLM.Load.Types
@@ -11,13 +10,11 @@ import LLM.Load.Types
     ModelCatalogItem (..),
     ModelConfigMap,
   )
+import LLM.Load.Utils (decodeJsonFile)
 
 loadModelConfigMap :: FilePath -> GatewayMap -> ExceptT LoadEnvError IO ModelConfigMap
 loadModelConfigMap filePath gatewayMap = do
-  modelCatalogItems <-
-    ExceptT $
-      either (Left . LoadModelConfigError) Right
-        <$> eitherDecodeFileStrict filePath
+  modelCatalogItems <- decodeJsonFile filePath LoadModelConfigError
   liftEither $ createModelConfigMap gatewayMap modelCatalogItems
 
 createModelConfigMap :: GatewayMap -> [ModelCatalogItem] -> Either LoadEnvError ModelConfigMap
