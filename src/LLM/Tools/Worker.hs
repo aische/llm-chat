@@ -22,11 +22,11 @@ instance AC.HasCodec WorkerToolArgs where
     AC.object "WorkerToolArgs" $
       WorkerToolArgs <$> AC.requiredField "prompt" "Prompt to send to the worker" AC..= _workerPrompt
 
-workerToolTyped :: ChatEnv -> Text -> TypedTool WorkerToolArgs
-workerToolTyped env name =
+workerToolTyped :: ChatEnv -> Text -> Text -> TypedTool WorkerToolArgs
+workerToolTyped env name description =
   TypedTool
     { ttoolName = name,
-      ttoolDescription = "Worker tool that can execute arbitrary code",
+      ttoolDescription = description,
       ttoolReadonly = False,
       ttoolExecute = workerExecTyped env
     }

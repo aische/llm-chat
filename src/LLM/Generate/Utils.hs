@@ -3,14 +3,18 @@ module LLM.Generate.Utils
     createChatEnv,
     createModelConfig,
     addTool,
+    getToolsWithWorkers,
   )
 where
 
+import Data.Map qualified as Map
 import Data.Text (Text)
 import LLM.Core.Logger (noHooks)
 import LLM.Core.Types (LLMGateway, Tool)
 import LLM.Core.Usage (PricingInfo (..))
-import LLM.Generate.Types (ChatEnv (..), ModelConfig (..))
+import LLM.Core.Utils (toTool)
+import LLM.Generate.Types (ChatEnv (..), ModelConfig (..), Worker (..), WorkerMap)
+import LLM.Tools.Worker (workerToolTyped)
 
 -- | Sensible defaults — single model, no fallback.
 defaultChatEnv :: ModelConfig -> ChatEnv
@@ -59,3 +63,20 @@ createModelConfig gateway modelName =
 
 addTool :: Tool -> ChatEnv -> ChatEnv
 addTool tool env = env {envTools = tool : envTools env}
+
+getToolsWithWorkers :: Maybe WorkerMap -> ChatEnv -> [Tool]
+getToolsWithWorkers Nothing chatEnv = envTools chatEnv
+getToolsWithWorkers (Just workerMap) chatEnv =
+  let workerTools =
+        case envWorkers chatEnv of
+          Nothing -> []
+          Just workerNames ->
+            flip map workerNames $ \wname ->
+              case Map.lookup wname workerMap of
+                Nothing -> error ""
+                Just worker ->
+                  let name = workerName worker
+                      desc = workerDescription worker
+                      env = workerEnv worker
+                   in toTool (workerToolTyped env name desc)
+   in envTools chatEnv ++ workerTools
