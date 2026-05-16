@@ -9,6 +9,7 @@ module LLM.Generate.Common
     toolResultsLogMessage,
     responseLogMessage,
     mkRequestWithWorkers,
+    getFilteredToolsWithWorkers,
   )
 where
 
@@ -70,10 +71,14 @@ mkRequestWithWorkers mbGenWorkerMap env mc conv readonly =
       reqMaxTokens = mcMaxTokens mc,
       reqTemperature = mcTemperature mc,
       -- reqTools = map toolDef (filterReadonlyTools readonly $ envTools env)
-      reqTools = map toolDef (filterReadonlyTools readonly (getToolsWithWorkers mbGenWorkerMap env))
+      reqTools = map toolDef (getFilteredToolsWithWorkers mbGenWorkerMap readonly env)
     }
   where
     offset = windowOffset (envContextWindow env) conv
+
+getFilteredToolsWithWorkers :: Maybe (GenerateText, WorkerMap) -> Bool -> ChatEnv -> [Tool]
+getFilteredToolsWithWorkers mbGenWorkerMap readonly env =
+  filterReadonlyTools readonly (getToolsWithWorkers mbGenWorkerMap env)
 
 filterReadonlyTools :: Bool -> [Tool] -> [Tool]
 filterReadonlyTools False tools = tools

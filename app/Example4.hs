@@ -1,15 +1,19 @@
 module Example4 where
 
 import LLM.Core.Logger
-    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
-import LLM.Generate.Generate ( generateText )
+  ( LogLevel (Debug),
+    noHooks,
+    withJsonDump,
+    withStderrLogger,
+  )
 import LLM.Core.Utils (emptyConversation)
+import LLM.Generate.Generate (generateText)
 import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadEnvsOrThrow)
 
 main :: IO ()
 main = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  (funnyEnv, angryEnv) <-
+  ((funnyEnv, angryEnv), _) <-
     loadEnvsOrThrow
       defaultEnvFilePaths
       hooks

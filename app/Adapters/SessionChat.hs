@@ -6,7 +6,11 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
 import LLM.Core.Logger
-    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
+  ( LogLevel (Debug),
+    noHooks,
+    withJsonDump,
+    withStderrLogger,
+  )
 import LLM.Core.Types
   ( Conversation (..),
     StreamEvent (..),
@@ -65,7 +69,7 @@ data SessionCommand
 sessionChatMain :: SessionCommand -> IO ()
 sessionChatMain command = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  env <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
+  (env, _) <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
   sessionChat env command
 
 sessionChat :: ChatEnv -> SessionCommand -> IO ()

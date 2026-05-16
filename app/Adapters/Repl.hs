@@ -4,18 +4,24 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM.Core.Logger
-    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
+  ( LogLevel (Debug),
+    noHooks,
+    withJsonDump,
+    withStderrLogger,
+  )
 import LLM.Core.Types (Conversation (..), StreamEvent (..))
 import LLM.Core.Usage
   ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),
     addUsage,
     emptyUsage,
   )
-import LLM.Generate.Generate (streamText)
+import LLM.Generate.Generate (streamTextWithWorkers)
 import LLM.Generate.Types
   ( ChatEnv (..),
+    WorkerMap,
   )
-import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadDefaultEnvOrThrow)
+import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadEnvOrThrow)
+import LLM.Load.Types (LoadedEnvs (workerMap))
 import System.Exit (exitSuccess)
 import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdout)
 import Text.Printf (printf)
@@ -23,17 +29,17 @@ import Text.Printf (printf)
 replMain :: IO ()
 replMain = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  env <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
-  repl env
+  (env, envs) <- loadEnvOrThrow defaultEnvFilePaths "orchestrator" hooks
+  repl (workerMap envs) env
 
-repl :: ChatEnv -> IO ()
-repl env = do
+repl :: Maybe WorkerMap -> ChatEnv -> IO ()
+repl mbWorkerMap env = do
   hSetBuffering stdout NoBuffering
   putStrLn "Type a message (or /quit to exit, /clear to reset conversation)."
-  loop env emptyUsage (Conversation [])
+  loop mbWorkerMap env emptyUsage (Conversation [])
 
-loop :: ChatEnv -> Usage -> Conversation -> IO ()
-loop env totalUsage conv = do
+loop :: Maybe WorkerMap -> ChatEnv -> Usage -> Conversation -> IO ()
+loop mbWorkerMap env totalUsage conv = do
   TIO.putStr "> "
   hFlush stdout
   eof <- isEOF
@@ -45,16 +51,16 @@ loop env totalUsage conv = do
         Quit -> printSummary totalUsage
         Clear -> do
           putStrLn "(conversation cleared)"
-          loop env emptyUsage (Conversation [])
-        Chat "" -> loop env totalUsage conv
+          loop mbWorkerMap env emptyUsage (Conversation [])
+        Chat "" -> loop mbWorkerMap env totalUsage conv
         Chat msg -> do
-          result <- streamText env conv msg $ \case
+          result <- streamTextWithWorkers mbWorkerMap env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt
             StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
           case result of
             Left (err, _, _) -> do
               putStrLn $ "\nError: " <> show err
-              loop env totalUsage conv
+              loop mbWorkerMap env totalUsage conv
             Right (_, conv', usage) -> do
               putStrLn ""
               let totalUsage' = addUsage totalUsage usage
@@ -64,7 +70,7 @@ loop env totalUsage conv = do
                 (usageInputTokens usage)
                 (usageOutputTokens usage)
                 (usageTotalCost usage)
-              loop env totalUsage' conv'
+              loop mbWorkerMap env totalUsage' conv'
 
 data Command = Quit | Clear | Chat Text
 

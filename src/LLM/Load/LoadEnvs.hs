@@ -32,22 +32,22 @@ defaultEnvFilePaths =
     "chat-env-catalog.json"
     (Just "worker-catalog.json")
 
-loadDefaultEnvOrThrow :: EnvFilePaths -> Hooks -> IO ChatEnv
+loadDefaultEnvOrThrow :: EnvFilePaths -> Hooks -> IO (ChatEnv, LoadedEnvs)
 loadDefaultEnvOrThrow envFilePaths = loadEnvOrThrow envFilePaths "default"
 
-loadEnvOrThrow :: EnvFilePaths -> Text -> Hooks -> IO ChatEnv
+loadEnvOrThrow :: EnvFilePaths -> Text -> Hooks -> IO (ChatEnv, LoadedEnvs)
 loadEnvOrThrow envFilePaths name hooks = do
   envs <- either (error . show) id <$> loadEnvs envFilePaths
   case getLoadedChatEnvByName envs hooks name of
     Left err -> error $ show err
-    Right env -> pure env
+    Right env -> pure (env, envs)
 
-loadEnvsOrThrow :: (Each s t Text ChatEnv) => EnvFilePaths -> Hooks -> s -> IO t
+loadEnvsOrThrow :: (Each s t Text ChatEnv) => EnvFilePaths -> Hooks -> s -> IO (t, LoadedEnvs)
 loadEnvsOrThrow envFilePaths hooks names = do
   envs <- either (error . show) id <$> loadEnvs envFilePaths
   case getAllLoadedChatEnvs envs hooks names of
     Left err -> error $ show err
-    Right env -> pure env
+    Right env -> pure (env, envs)
 
 loadEnvs :: EnvFilePaths -> IO (Either LoadEnvError LoadedEnvs)
 loadEnvs envFilePaths = runExceptT $ do

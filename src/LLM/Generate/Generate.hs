@@ -2,6 +2,7 @@ module LLM.Generate.Generate
   ( generateText,
     generateTextConversation,
     streamText,
+    streamTextWithWorkers,
     streamTextConversation,
     generateObjectUntyped,
     generateObjectConversationUntyped,
@@ -49,7 +50,8 @@ import LLM.Core.Utils
     withTimeout,
   )
 import LLM.Generate.Common
-  ( mkRequest,
+  ( getFilteredToolsWithWorkers,
+    mkRequest,
     mkRequestWithWorkers,
     modelRetryPolicy,
     requestLogMessage,
@@ -61,56 +63,70 @@ import LLM.Generate.Common
 import LLM.Generate.Types
   ( ChatEnv (..),
     Generatable,
+    GenerateText,
     GeneratedResult,
     ModelConfig (..),
+    WorkerMap,
   )
 import LLM.Generate.WithFallback (withFallback)
 
 -- | Run a non-streaming chat with automatic tool-call handling.
 -- Tries each model in 'envModels' in order, falling back on retryable errors.
-generateText ::
+generateText :: ChatEnv -> Conversation -> Text -> IO (GeneratedResult (Text, Conversation, Usage))
+generateText = generateTextWithWorkers Nothing
+
+generateTextWithWorkers ::
+  Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   IO (GeneratedResult (Text, Conversation, Usage))
-generateText unsafeEnv conv msg = generateTextConversation unsafeEnv conv'
+generateTextWithWorkers mbWorkerMap unsafeEnv conv msg = generateTextConversation mbGenWorkerMap unsafeEnv conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
+    mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
 
 generateTextConversation ::
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   IO (GeneratedResult (Text, Conversation, Usage))
-generateTextConversation unsafeEnv conv = do
+generateTextConversation mbGenWorkerMap unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call = gwGenerateText (mcGateway mc) (envHooks env)
-     in chatLoop env mc call 0 u c
+     in chatLoop mbGenWorkerMap env mc call 0 u c
 
 -- | Like 'generateText', but streams text deltas via a callback as they arrive.
-streamText ::
+streamText :: ChatEnv -> Conversation -> Text -> (StreamEvent -> IO ()) -> IO (GeneratedResult (Text, Conversation, Usage))
+streamText = streamTextWithWorkers Nothing
+
+streamTextWithWorkers ::
+  Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
   IO (GeneratedResult (Text, Conversation, Usage))
-streamText unsafeEnv conv msg = streamTextConversation unsafeEnv conv'
+streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextConversation mbGenWorkerMap unsafeEnv conv' callback
   where
     conv' = withConversation conv (++ [UserTurn msg])
+    mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
 
 streamTextConversation ::
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   IO (GeneratedResult (Text, Conversation, Usage))
-streamTextConversation unsafeEnv conv callback = do
+streamTextConversation mbGenWorkerMap unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       logIt = onLog (envHooks env)
   logIt Info $ "streamText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
     let call req = gwStreamText (mcGateway mc) (envHooks env) req callback
-     in chatLoop env mc call 0 u c
+     in chatLoop mbGenWorkerMap env mc call 0 u c
 
 generateObject ::
   (Generatable t) =>
@@ -192,6 +208,7 @@ generateObjectConversationUntyped unsafeEnv schema conv = do
 -- On failure, returns the partial conversation and accumulated usage
 -- so that a fallback model can continue from where this one left off.
 chatLoop ::
+  Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   ModelConfig ->
   (ChatRequest -> IO LLMTextResult) ->
@@ -199,20 +216,18 @@ chatLoop ::
   Usage ->
   Conversation ->
   IO (GeneratedResult (Text, Conversation, Usage))
-chatLoop env mc call rounds acc conv
+chatLoop mbGenWorkerMap env mc call rounds acc conv
   | rounds >= envMaxToolRounds env = do
       onLog (envHooks env) Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"
       pure $ Left (ToolLoopExceeded rounds, conv, acc)
   | otherwise = do
-      let workerMap = undefined -- TODO PROVIDE WorkerMap
       aborted <- checkAbort env
       if aborted
         then do
           onLog (envHooks env) Info "Aborted before API call"
           pure $ Left (Aborted, conv, acc)
         else do
-          -- let request = mkRequest env mc conv (envReadonly env)
-          let request = mkRequestWithWorkers (Just (generateText, workerMap)) env mc conv (envReadonly env)
+          let request = mkRequestWithWorkers mbGenWorkerMap env mc conv (envReadonly env)
               logIt = onLog (envHooks env)
           logIt Debug $ requestLogMessage mc rounds request
           case mcThrottleDelay mc of
@@ -244,7 +259,8 @@ chatLoop env mc call rounds acc conv
                                 tcWindowOffset = offset,
                                 tcAbortSignal = envAbortSignal env
                               }
-                      toolResults <- executeToolsWithAbort (envAbortSignal env) ctx (envTools env) calls
+                          filteredTools = getFilteredToolsWithWorkers mbGenWorkerMap False env -- todo: readonly tools
+                      toolResults <- executeToolsWithAbort (envAbortSignal env) ctx filteredTools calls
                       case toolResults of
                         Left _ -> do
                           logIt Info "Aborted during tool execution"
@@ -252,7 +268,7 @@ chatLoop env mc call rounds acc conv
                         Right results -> do
                           logIt Debug $ toolResultsLogMessage results
                           let conv' = appendConversation conv [AssistantTurn (respText resp) calls, ToolTurn results]
-                          chatLoop env mc call (rounds + 1) acc' conv'
+                          chatLoop mbGenWorkerMap env mc call (rounds + 1) acc' conv'
                     else do
                       logIt Info $ responseLogMessage resp
                       let finalConv = withConversation conv (++ [AssistantTurn (respText resp) []])

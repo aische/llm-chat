@@ -1,7 +1,7 @@
 [
     {
-        "workerName": "worker1",
-        "workerEnv": "worker",
-        "description": "A worker that can execute tasks"
+        "name": "worker1",
+        "env": "worker",
+        "description": "A worker that can execute tasks and modify files"
     }
 ]

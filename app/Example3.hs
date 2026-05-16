@@ -46,5 +46,5 @@ example env = do
 main :: IO ()
 main = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  env <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
+  (env, _) <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
   example env

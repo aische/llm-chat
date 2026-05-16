@@ -28,12 +28,12 @@
     },
     {
         "chatEnvName": "orchestrator",
-        "model": "llama_3_2",
+        "model": "gpt_4_1",
         "fallbacks": [],
         "systemPrompt": "You are an orchestrator who coordinates the work of the workers",
         "tools": ["read_file", "read_dir"],
         "workers": ["worker1"],
-        "maximumToolRounds": 3,
+        "maximumToolRounds": 10,
         "contextWindowSize": 3
     },
     {
@@ -42,7 +42,7 @@
         "fallbacks": [],
         "systemPrompt": "You are a worker who executes tasks",
         "tools": ["read_file", "read_dir", "write_file"],
-        "maximumToolRounds": 3,
+        "maximumToolRounds": 10,
         "contextWindowSize": 3
     }
 ]
