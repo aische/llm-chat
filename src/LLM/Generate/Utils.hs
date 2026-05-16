@@ -4,12 +4,13 @@ module LLM.Generate.Utils
     createModelConfig,
     addTool,
     getToolsWithWorkers,
+    addHooksToWorkerMap,
   )
 where
 
 import Data.Map qualified as Map
 import Data.Text (Text)
-import LLM.Core.Logger (noHooks)
+import LLM.Core.Logger (Hooks, noHooks)
 import LLM.Core.Types (LLMGateway, Tool)
 import LLM.Core.Usage (PricingInfo (..))
 import LLM.Core.Utils (toTool)
@@ -80,3 +81,11 @@ getToolsWithWorkers (Just (gen, workerMap)) chatEnv =
                       env = workerEnv worker
                    in toTool (workerToolTyped gen env name desc)
    in envTools chatEnv ++ workerTools
+
+addHooksToWorkerMap :: Hooks -> Maybe WorkerMap -> Maybe WorkerMap
+addHooksToWorkerMap _hooks Nothing = Nothing
+addHooksToWorkerMap hooks (Just workerMap) =
+  Just $
+    Map.map
+      (\v -> v {workerEnv = (workerEnv v) {envHooks = hooks}})
+      workerMap

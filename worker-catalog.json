@@ -3,5 +3,10 @@
         "name": "worker1",
         "env": "worker",
         "description": "A worker that can execute tasks and modify files"
+    },
+    {
+        "name": "summarizer",
+        "env": "summarize-env",
+        "description": "A worker that can summarize files if provided with a filepath. For example, ask 'summarize the file somefilename.txt' "
     }
 ]

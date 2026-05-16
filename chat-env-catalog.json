@@ -31,8 +31,8 @@
         "model": "gpt_4_1",
         "fallbacks": [],
         "systemPrompt": "You are an orchestrator who coordinates the work of the workers",
-        "tools": ["read_file", "read_dir"],
-        "workers": ["worker1"],
+        "tools": ["read_dir"],
+        "workers": ["summarizer"],
         "maximumToolRounds": 10,
         "contextWindowSize": 3
     },
@@ -42,6 +42,15 @@
         "fallbacks": [],
         "systemPrompt": "You are a worker who executes tasks",
         "tools": ["read_file", "read_dir", "write_file"],
+        "maximumToolRounds": 10,
+        "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "summarize-env",
+        "model": "haiku_4_5",
+        "fallbacks": [],
+        "systemPrompt": "file:summarizer-prompt.md",
+        "tools": ["read_file"],
         "maximumToolRounds": 10,
         "contextWindowSize": 3
     }
