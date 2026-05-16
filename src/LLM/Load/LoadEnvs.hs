@@ -16,7 +16,7 @@ import LLM
   )
 import LLM.Load.LoadGateways (loadGateways)
 import LLM.Load.LoadModels (loadModelConfigMap)
-import LLM.Load.LoadTools (loadTools)
+import LLM.Load.LoadTools (loadToolMap)
 import LLM.Load.Types
   ( ChatEnvConfigItem (..),
     ChatEnvMap,
@@ -51,7 +51,7 @@ loadEnvs :: EnvFilePaths -> IO (Either LoadEnvError LoadedEnvs)
 loadEnvs envFilePaths = runExceptT $ do
   gateways <- liftIO loadGateways
   modelConfigs <- loadModelConfigMap (modelCatalogFilePath envFilePaths) gateways
-  (toolMap, mbFsConfig) <- liftIO loadTools
+  (toolMap, mbFsConfig) <- liftIO loadToolMap
   chatEnvs <- loadChatEnvMap (chatEnvCatalogFilePath envFilePaths) modelConfigs toolMap
   pure $ LoadedEnvs chatEnvs modelConfigs gateways toolMap mbFsConfig
 

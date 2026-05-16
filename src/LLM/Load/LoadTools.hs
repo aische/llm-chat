@@ -18,8 +18,8 @@ import LLM.Tools.Weather (weatherToolTyped)
 import LLM.Tools.Writefile (writefileToolTyped)
 import System.Environment (lookupEnv)
 
-loadTools :: IO (ToolMap, Maybe FsConfig)
-loadTools = do
+loadToolMap :: IO (ToolMap, Maybe FsConfig)
+loadToolMap = do
   userProjectPath <- lookupEnv "USER_PROJECT_PATH"
   fsConfig <- case userProjectPath of
     Nothing -> pure Nothing
