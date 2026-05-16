@@ -11,10 +11,10 @@ import LLM.Core.Usage
     emptyUsage,
   )
 import LLM.Generate.Generate (streamText)
-import LLM.Generate.LoadModels (loadDefaultEnvOrThrow)
 import LLM.Generate.Types
   ( ChatEnv (..),
   )
+import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadDefaultEnvOrThrow)
 import System.Exit (exitSuccess)
 import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdout)
 import Text.Printf (printf)
@@ -22,7 +22,7 @@ import Text.Printf (printf)
 replMain :: IO ()
 replMain = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  env <- loadDefaultEnvOrThrow hooks
+  env <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
   repl env
 
 repl :: ChatEnv -> IO ()

@@ -18,10 +18,10 @@ import LLM.Core.Usage
     emptyUsage,
   )
 import LLM.Generate.Generate (streamText)
-import LLM.Generate.LoadModels (loadDefaultEnvOrThrow)
 import LLM.Generate.Types
   ( ChatEnv (..),
   )
+import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadDefaultEnvOrThrow)
 import System.Directory (doesFileExist)
 import System.IO (BufferMode (NoBuffering), hSetBuffering, stdout)
 import Text.Printf (printf)
@@ -64,7 +64,7 @@ data SessionCommand
 sessionChatMain :: SessionCommand -> IO ()
 sessionChatMain command = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  env <- loadDefaultEnvOrThrow hooks
+  env <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
   sessionChat env command
 
 sessionChat :: ChatEnv -> SessionCommand -> IO ()

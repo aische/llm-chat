@@ -79,9 +79,13 @@ library
         LLM.Generate.Types
         LLM.Generate.Utils
         LLM.Generate.WithFallback
-        LLM.Generate.LoadModels
         LLM.Core.Types
         LLM.Core.LLMProvider
+        LLM.Load.LoadEnvs
+        LLM.Load.LoadGateways
+        LLM.Load.LoadModels
+        LLM.Load.LoadTools
+        LLM.Load.Types
         LLM.Providers.Gemini
         LLM.Providers.Claude
         LLM.Providers.OpenAI

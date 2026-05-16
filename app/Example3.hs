@@ -13,8 +13,8 @@ import LLM.Core.Logger
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (emptyConversation)
 import LLM.Generate.Generate (GeneratedResult, generateObject)
-import LLM.Generate.LoadModels (loadDefaultEnvOrThrow)
 import LLM.Generate.Types (ChatEnv (..))
+import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadDefaultEnvOrThrow)
 
 data ExampleObject = ExampleObject
   { _title :: Text,
@@ -45,5 +45,5 @@ example env = do
 main :: IO ()
 main = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  env <- loadDefaultEnvOrThrow hooks
+  env <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
   example env
