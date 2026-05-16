@@ -163,7 +163,7 @@ $ ... shows the full conversation ...
 
 Instead of hardcoding the model configs and the chat envs, they can live in JSON files:
 
-model-catalog.json:
+`model-catalog.json`:
 
 ```json
 [
@@ -230,7 +230,7 @@ model-catalog.json:
 ]
 ```
 
-chat-env-catalog.json:
+`chat-env-catalog.json`:
 
 ```json
 [
@@ -281,4 +281,95 @@ main = do
   print r
   r2 <- generateText angryEnv emptyConversation "what is the capital of france?"
   print r2
+```
+
+## Example 5
+
+run `chat-llm example5`
+
+and write the following prompt: "give me summaries of all files in the workspace"
+
+(workspace directory is defined in .env)
+
+Use configs like this:
+
+`model-catalog.json`:
+
+```json
+[
+    {
+        "modelConfigName": "gpt_4_1",
+        "providerName": "openai",
+        "modelName": "gpt-4.1-2025-04-14",
+        "pricing": {
+            "pricePerMillionInput": 2.0,
+            "pricePerMillionOutput": 8.0
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    },
+    {
+        "modelConfigName": "haiku_4_5",
+        "providerName": "claude",
+        "modelName": "claude-haiku-4-5-20251001",
+        "pricing": {
+            "pricePerMillionInput": 1,
+            "pricePerMillionOutput": 5
+        },
+        "maxTokens": 1024,
+        "temperature": 0.5,
+        "requestTimeout": 10000,
+        "throttleDelay": 1000,
+        "retryCount": 3,
+        "jitterBackoff": 1000
+    }
+]
+```
+
+`chat-env-catalog.json`:
+
+```json
+[
+    {
+        "chatEnvName": "orchestrator",
+        "model": "gpt_4_1",
+        "fallbacks": [],
+        "systemPrompt": "You are an orchestrator who coordinates the work of the workers",
+        "tools": ["read_dir"],
+        "workers": ["summarizer"],
+        "maximumToolRounds": 10,
+        "contextWindowSize": 3
+    },
+    {
+        "chatEnvName": "summarize-env",
+        "model": "haiku_4_5",
+        "fallbacks": [],
+        "systemPrompt": "file:summarizer-prompt.md",
+        "tools": ["read_file"],
+        "maximumToolRounds": 10,
+        "contextWindowSize": 3
+    }
+]
+```
+
+`worker-catalog.json`:
+
+```json
+[
+    {
+        "name": "summarizer",
+        "env": "summarize-env",
+        "description": "A worker that can summarize files if provided with a filepath. For example, ask 'summarize the file somefilename.txt' "
+    }
+]
+```
+
+and `summarizer-prompt.md`:
+
+```
+You are a summarizer who summarizes files. You will be provided with a filepath and you will need to summarize the file. Respond with plain text.
 ```
