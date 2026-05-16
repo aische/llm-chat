@@ -24,6 +24,7 @@ defaultChatEnv mc =
       envMaxToolRounds = 10,
       envContextWindow = Nothing,
       envHooks = noHooks,
+      envWorkers = Nothing,
       envAbortSignal = Nothing
     }
 
@@ -38,6 +39,7 @@ createChatEnv mc system tools =
       envMaxToolRounds = 10,
       envContextWindow = Nothing,
       envHooks = noHooks,
+      envWorkers = Nothing,
       envAbortSignal = Nothing
     }
 

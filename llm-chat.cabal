@@ -85,6 +85,7 @@ library
         LLM.Load.LoadGateways
         LLM.Load.LoadModels
         LLM.Load.LoadTools
+        LLM.Load.LoadWorkers
         LLM.Load.Types
         LLM.Providers.Gemini
         LLM.Providers.Claude

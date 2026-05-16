@@ -1,7 +1,7 @@
 module LLM.Load.LoadEnvs where
 
 import Control.Lens (Each, each, mapMOf)
-import Control.Monad (forM)
+import Control.Monad (forM, forM_)
 import Control.Monad.Except (ExceptT (ExceptT), liftEither, runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Aeson (eitherDecodeFileStrict)
@@ -14,6 +14,7 @@ import LLM.Generate.Types (ChatEnv (..))
 import LLM.Load.LoadGateways (loadGateways)
 import LLM.Load.LoadModels (loadModelConfigMap)
 import LLM.Load.LoadTools (loadToolMap)
+import LLM.Load.LoadWorkers (loadWorkerMap)
 import LLM.Load.Types
   ( ChatEnvConfigItem (..),
     ChatEnvMap,
@@ -22,10 +23,15 @@ import LLM.Load.Types
     LoadedEnvs (..),
     ModelConfigMap,
     ToolMap,
+    WorkerMap,
   )
 
 defaultEnvFilePaths :: EnvFilePaths
-defaultEnvFilePaths = EnvFilePaths "model-catalog.json" "chat-env-catalog.json"
+defaultEnvFilePaths =
+  EnvFilePaths
+    "model-catalog.json"
+    "chat-env-catalog.json"
+    (Just "worker-catalog.json")
 
 loadDefaultEnvOrThrow :: EnvFilePaths -> Hooks -> IO ChatEnv
 loadDefaultEnvOrThrow envFilePaths = loadEnvOrThrow envFilePaths "default"
@@ -50,7 +56,21 @@ loadEnvs envFilePaths = runExceptT $ do
   modelConfigs <- loadModelConfigMap (modelCatalogFilePath envFilePaths) gateways
   (toolMap, mbFsConfig) <- liftIO loadToolMap
   chatEnvs <- loadChatEnvMap (chatEnvCatalogFilePath envFilePaths) modelConfigs toolMap
-  pure $ LoadedEnvs chatEnvs modelConfigs gateways toolMap mbFsConfig
+  workerMap <- maybe (pure Nothing) ((<$>) Just . loadWorkerMap chatEnvs) $ workerCatalogFilePath envFilePaths
+  liftEither $ validateWorkersExist chatEnvs workerMap
+  pure $ LoadedEnvs chatEnvs modelConfigs gateways toolMap workerMap mbFsConfig
+
+validateWorkersExist :: ChatEnvMap -> Maybe WorkerMap -> Either LoadEnvError ()
+validateWorkersExist _chatEnvs Nothing = pure ()
+validateWorkersExist chatEnvs (Just workerMap) =
+  forM_ (Map.toList chatEnvs) $ \(name, chatEnv) ->
+    case envWorkers chatEnv of
+      Nothing -> pure ()
+      Just workers ->
+        forM_ workers $ \worker -> do
+          case Map.lookup worker workerMap of
+            Nothing -> Left $ LoadWorkerMissingError ("worker for env " <> T.unpack name <> " missing: " <> T.unpack worker)
+            Just _ -> pure ()
 
 getLoadedChatEnvByName :: LoadedEnvs -> Hooks -> Text -> Either LoadEnvError ChatEnv
 getLoadedChatEnvByName loadedEnvs hooks name =
@@ -108,5 +128,6 @@ createChatEnvFromConfigItem models toolMap conf = do
         envMaxToolRounds = maximumToolRounds conf,
         envContextWindow = contextWindowSize conf,
         envHooks = noHooks,
+        envWorkers = workers conf,
         envAbortSignal = Nothing
       }

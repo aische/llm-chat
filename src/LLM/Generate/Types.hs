@@ -35,6 +35,7 @@ data ChatEnv = ChatEnv
     envMaxToolRounds :: Int,
     envContextWindow :: Maybe Int, -- max recent turns sent to the model; Nothing = all
     envHooks :: Hooks,
+    envWorkers :: Maybe [Text],
     envAbortSignal :: Maybe AbortSignal
   }
 

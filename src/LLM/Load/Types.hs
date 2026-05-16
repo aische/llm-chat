@@ -29,10 +29,20 @@ data ChatEnvConfigItem = ChatEnvConfigItem
     systemPrompt :: Maybe Text,
     fallbacks :: [Text],
     tools :: [Text],
+    workers :: Maybe [Text],
     maximumToolRounds :: Int,
     contextWindowSize :: Maybe Int
   }
   deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
+
+data WorkerConfigItem = WorkerConfigItem
+  { workerName :: Text,
+    workerEnv :: Text,
+    description :: Text
+  }
+  deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
+
+type WorkerMap = Map Text WorkerConfigItem
 
 type GatewayMap = Map Text LLMGateway
 
@@ -47,6 +57,7 @@ data LoadedEnvs = LoadedEnvs
     modelConfigs :: ModelConfigMap,
     gateways :: GatewayMap,
     toolMap :: ToolMap,
+    workerMap :: Maybe WorkerMap,
     fsConf :: Maybe FsConfig
   }
 
@@ -57,9 +68,13 @@ data LoadEnvError
   | LoadModelError String
   | LoadToolError String
   | LoadChatError String
+  | LoadWorkerConfigError String
+  | LoadWorkerEnvError String
+  | LoadWorkerMissingError String
   deriving (Show)
 
 data EnvFilePaths = EnvFilePaths
   { modelCatalogFilePath :: FilePath,
-    chatEnvCatalogFilePath :: FilePath
+    chatEnvCatalogFilePath :: FilePath,
+    workerCatalogFilePath :: Maybe FilePath
   }
