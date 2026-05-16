@@ -10,6 +10,7 @@ where
 
 import Data.Map qualified as Map
 import Data.Text (Text)
+import Data.Text qualified as T
 import LLM.Core.Logger (Hooks, noHooks)
 import LLM.Core.Types (LLMGateway, Tool)
 import LLM.Core.Usage (PricingInfo (..))
@@ -74,7 +75,7 @@ getToolsWithWorkers (Just (gen, workerMap)) chatEnv =
           Just workerNames ->
             flip map workerNames $ \wname ->
               case Map.lookup wname workerMap of
-                Nothing -> error ""
+                Nothing -> error ("Worker not found: " <> T.unpack wname)
                 Just worker ->
                   let name = workerName worker
                       desc = workerDescription worker
