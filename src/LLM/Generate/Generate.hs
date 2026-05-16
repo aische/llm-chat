@@ -259,7 +259,7 @@ chatLoop mbGenWorkerMap env mc call rounds acc conv
                                 tcWindowOffset = offset,
                                 tcAbortSignal = envAbortSignal env
                               }
-                          filteredTools = getFilteredToolsWithWorkers mbGenWorkerMap False env -- todo: readonly tools
+                          filteredTools = getFilteredToolsWithWorkers mbGenWorkerMap (envReadonly env) env
                       toolResults <- executeToolsWithAbort (envAbortSignal env) ctx filteredTools calls
                       case toolResults of
                         Left _ -> do
