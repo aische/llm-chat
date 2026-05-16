@@ -101,6 +101,7 @@ library
         LLM.Tools.Age
         LLM.Tools.DirectoryTree
         LLM.Tools.History
+        LLM.Tools.MultiReplaceInFile
         LLM.Tools.Readfile
         LLM.Tools.Writefile
         LLM.Tools.ReplaceInFile
