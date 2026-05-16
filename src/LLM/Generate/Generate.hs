@@ -50,6 +50,7 @@ import LLM.Core.Utils
   )
 import LLM.Generate.Common
   ( mkRequest,
+    mkRequestWithWorkers,
     modelRetryPolicy,
     requestLogMessage,
     responseLogMessage,
@@ -203,13 +204,15 @@ chatLoop env mc call rounds acc conv
       onLog (envHooks env) Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"
       pure $ Left (ToolLoopExceeded rounds, conv, acc)
   | otherwise = do
+      let workerMap = undefined -- TODO PROVIDE WorkerMap
       aborted <- checkAbort env
       if aborted
         then do
           onLog (envHooks env) Info "Aborted before API call"
           pure $ Left (Aborted, conv, acc)
         else do
-          let request = mkRequest env mc conv (envReadonly env)
+          -- let request = mkRequest env mc conv (envReadonly env)
+          let request = mkRequestWithWorkers (Just (generateText, workerMap)) env mc conv (envReadonly env)
               logIt = onLog (envHooks env)
           logIt Debug $ requestLogMessage mc rounds request
           case mcThrottleDelay mc of

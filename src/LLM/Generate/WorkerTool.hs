@@ -1,4 +1,4 @@
-module LLM.Tools.Worker where
+module LLM.Generate.WorkerTool where
 
 import Autodocodec qualified as AC
 import Data.Aeson (FromJSON)
@@ -7,8 +7,7 @@ import Data.Text qualified as T
 import GHC.Generics (Generic)
 import LLM.Core.Types (ToolContext, TypedTool (..))
 import LLM.Core.Utils (emptyConversation)
-import LLM.Generate.Generate (generateText)
-import LLM.Generate.Types (ChatEnv)
+import LLM.Generate.Types (ChatEnv, GenerateText)
 
 newtype WorkerToolArgs = WorkerToolArgs
   { _workerPrompt :: Text
@@ -22,18 +21,18 @@ instance AC.HasCodec WorkerToolArgs where
     AC.object "WorkerToolArgs" $
       WorkerToolArgs <$> AC.requiredField "prompt" "Prompt to send to the worker" AC..= _workerPrompt
 
-workerToolTyped :: ChatEnv -> Text -> Text -> TypedTool WorkerToolArgs
-workerToolTyped env name description =
+workerToolTyped :: GenerateText -> ChatEnv -> Text -> Text -> TypedTool WorkerToolArgs
+workerToolTyped gen env name description =
   TypedTool
     { ttoolName = name,
       ttoolDescription = description,
       ttoolReadonly = False,
-      ttoolExecute = workerExecTyped env
+      ttoolExecute = workerExecTyped gen env
     }
 
-workerExecTyped :: ChatEnv -> ToolContext -> WorkerToolArgs -> IO Text
-workerExecTyped env _ctx args = do
-  result <- generateText env emptyConversation (_workerPrompt args)
+workerExecTyped :: GenerateText -> ChatEnv -> ToolContext -> WorkerToolArgs -> IO Text
+workerExecTyped gen env _ctx args = do
+  result <- gen env emptyConversation (_workerPrompt args)
   case result of
     Left e -> pure $ "Error: " <> T.pack (show e)
     Right (answer, _, _) -> pure answer

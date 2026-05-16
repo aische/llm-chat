@@ -79,6 +79,7 @@ library
         LLM.Generate.Types
         LLM.Generate.Utils
         LLM.Generate.WithFallback
+        LLM.Generate.WorkerTool
         LLM.Core.Types
         LLM.Core.LLMProvider
         LLM.Load.LoadEnvs
@@ -101,7 +102,6 @@ library
         LLM.Tools.Readfile
         LLM.Tools.Writefile
         LLM.Tools.ReplaceInFile
-        LLM.Tools.Worker
         LLM.Tools.Readdir
         LLM.Tools.FsConfig
     other-modules:

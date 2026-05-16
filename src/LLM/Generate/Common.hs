@@ -8,6 +8,7 @@ module LLM.Generate.Common
     toolCallsLogMessage,
     toolResultsLogMessage,
     responseLogMessage,
+    mkRequestWithWorkers,
   )
 where
 
@@ -26,7 +27,8 @@ import LLM.Core.Types
   )
 import LLM.Core.Usage (Usage (usageInputTokens, usageOutputTokens))
 import LLM.Core.Utils (withConversation)
-import LLM.Generate.Types (ChatEnv (..), ModelConfig (..))
+import LLM.Generate.Types (ChatEnv (..), GenerateText, ModelConfig (..), WorkerMap)
+import LLM.Generate.Utils (getToolsWithWorkers)
 
 -- | Compute the index where the visible window starts.
 -- The window includes the last @n@ user messages and all turns that follow
@@ -57,14 +59,18 @@ modelRetryPolicy mc = limitRetries (mcRetryCount mc) <> fullJitterBackoff (mcJit
 -- When 'envContextWindow' is set, only the last N user messages (and their
 -- associated replies) are sent to the model.
 mkRequest :: ChatEnv -> ModelConfig -> Conversation -> Bool -> ChatRequest
-mkRequest env mc conv readonly =
+mkRequest = mkRequestWithWorkers Nothing
+
+mkRequestWithWorkers :: Maybe (GenerateText, WorkerMap) -> ChatEnv -> ModelConfig -> Conversation -> Bool -> ChatRequest
+mkRequestWithWorkers mbGenWorkerMap env mc conv readonly =
   ChatRequest
     { reqModel = mcModel mc,
       reqConversation = withConversation conv (drop offset),
       reqSystem = envSystem env,
       reqMaxTokens = mcMaxTokens mc,
       reqTemperature = mcTemperature mc,
-      reqTools = map toolDef (filterReadonlyTools readonly $ envTools env)
+      -- reqTools = map toolDef (filterReadonlyTools readonly $ envTools env)
+      reqTools = map toolDef (filterReadonlyTools readonly (getToolsWithWorkers mbGenWorkerMap env))
     }
   where
     offset = windowOffset (envContextWindow env) conv

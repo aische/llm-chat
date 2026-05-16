@@ -13,8 +13,8 @@ import LLM.Core.Logger (noHooks)
 import LLM.Core.Types (LLMGateway, Tool)
 import LLM.Core.Usage (PricingInfo (..))
 import LLM.Core.Utils (toTool)
-import LLM.Generate.Types (ChatEnv (..), ModelConfig (..), Worker (..), WorkerMap)
-import LLM.Tools.Worker (workerToolTyped)
+import LLM.Generate.Types (ChatEnv (..), GenerateText, ModelConfig (..), Worker (..), WorkerMap)
+import LLM.Generate.WorkerTool (workerToolTyped)
 
 -- | Sensible defaults — single model, no fallback.
 defaultChatEnv :: ModelConfig -> ChatEnv
@@ -64,9 +64,9 @@ createModelConfig gateway modelName =
 addTool :: Tool -> ChatEnv -> ChatEnv
 addTool tool env = env {envTools = tool : envTools env}
 
-getToolsWithWorkers :: Maybe WorkerMap -> ChatEnv -> [Tool]
+getToolsWithWorkers :: Maybe (GenerateText, WorkerMap) -> ChatEnv -> [Tool]
 getToolsWithWorkers Nothing chatEnv = envTools chatEnv
-getToolsWithWorkers (Just workerMap) chatEnv =
+getToolsWithWorkers (Just (gen, workerMap)) chatEnv =
   let workerTools =
         case envWorkers chatEnv of
           Nothing -> []
@@ -78,5 +78,5 @@ getToolsWithWorkers (Just workerMap) chatEnv =
                   let name = workerName worker
                       desc = workerDescription worker
                       env = workerEnv worker
-                   in toTool (workerToolTyped env name desc)
+                   in toTool (workerToolTyped gen env name desc)
    in envTools chatEnv ++ workerTools

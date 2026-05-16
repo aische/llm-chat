@@ -5,6 +5,7 @@ module LLM.Generate.Types
     GeneratedResult,
     Worker (..),
     WorkerMap,
+    GenerateText,
   )
 where
 
@@ -59,3 +60,6 @@ data Worker = Worker
   }
 
 type WorkerMap = Map.Map Text Worker
+
+type GenerateText =
+  ChatEnv -> Conversation -> Text -> IO (GeneratedResult (Text, Conversation, Usage))
