@@ -15,12 +15,11 @@ import LLM.Core.Usage
     addUsage,
     emptyUsage,
   )
-import LLM.Generate.Generate (streamTextWithWorkers)
+import LLM.Generate.Chat (streamTextSimple)
 import LLM.Generate.Types
   ( ChatEnv (..),
     WorkerMap,
   )
-import LLM.Generate.Utils (addHooksToWorkerMap)
 import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadEnvOrThrow)
 import LLM.Load.Types (LoadedEnvs (workerMap))
 import System.Exit (exitSuccess)
@@ -30,8 +29,8 @@ import Text.Printf (printf)
 replMain :: IO ()
 replMain = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
-  (env, envs) <- loadEnvOrThrow defaultEnvFilePaths "orchestrator" hooks
-  repl (addHooksToWorkerMap hooks $ workerMap envs) env
+  (env, envs) <- loadEnvOrThrow defaultEnvFilePaths "default" hooks
+  repl (workerMap envs) env
 
 repl :: Maybe WorkerMap -> ChatEnv -> IO ()
 repl mbWorkerMap env = do
@@ -55,7 +54,7 @@ loop mbWorkerMap env totalUsage conv = do
           loop mbWorkerMap env emptyUsage (Conversation [])
         Chat "" -> loop mbWorkerMap env totalUsage conv
         Chat msg -> do
-          result <- streamTextWithWorkers mbWorkerMap env conv msg $ \case
+          result <- streamTextSimple mbWorkerMap env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt
             StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
           case result of
