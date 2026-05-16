@@ -1,7 +1,16 @@
-module LLM.Generate.Types (ModelConfig (..), ChatEnv (..), Generatable, GeneratedResult) where
+module LLM.Generate.Types
+  ( ModelConfig (..),
+    ChatEnv (..),
+    Generatable,
+    GeneratedResult,
+    Worker (..),
+    WorkerMap,
+  )
+where
 
 import Autodocodec (HasCodec)
 import Data.Aeson (FromJSON)
+import Data.Map qualified as Map
 import Data.Text (Text)
 import LLM.Core.Abort (AbortSignal)
 import LLM.Core.Logger (Hooks)
@@ -42,3 +51,11 @@ data ChatEnv = ChatEnv
 type Generatable t = (FromJSON t, HasCodec t)
 
 type GeneratedResult a = Either (LLMError, Conversation, Usage) a
+
+data Worker = Worker
+  { workerName :: Text,
+    workerEnv :: ChatEnv,
+    workerDescription :: Text
+  }
+
+type WorkerMap = Map.Map Text Worker

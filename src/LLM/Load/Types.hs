@@ -6,7 +6,7 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 import LLM.Core.Types (LLMGateway, Tool)
 import LLM.Core.Usage (PricingInfo)
-import LLM.Generate.Types (ChatEnv, ModelConfig)
+import LLM.Generate.Types (ChatEnv, ModelConfig, WorkerMap)
 import LLM.Tools.FsConfig (FsConfig)
 
 data ModelCatalogItem = ModelCatalogItem
@@ -41,14 +41,6 @@ data WorkerConfigItem = WorkerConfigItem
     description :: Text
   }
   deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
-
-data Worker = Worker
-  { workerName :: Text,
-    workerEnv :: ChatEnv,
-    workerDescription :: Text
-  }
-
-type WorkerMap = Map Text Worker
 
 type GatewayMap = Map Text LLMGateway
 

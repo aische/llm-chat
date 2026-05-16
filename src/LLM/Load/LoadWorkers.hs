@@ -5,12 +5,14 @@ import Control.Monad.Except (ExceptT (ExceptT), liftEither)
 import Data.Aeson (eitherDecodeFileStrict)
 import Data.Map qualified as Map
 import Data.Text qualified as T
+import LLM.Generate.Types
+  ( Worker (Worker),
+    WorkerMap,
+  )
 import LLM.Load.Types
   ( ChatEnvMap,
     LoadEnvError (..),
-    Worker (Worker),
     WorkerConfigItem (..),
-    WorkerMap,
   )
 
 loadWorkerMap :: ChatEnvMap -> FilePath -> ExceptT LoadEnvError IO WorkerMap

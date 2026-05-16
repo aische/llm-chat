@@ -10,7 +10,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import LLM.Core.Logger (Hooks, noHooks)
-import LLM.Generate.Types (ChatEnv (..))
+import LLM.Generate.Types (ChatEnv (..), WorkerMap)
 import LLM.Load.LoadGateways (loadGateways)
 import LLM.Load.LoadModels (loadModelConfigMap)
 import LLM.Load.LoadTools (loadToolMap)
@@ -23,7 +23,6 @@ import LLM.Load.Types
     LoadedEnvs (..),
     ModelConfigMap,
     ToolMap,
-    WorkerMap,
   )
 
 defaultEnvFilePaths :: EnvFilePaths
