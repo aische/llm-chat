@@ -4,7 +4,7 @@
         "model": "llama_3_2",
         "fallbacks": ["gemini_lite"],
         "systemPrompt": "You are a helpful assistant who answers questions and executes tools for the user. Always use tools when asked to.",
-        "tools": ["read_file", "read_dir", "write_file"],
+        "tools": ["read_file", "read_dir", "write_file", "directory_tree"],
         "maximumToolRounds": 3,
         "contextWindowSize": 3
     },

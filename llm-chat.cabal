@@ -99,6 +99,7 @@ library
         LLM.Core.ProviderUtils
         LLM.Tools.Weather
         LLM.Tools.Age
+        LLM.Tools.DirectoryTree
         LLM.Tools.History
         LLM.Tools.Readfile
         LLM.Tools.Writefile

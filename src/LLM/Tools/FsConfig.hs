@@ -4,6 +4,7 @@ module LLM.Tools.FsConfig
     mkFsConfig,
     sandboxPath,
     sandboxWritePath,
+    isFileHidden,
   )
 where
 
@@ -70,3 +71,8 @@ collapseDots = joinPath . reverse . foldl' step [] . splitDirectories
     step (_ : rest) ".." = rest
     step acc ".." = acc -- at root, ignore
     step acc x = x : acc
+
+isFileHidden :: [Char] -> Bool
+isFileHidden path = case path of
+  ('.' : _) -> True
+  _ -> False

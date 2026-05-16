@@ -7,6 +7,7 @@ import LLM.Load.Types
   ( ToolMap,
   )
 import LLM.Tools.Age (ageTool)
+import LLM.Tools.DirectoryTree (directoryTreeToolTyped)
 import LLM.Tools.FsConfig (FsConfig, mkFsConfig)
 import LLM.Tools.Readdir (readdirToolTyped)
 import LLM.Tools.Readfile (readfileToolTyped)
@@ -32,6 +33,7 @@ getTools fsConfig =
               [ toTool (readfileToolTyped fsc),
                 toTool (writefileToolTyped fsc),
                 toTool (readdirToolTyped fsc),
+                toTool (directoryTreeToolTyped fsc),
                 toTool (replaceInFileToolTyped fsc)
               ]
           )

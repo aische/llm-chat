@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
 import LLM.Core.Types (TypedTool (..))
-import LLM.Tools.FsConfig (FsConfig, sandboxPath)
+import LLM.Tools.FsConfig (FsConfig, isFileHidden, sandboxPath)
 import System.Directory (doesDirectoryExist, listDirectory)
 
 newtype ReaddirToolArgs = ReaddirToolArgs
@@ -39,7 +39,7 @@ readdirExecTyped cfg args = do
   let relPath = T.unpack $ _rdPath args
   resolved <- sandboxPath cfg relPath
   entries <- sort <$> listDirectory resolved
-  annotated <- mapM (annotateEntry resolved) entries
+  annotated <- mapM (annotateEntry resolved) $ filter (not . isFileHidden) entries
   pure $ T.intercalate "\n" annotated
 
 annotateEntry :: FilePath -> FilePath -> IO Text
