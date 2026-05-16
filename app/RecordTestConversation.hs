@@ -4,19 +4,23 @@ import Adapters.StreamChatLoop (streamChatLoopMain)
 import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
 import Data.Text qualified as T
-import LLM (PricingInfo (..), claudeGateway, geminiGateway, ollamaGateway, openAIGateway)
 import LLM.Core.Logger
   ( LogLevel (..),
     noHooks,
     withJsonDump,
     withStderrLogger,
   )
+import LLM.Core.Usage (PricingInfo (..))
 import LLM.Core.Utils (toTool)
 import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
 import LLM.Generate.Utils (createChatEnv)
+import LLM.Providers.Claude (claudeGateway)
+import LLM.Providers.Gemini (geminiGateway)
+import LLM.Providers.Ollama (ollamaGateway)
+import LLM.Providers.OpenAI (openAIGateway)
 import LLM.Tools.Weather (weatherToolTyped)
 import System.Environment (getEnv)
 

@@ -6,7 +6,12 @@ import Data.Aeson.Types (parseMaybe)
 import Data.Map qualified as M
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import LLM (ChatEnv, Conversation (..), LLMProvider (..), addUsage, emptyUsage, generateText, parseChatResponse, streamText)
+import LLM.Core.LLMProvider ( LLMProvider(..) )
+import LLM.Core.Types ( Conversation(..) )
+import LLM.Core.Usage ( addUsage, emptyUsage )
+import LLM.Core.Utils ( parseChatResponse )
+import LLM.Generate.Generate ( generateText, streamText )
+import LLM.Generate.Types ( ChatEnv )
 import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
 
 data MockRequestResponse = MockRequestResponse

@@ -13,6 +13,7 @@ newtype WeatherToolArgs = WeatherToolArgs
   deriving (FromJSON) via (AC.Autodocodec WeatherToolArgs)
 
 instance AC.HasCodec WeatherToolArgs where
+  codec :: AC.JSONCodec WeatherToolArgs
   codec =
     AC.object "WeatherToolArgs" $
       WeatherToolArgs

@@ -4,20 +4,15 @@ import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (SomeException, catch)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM
-  ( ChatEnv (envFallbacks, envHooks, envTools),
-    LogLevel (Debug),
-    ModelConfig (..),
-    PricingInfo (..),
-    claudeGateway,
-    createChatEnv,
-    emptyConversation,
-    noHooks,
-    openAIGateway,
-    toTool,
-    withJsonDump,
-    withStderrLogger,
-  )
+import LLM.Core.Logger
+    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
+import LLM.Core.Usage ( PricingInfo(..) )
+import LLM.Core.Utils ( emptyConversation, toTool )
+import LLM.Generate.Types
+    ( ChatEnv(envFallbacks, envHooks, envTools), ModelConfig(..) )
+import LLM.Generate.Utils ( createChatEnv )
+import LLM.Providers.Claude ( claudeGateway )
+import LLM.Providers.OpenAI ( openAIGateway )
 import LLM.Generate.Generate (generateText)
 import LLM.Tools.FsConfig (mkFsConfig)
 import LLM.Tools.Readdir (readdirToolTyped)

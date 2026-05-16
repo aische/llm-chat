@@ -11,6 +11,25 @@ import Example3 qualified as E3
 import Example4 qualified as E4
 import Example5 qualified as E5
 import Options.Applicative
+  ( Parser,
+    argument,
+    command,
+    execParser,
+    fullDesc,
+    header,
+    help,
+    helper,
+    hsubparser,
+    info,
+    long,
+    metavar,
+    progDesc,
+    short,
+    str,
+    strOption,
+    switch,
+    (<**>),
+  )
 import RecordTestConversation (testExample)
 
 main :: IO ()

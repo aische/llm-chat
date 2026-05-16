@@ -1,7 +1,9 @@
 module Example5 where
 
 import Adapters.Repl (repl)
-import LLM (addTool, defaultDebugHooks, toTool)
+import LLM.Core.Logger ( defaultDebugHooks )
+import LLM.Core.Utils ( toTool )
+import LLM.Generate.Utils ( addTool )
 import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadEnvsOrThrow)
 import LLM.Tools.Worker (workerToolTyped)
 

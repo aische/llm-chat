@@ -3,7 +3,8 @@ module Adapters.Repl (repl, replMain) where
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
+import LLM.Core.Logger
+    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
 import LLM.Core.Types (Conversation (..), StreamEvent (..))
 import LLM.Core.Usage
   ( Usage (usageInputTokens, usageOutputTokens, usageTotalCost),

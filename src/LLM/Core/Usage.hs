@@ -18,9 +18,13 @@ data Usage = Usage
   }
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-instance Semigroup Usage where (<>) = addUsage
+instance Semigroup Usage where
+  (<>) :: Usage -> Usage -> Usage
+  (<>) = addUsage
 
-instance Monoid Usage where mempty = emptyUsage
+instance Monoid Usage where
+  mempty :: Usage
+  mempty = emptyUsage
 
 emptyUsage :: Usage
 emptyUsage = Usage {usageInputTokens = 0, usageOutputTokens = 0, usageTotalCost = 0}

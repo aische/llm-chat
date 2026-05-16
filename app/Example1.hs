@@ -1,7 +1,9 @@
 module Example1 where
 
 import Data.Text.IO qualified as TIO
-import LLM (createChatEnv, createModelConfig, emptyConversation, ollamaGateway)
+import LLM.Core.Utils ( emptyConversation )
+import LLM.Generate.Utils ( createChatEnv, createModelConfig )
+import LLM.Providers.Ollama ( ollamaGateway )
 import LLM.Generate.Generate (generateText)
 
 main :: IO ()

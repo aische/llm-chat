@@ -5,7 +5,8 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHC.Generics (Generic)
-import LLM (LogLevel (Debug), noHooks, withJsonDump, withStderrLogger)
+import LLM.Core.Logger
+    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
 import LLM.Core.Types
   ( Conversation (..),
     StreamEvent (..),

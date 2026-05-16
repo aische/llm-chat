@@ -1,6 +1,8 @@
 module Example4 where
 
-import LLM (LogLevel (Debug), generateText, noHooks, withJsonDump, withStderrLogger)
+import LLM.Core.Logger
+    ( LogLevel(Debug), noHooks, withJsonDump, withStderrLogger )
+import LLM.Generate.Generate ( generateText )
 import LLM.Core.Utils (emptyConversation)
 import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadEnvsOrThrow)
 

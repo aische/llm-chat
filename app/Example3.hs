@@ -26,6 +26,7 @@ data ExampleObject = ExampleObject
   deriving (FromJSON) via (AC.Autodocodec ExampleObject)
 
 instance AC.HasCodec ExampleObject where
+  codec :: AC.JSONCodec ExampleObject
   codec =
     AC.object "ExampleObject" $
       ExampleObject

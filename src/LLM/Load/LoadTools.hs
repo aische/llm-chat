@@ -1,11 +1,8 @@
 module LLM.Load.LoadTools where
 
 import Data.Map qualified as Map
-import LLM
-  ( Tool (toolDef),
-    ToolDef (toolName),
-    toTool,
-  )
+import LLM.Core.Types (Tool (toolDef), ToolDef (toolName))
+import LLM.Core.Utils (toTool)
 import LLM.Load.Types
   ( ToolMap,
   )

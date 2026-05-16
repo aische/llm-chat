@@ -1,14 +1,15 @@
 module LLM.GenericConversationTest (createSpec, GenericConversationTextOps (..)) where
 
 import Data.Text qualified as T
-import LLM (createChatEnv, toGateway, toTool)
-import LLM.Core.LLMProvider (LLMProvider)
+import LLM.Core.LLMProvider (LLMProvider, toGateway)
 import LLM.Core.Types (Conversation (Conversation))
 import LLM.Core.Usage (PricingInfo (..))
+import LLM.Core.Utils (toTool)
 import LLM.Generate.Types
   ( ChatEnv (..),
     ModelConfig (..),
   )
+import LLM.Generate.Utils (createChatEnv)
 import LLM.TestKit
   ( loadRecordedConversation,
     mockProvider,

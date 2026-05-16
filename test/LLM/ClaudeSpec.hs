@@ -1,12 +1,22 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+
 module LLM.ClaudeSpec (spec) where
 
 import Data.Aeson (eitherDecodeFileStrict')
 import LLM.Core.Types
+  ( ChatResponse (respText),
+    ToolCall (tcId, tcName),
+  )
 import LLM.Core.Usage (Usage (Usage))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
 import LLM.Providers.Claude (parseClaudeResponse, parseClaudeUsage)
 import Test.Hspec
+  ( Spec,
+    describe,
+    expectationFailure,
+    it,
+    shouldBe,
+  )
 
 spec :: Spec
 spec = describe "Claude" $ do

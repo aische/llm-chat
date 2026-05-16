@@ -9,11 +9,8 @@ import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import LLM
-  ( ChatEnv (..),
-    Hooks,
-    noHooks,
-  )
+import LLM.Core.Logger (Hooks, noHooks)
+import LLM.Generate.Types (ChatEnv (..))
 import LLM.Load.LoadGateways (loadGateways)
 import LLM.Load.LoadModels (loadModelConfigMap)
 import LLM.Load.LoadTools (loadToolMap)

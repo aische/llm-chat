@@ -7,7 +7,17 @@ import LLM.Core.Types
     LLMError (EmptyResponse, HttpError, NetworkError),
     ToolCall (ToolCall),
   )
-import LLM.Core.Usage (PricingInfo (..), Usage (..), addUsage, emptyUsage, estimateCost, pricePerMillionInput, pricePerMillionOutput, usageInputTokens, usageOutputTokens)
+import LLM.Core.Usage
+  ( PricingInfo (..),
+    Usage (..),
+    addUsage,
+    emptyUsage,
+    estimateCost,
+    pricePerMillionInput,
+    pricePerMillionOutput,
+    usageInputTokens,
+    usageOutputTokens,
+  )
 import LLM.Core.Utils
   ( getToolCalls,
     hasToolCalls,

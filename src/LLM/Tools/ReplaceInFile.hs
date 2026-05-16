@@ -18,6 +18,7 @@ data ReplaceInFileToolArgs = ReplaceInFileToolArgs
   deriving (FromJSON) via (AC.Autodocodec ReplaceInFileToolArgs)
 
 instance AC.HasCodec ReplaceInFileToolArgs where
+  codec :: AC.JSONCodec ReplaceInFileToolArgs
   codec =
     AC.object "ReplaceInFileToolArgs" $
       ReplaceInFileToolArgs

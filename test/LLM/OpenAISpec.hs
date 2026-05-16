@@ -1,13 +1,22 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+
 module LLM.OpenAISpec (spec) where
 
 import Data.Aeson (eitherDecodeFileStrict')
 import LLM.Core.Types
-    ( ChatResponse(respText), ToolCall(tcId, tcName) )
+  ( ChatResponse (respText),
+    ToolCall (tcId, tcName),
+  )
 import LLM.Core.Usage (Usage (Usage))
 import LLM.Core.Utils (getToolCalls, hasToolCalls)
 import LLM.Providers.OpenAI (parseOpenAIResponse, parseOpenAIUsage)
 import Test.Hspec
-    ( describe, it, expectationFailure, shouldBe, Spec )
+  ( Spec,
+    describe,
+    expectationFailure,
+    it,
+    shouldBe,
+  )
 
 spec :: Spec
 spec = describe "OpenAI" $ do

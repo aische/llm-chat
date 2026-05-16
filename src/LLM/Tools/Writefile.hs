@@ -17,6 +17,7 @@ data WritefileToolArgs = WritefileToolArgs
   deriving (FromJSON) via (AC.Autodocodec WritefileToolArgs)
 
 instance AC.HasCodec WritefileToolArgs where
+  codec :: AC.JSONCodec WritefileToolArgs
   codec =
     AC.object "WritefileToolArgs" $
       WritefileToolArgs
