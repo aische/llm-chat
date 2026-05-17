@@ -1,9 +1,12 @@
 module LLM.Generate.Generate
   ( generateText,
     generateTextConversation,
+    generateTextWithWorkers,
+    generateTextConversationWithWorkers,
     streamText,
     streamTextWithWorkers,
     streamTextConversation,
+    streamTextConversationWithWorkers,
   )
 where
 
@@ -62,23 +65,35 @@ import LLM.Generate.WithFallback (withFallback)
 generateText :: ChatEnv -> Conversation -> Text -> IO (GeneratedResult (Text, Conversation, Usage))
 generateText = generateTextWithWorkers Nothing
 
+generateTextConversation :: ChatEnv -> Conversation -> IO (GeneratedResult (Text, Conversation, Usage))
+generateTextConversation = generateTextConversationWithWorkers Nothing
+
 generateTextWithWorkers ::
   Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   IO (GeneratedResult (Text, Conversation, Usage))
-generateTextWithWorkers mbWorkerMap unsafeEnv conv msg = generateTextConversation mbGenWorkerMap unsafeEnv conv'
+generateTextWithWorkers mbWorkerMap unsafeEnv conv msg = generateTextInternal mbGenWorkerMap unsafeEnv conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
     mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
 
-generateTextConversation ::
+generateTextConversationWithWorkers ::
+  Maybe WorkerMap ->
+  ChatEnv ->
+  Conversation ->
+  IO (GeneratedResult (Text, Conversation, Usage))
+generateTextConversationWithWorkers mbWorkerMap = generateTextInternal mbGenWorkerMap
+  where
+    mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
+
+generateTextInternal ::
   Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   IO (GeneratedResult (Text, Conversation, Usage))
-generateTextConversation mbGenWorkerMap unsafeEnv conv = do
+generateTextInternal mbGenWorkerMap unsafeEnv conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
   onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
@@ -89,6 +104,9 @@ generateTextConversation mbGenWorkerMap unsafeEnv conv = do
 streamText :: ChatEnv -> Conversation -> Text -> (StreamEvent -> IO ()) -> IO (GeneratedResult (Text, Conversation, Usage))
 streamText = streamTextWithWorkers Nothing
 
+streamTextConversation :: ChatEnv -> Conversation -> (StreamEvent -> IO ()) -> IO (GeneratedResult (Text, Conversation, Usage))
+streamTextConversation = streamTextConversationWithWorkers Nothing
+
 streamTextWithWorkers ::
   Maybe WorkerMap ->
   ChatEnv ->
@@ -96,18 +114,28 @@ streamTextWithWorkers ::
   Text ->
   (StreamEvent -> IO ()) ->
   IO (GeneratedResult (Text, Conversation, Usage))
-streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextConversation mbGenWorkerMap unsafeEnv conv' callback
+streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextInternal mbGenWorkerMap unsafeEnv conv' callback
   where
     conv' = withConversation conv (++ [UserTurn msg])
     mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
 
-streamTextConversation ::
+streamTextConversationWithWorkers ::
+  Maybe WorkerMap ->
+  ChatEnv ->
+  Conversation ->
+  (StreamEvent -> IO ()) ->
+  IO (GeneratedResult (Text, Conversation, Usage))
+streamTextConversationWithWorkers mbWorkerMap unsafeEnv conv callback = streamTextInternal mbGenWorkerMap unsafeEnv conv callback
+  where
+    mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
+
+streamTextInternal ::
   Maybe (GenerateText, WorkerMap) ->
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   IO (GeneratedResult (Text, Conversation, Usage))
-streamTextConversation mbGenWorkerMap unsafeEnv conv callback = do
+streamTextInternal mbGenWorkerMap unsafeEnv conv callback = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
       logIt = onLog (envHooks env)
   logIt Info $ "streamText: tools=" <> T.pack (show (length (envTools env)))

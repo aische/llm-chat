@@ -13,7 +13,7 @@ import LLM.Core.Usage
     addUsage,
     emptyUsage,
   )
-import LLM.Generate.Chat (generateTextSimple, streamTextSimple)
+import LLM.Generate.Chat qualified as Chat
 import LLM.Generate.Generate (generateText, streamText)
 import LLM.Generate.Types
   ( ChatEnv (..),
@@ -40,8 +40,8 @@ useInterpreter = True
 streamChatLoop :: Bool -> Maybe WorkerMap -> ChatEnv -> [Text] -> IO Conversation
 streamChatLoop stream mbWorkerMap env = aux emptyUsage (Conversation [])
   where
-    streamIt = if useInterpreter then streamTextSimple mbWorkerMap else streamText
-    generateIt = if useInterpreter then generateTextSimple mbWorkerMap else generateText
+    streamIt = if useInterpreter then Chat.streamTextWithWorkers mbWorkerMap else streamText
+    generateIt = if useInterpreter then Chat.generateTextWithWorkers mbWorkerMap else generateText
     aux totalUsage conv [] = do
       putStrLn $
         "\n  Total: "

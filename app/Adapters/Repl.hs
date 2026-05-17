@@ -15,7 +15,7 @@ import LLM.Core.Usage
     addUsage,
     emptyUsage,
   )
-import LLM.Generate.Chat (streamTextSimple)
+import LLM.Generate.Chat (streamTextWithWorkers)
 import LLM.Generate.Types
   ( ChatEnv (..),
     WorkerMap,
@@ -54,7 +54,7 @@ loop mbWorkerMap env totalUsage conv = do
           loop mbWorkerMap env emptyUsage (Conversation [])
         Chat "" -> loop mbWorkerMap env totalUsage conv
         Chat msg -> do
-          result <- streamTextSimple mbWorkerMap env conv msg $ \case
+          result <- streamTextWithWorkers mbWorkerMap env conv msg $ \case
             StreamDelta txt -> TIO.putStr txt
             StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
           case result of

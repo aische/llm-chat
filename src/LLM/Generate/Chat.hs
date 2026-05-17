@@ -1,6 +1,12 @@
 module LLM.Generate.Chat
-  ( generateTextSimple,
-    streamTextSimple,
+  ( generateText,
+    generateTextConversation,
+    generateTextWithWorkers,
+    generateTextConversationWithWorkers,
+    streamText,
+    streamTextWithWorkers,
+    streamTextConversation,
+    streamTextConversationWithWorkers,
     simpleChatStepInterpreter,
   )
 where
@@ -19,26 +25,68 @@ import LLM.Core.Types
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (executeToolsWithAbort, withRetry, withTimeout)
 import LLM.Generate.ChatStep (ChatStep (..), windowOffset)
-import LLM.Generate.ChatStepInterpreter (ChatStepInterpreter, generateTextWith, streamTextWith)
+import LLM.Generate.ChatStepInterpreter
+  ( ChatStepInterpreter,
+    generateTextConversationWith,
+    generateTextWith,
+    streamTextConversationWith,
+    streamTextWith,
+  )
 import LLM.Generate.Types
   ( ChatEnv (..),
+    GenerateText,
+    GeneratedResult,
     WorkerMap,
   )
 
+generateText ::
+  (MonadIO m) =>
+  ChatEnv ->
+  Conversation ->
+  Text ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+generateText = generateTextWithWorkers Nothing
+
+generateTextConversation ::
+  Maybe (GenerateText, WorkerMap) ->
+  ChatEnv ->
+  Conversation ->
+  IO (GeneratedResult (Text, Conversation, Usage))
+generateTextConversation = generateTextConversationWith simpleChatStepInterpreter
+
 -- | Run a non-streaming chat. Uses the standard in-memory interpreter.
-generateTextSimple ::
+generateTextWithWorkers ::
   (MonadIO m) =>
   Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-generateTextSimple mbWorkerMap = generateTextWith simpleChatStepInterpreter mbGenWorkerMap
+generateTextWithWorkers mbWorkerMap = generateTextWith simpleChatStepInterpreter mbGenWorkerMap
   where
-    mbGenWorkerMap = fmap (generateTextSimple mbWorkerMap,) mbWorkerMap
+    mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
+
+generateTextConversationWithWorkers ::
+  (MonadIO m) =>
+  Maybe WorkerMap ->
+  ChatEnv ->
+  Conversation ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+generateTextConversationWithWorkers mbWorkerMap = generateTextConversationWith simpleChatStepInterpreter mbGenWorkerMap
+  where
+    mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
 
 -- | Like 'generateTextSimple', but streams text deltas via a callback.
-streamTextSimple ::
+streamText ::
+  (MonadIO m) =>
+  ChatEnv ->
+  Conversation ->
+  Text ->
+  (StreamEvent -> IO ()) ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamText = streamTextWithWorkers Nothing
+
+streamTextWithWorkers ::
   (MonadIO m) =>
   Maybe WorkerMap ->
   ChatEnv ->
@@ -46,9 +94,28 @@ streamTextSimple ::
   Text ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
-streamTextSimple mbWorkerMap unsafeEnv conv msg callback = streamTextWith simpleChatStepInterpreter mbGenWorkerMap unsafeEnv conv msg callback
+streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextWith simpleChatStepInterpreter mbGenWorkerMap unsafeEnv conv msg callback
   where
-    mbGenWorkerMap = fmap (\c d t -> streamTextSimple mbWorkerMap c d t callback,) mbWorkerMap
+    mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
+
+streamTextConversation ::
+  (MonadIO m) =>
+  ChatEnv ->
+  Conversation ->
+  (StreamEvent -> IO ()) ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamTextConversation = streamTextConversationWithWorkers Nothing
+
+streamTextConversationWithWorkers ::
+  (MonadIO m) =>
+  Maybe WorkerMap ->
+  ChatEnv ->
+  Conversation ->
+  (StreamEvent -> IO ()) ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamTextConversationWithWorkers mbWorkerMap unsafeEnv conv callback = streamTextConversationWith simpleChatStepInterpreter mbGenWorkerMap unsafeEnv conv callback
+  where
+    mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
 
 -- | Standard IO interpreter for 'ChatStep'. Executes effects directly:
 -- logging, throttling, LLM calls (with retry/timeout), and tool execution.

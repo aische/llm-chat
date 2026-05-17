@@ -1,6 +1,8 @@
 module LLM.Generate.ChatStepInterpreter
   ( generateTextWith,
+    generateTextConversationWith,
     streamTextWith,
+    streamTextConversationWith,
     ChatStepInterpreter,
   )
 where
