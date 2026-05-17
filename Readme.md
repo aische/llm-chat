@@ -4,9 +4,10 @@ A library for building chat applications with LLMs.
 
 ## Status
 
-This library is in an early stage: APIs and behavior may still change. It is work in progress, and test coverage is incomplete. Currently there are 2 different implementations of generateText and streamText (generateTextSimple and streamTextSimple), the 'simple' ones use a free monad pattern.
+This library is in an early stage: APIs and behavior may still change. It is work in progress, and test coverage is incomplete.
 
-Tools:
+### Tools:
+
 - read_file
 - write_file
 - read_dir
