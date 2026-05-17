@@ -19,7 +19,7 @@ data WritefileToolArgs = WritefileToolArgs
 instance AC.HasCodec WritefileToolArgs where
   codec :: AC.JSONCodec WritefileToolArgs
   codec =
-    AC.object "WritefileToolArgs" $
+    AC.object "write content to a file" $
       WritefileToolArgs
         <$> AC.requiredField "path" "Relative file path to write to" AC..= _wfPath
         <*> AC.requiredField "content" "The text content to write to the file" AC..= _wfContent

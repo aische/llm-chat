@@ -34,7 +34,7 @@ data MultiReplaceInFileToolArgs = MultiReplaceInFileToolArgs
 instance AC.HasCodec MultiReplaceInFileToolArgs where
   codec :: AC.JSONCodec MultiReplaceInFileToolArgs
   codec =
-    AC.object "MultiReplaceInFileToolArgs" $
+    AC.object "apply multiple replacements to a file" $
       MultiReplaceInFileToolArgs
         <$> AC.requiredField "path" "Relative file path to edit" AC..= _mrifPath
         <*> AC.requiredField "replacements" "List of replacements to apply in order" AC..= _mrifReplacements

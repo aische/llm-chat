@@ -1,5 +1,7 @@
 module LLM.Tools.Weather (weatherToolTyped) where
 
+-- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
+-- TODO: move to test folder
 import Autodocodec qualified as AC
 import Data.Aeson (FromJSON)
 import Data.Text (Text, toLower)
@@ -12,12 +14,15 @@ newtype WeatherToolArgs = WeatherToolArgs
   deriving (Generic)
   deriving (FromJSON) via (AC.Autodocodec WeatherToolArgs)
 
+-- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
 instance AC.HasCodec WeatherToolArgs where
   codec :: AC.JSONCodec WeatherToolArgs
   codec =
     AC.object "WeatherToolArgs" $
       WeatherToolArgs
         <$> AC.requiredField "location" "City name, e.g. London" AC..= _weatherLocation
+
+-- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
 
 weatherToolTyped :: TypedTool WeatherToolArgs
 weatherToolTyped =
@@ -27,6 +32,8 @@ weatherToolTyped =
       ttoolReadonly = False,
       ttoolExecute = const getWeather
     }
+
+-- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
 
 -- | Dummy implementation — in reality you'd call a weather API
 getWeather :: WeatherToolArgs -> IO Text

@@ -107,6 +107,11 @@ library
         LLM.Tools.ReplaceInFile
         LLM.Tools.Readdir
         LLM.Tools.FsConfig
+        LLM.Tools.MoveFile
+        LLM.Tools.CopyFile
+        LLM.Tools.RemoveFile
+        LLM.Tools.CreateDirectory
+        LLM.Tools.RemoveDirectory
     other-modules:
         LLM.Core.SSE
     hs-source-dirs:     src

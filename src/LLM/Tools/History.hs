@@ -23,7 +23,7 @@ newtype HistoryToolArgs = HistoryToolArgs
 instance AC.HasCodec HistoryToolArgs where
   codec :: AC.JSONCodec HistoryToolArgs
   codec =
-    AC.object "HistoryToolArgs" $
+    AC.object "get conversation history" $
       HistoryToolArgs <$> AC.requiredField "chunk" "0 = most recent hidden chunk, 1 = the one before that, etc." AC..= _historyChunk
 
 getHistoryExecTyped :: ToolContext -> HistoryToolArgs -> IO Text

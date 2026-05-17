@@ -20,7 +20,7 @@ data ReplaceInFileToolArgs = ReplaceInFileToolArgs
 instance AC.HasCodec ReplaceInFileToolArgs where
   codec :: AC.JSONCodec ReplaceInFileToolArgs
   codec =
-    AC.object "ReplaceInFileToolArgs" $
+    AC.object "replace a string in a file" $
       ReplaceInFileToolArgs
         <$> AC.requiredField "path" "Relative file path to write to" AC..= _rifPath
         <*> AC.requiredField "old" "The text content to be replaced in the file" AC..= _rifOld

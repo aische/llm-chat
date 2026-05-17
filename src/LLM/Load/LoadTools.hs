@@ -7,11 +7,16 @@ import LLM.Load.Types
   ( ToolMap,
   )
 import LLM.Tools.Age (ageTool)
+import LLM.Tools.CopyFile (copyFileToolTyped)
+import LLM.Tools.CreateDirectory (createDirectoryToolTyped)
 import LLM.Tools.DirectoryTree (directoryTreeToolTyped)
 import LLM.Tools.FsConfig (FsConfig, mkFsConfig)
+import LLM.Tools.MoveFile (moveFileToolTyped)
 import LLM.Tools.MultiReplaceInFile (multiReplaceInFileToolTyped)
 import LLM.Tools.Readdir (readdirToolTyped)
 import LLM.Tools.Readfile (readfileToolTyped)
+import LLM.Tools.RemoveDirectory (removeDirectoryToolTyped)
+import LLM.Tools.RemoveFile (removeFileToolTyped)
 import LLM.Tools.ReplaceInFile (replaceInFileToolTyped)
 import LLM.Tools.Weather (weatherToolTyped)
 import LLM.Tools.Writefile (writefileToolTyped)
@@ -36,7 +41,12 @@ getTools fsConfig =
                 toTool (readdirToolTyped fsc),
                 toTool (directoryTreeToolTyped fsc),
                 toTool (replaceInFileToolTyped fsc),
-                toTool (multiReplaceInFileToolTyped fsc)
+                toTool (multiReplaceInFileToolTyped fsc),
+                toTool (copyFileToolTyped fsc),
+                toTool (moveFileToolTyped fsc),
+                toTool (removeFileToolTyped fsc),
+                toTool (removeDirectoryToolTyped fsc),
+                toTool (createDirectoryToolTyped fsc)
               ]
           )
       otherTools =
