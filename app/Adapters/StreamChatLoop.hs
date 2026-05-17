@@ -13,8 +13,7 @@ import LLM.Core.Usage
     addUsage,
     emptyUsage,
   )
-import LLM.Generate.Chat qualified as Chat
-import LLM.Generate.Generate (generateText, streamText)
+import LLM.Generate.Generate (generateTextWithWorkers, streamTextWithWorkers)
 import LLM.Generate.Types
   ( ChatEnv (..),
     WorkerMap,
@@ -32,16 +31,11 @@ streamChatLoopMain stream env = do
   _ <- streamChatLoop stream Nothing env prompts
   pure ()
 
-useInterpreter :: Bool
-useInterpreter = True
-
 -- | Interactive streaming loop — runs a list of prompts, printing
 -- streamed deltas and usage stats as it goes.
 streamChatLoop :: Bool -> Maybe WorkerMap -> ChatEnv -> [Text] -> IO Conversation
 streamChatLoop stream mbWorkerMap env = aux emptyUsage (Conversation [])
   where
-    streamIt = if useInterpreter then Chat.streamTextWithWorkers mbWorkerMap else streamText
-    generateIt = if useInterpreter then Chat.generateTextWithWorkers mbWorkerMap else generateText
     aux totalUsage conv [] = do
       putStrLn $
         "\n  Total: "
@@ -57,14 +51,14 @@ streamChatLoop stream mbWorkerMap env = aux emptyUsage (Conversation [])
       firstChunkRef <- newIORef True
       result <-
         if stream
-          then streamIt env conv prompt $ \case
+          then streamTextWithWorkers mbWorkerMap env conv prompt $ \case
             StreamDelta txt -> do
               _ <- readIORef firstChunkRef
               writeIORef firstChunkRef False
               TIO.putStr txt
             StreamToolCall _ -> pure ()
           else
-            generateIt env conv prompt
+            generateTextWithWorkers mbWorkerMap env conv prompt
       case result of
         Left (err, _, _) -> do
           putStrLn $ "Error: " <> show err

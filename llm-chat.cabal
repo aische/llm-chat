@@ -71,7 +71,6 @@ library
     exposed-modules:
         LLM
         LLM.Core.Abort
-        LLM.Generate.Chat
         LLM.Generate.ChatStep
         LLM.Generate.ChatStepInterpreter
         LLM.Generate.Common

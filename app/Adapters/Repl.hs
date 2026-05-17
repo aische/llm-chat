@@ -3,6 +3,7 @@ module Adapters.Repl (repl, replMain) where
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import LLM (streamTextWithWorkers)
 import LLM.Core.Logger
   ( LogLevel (Debug),
     noHooks,
@@ -15,7 +16,6 @@ import LLM.Core.Usage
     addUsage,
     emptyUsage,
   )
-import LLM.Generate.Chat (streamTextWithWorkers)
 import LLM.Generate.Types
   ( ChatEnv (..),
     WorkerMap,

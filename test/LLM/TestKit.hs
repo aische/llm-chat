@@ -10,7 +10,6 @@ import LLM.Core.LLMProvider (LLMProvider (..))
 import LLM.Core.Types (Conversation (..))
 import LLM.Core.Usage (addUsage, emptyUsage)
 import LLM.Core.Utils (parseChatResponse)
-import LLM.Generate.Chat qualified as Chat
 import LLM.Generate.Generate (generateText, streamText)
 import LLM.Generate.Types (ChatEnv)
 
@@ -61,22 +60,20 @@ mockProvider mp adapter =
             Just chatResponse -> pure $ Right chatResponse
     }
 
-streamChatLoopMain :: Bool -> Bool -> ChatEnv -> [Text] -> IO ()
-streamChatLoopMain stream withInterp env prompts = do
+streamChatLoopMain :: Bool -> ChatEnv -> [Text] -> IO ()
+streamChatLoopMain stream env prompts = do
   putStrLn "\n=== Ollama (with Claude  and Gemini fallbacks) ==="
-  _ <- streamChatLoop stream withInterp env prompts
+  _ <- streamChatLoop stream env prompts
   pure ()
 
-streamChatLoop :: Bool -> Bool -> ChatEnv -> [Text] -> IO Conversation
-streamChatLoop stream withInterp env = aux emptyUsage (Conversation [])
+streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop stream env = aux emptyUsage (Conversation [])
   where
-    streamIt = if withInterp then Chat.streamText else streamText
-    generateIt = if withInterp then Chat.generateText else generateText
     aux _totalUsage conv [] = do
       return conv
     aux totalUsage conv (prompt : rest) = do
       -- firstChunkRef <- newIORef True
-      result <- if stream then streamIt env conv prompt $ const (pure ()) else generateIt env conv prompt
+      result <- if stream then streamText env conv prompt $ const (pure ()) else generateText env conv prompt
       case result of
         Left (err, _, _) -> do
           print err

@@ -7,215 +7,149 @@ module LLM.Generate.Generate
     streamTextWithWorkers,
     streamTextConversation,
     streamTextConversationWithWorkers,
+    simpleChatStepInterpreter,
   )
 where
 
 import Control.Concurrent (threadDelay)
-import Data.Maybe (fromMaybe)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Text (Text)
-import Data.Text qualified as T
 import LLM.Core.Abort (isAborted)
-import LLM.Core.Logger
-  ( Hooks (onLog),
-    LogLevel (Debug, Error, Info),
-    safeHooks,
-  )
+import LLM.Core.Logger (Hooks (..))
 import LLM.Core.Types
-  ( ChatRequest (..),
-    ChatResponse (respText, respUsage),
-    Conversation (..),
-    LLMError (Aborted, ToolLoopExceeded),
-    LLMGateway (..),
-    LLMTextResult,
+  ( Conversation (..),
+    LLMError (..),
     StreamEvent,
     ToolContext (..),
-    Turn (AssistantTurn, ToolTurn, UserTurn),
   )
-import LLM.Core.Usage (Usage (..), addUsage, emptyUsage, estimateCost)
-import LLM.Core.Utils
-  ( appendConversation,
-    executeToolsWithAbort,
-    getToolCalls,
-    hasToolCalls,
-    withConversation,
-    withRetry,
-    withTimeout,
-  )
-import LLM.Generate.Common
-  ( getFilteredToolsWithWorkers,
-    mkRequestWithWorkers,
-    modelRetryPolicy,
-    requestLogMessage,
-    responseLogMessage,
-    toolCallsLogMessage,
-    toolResultsLogMessage,
-    windowOffset,
+import LLM.Core.Usage (Usage)
+import LLM.Core.Utils (executeToolsWithAbort, withRetry, withTimeout)
+import LLM.Generate.ChatStep (ChatStep (..), windowOffset)
+import LLM.Generate.ChatStepInterpreter
+  ( ChatStepInterpreter,
+    generateTextConversationWith,
+    generateTextWith,
+    streamTextConversationWith,
+    streamTextWith,
   )
 import LLM.Generate.Types
   ( ChatEnv (..),
     GenerateText,
     GeneratedResult,
-    ModelConfig (..),
     WorkerMap,
   )
-import LLM.Generate.WithFallback (withFallback)
 
--- | Run a non-streaming chat with automatic tool-call handling.
--- Tries each model in 'envModels' in order, falling back on retryable errors.
-generateText :: ChatEnv -> Conversation -> Text -> IO (GeneratedResult (Text, Conversation, Usage))
+generateText ::
+  (MonadIO m) =>
+  ChatEnv ->
+  Conversation ->
+  Text ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateText = generateTextWithWorkers Nothing
 
-generateTextConversation :: ChatEnv -> Conversation -> IO (GeneratedResult (Text, Conversation, Usage))
-generateTextConversation = generateTextConversationWithWorkers Nothing
+generateTextConversation ::
+  Maybe (GenerateText, WorkerMap) ->
+  ChatEnv ->
+  Conversation ->
+  IO (GeneratedResult (Text, Conversation, Usage))
+generateTextConversation = generateTextConversationWith simpleChatStepInterpreter
 
+-- | Run a non-streaming chat. Uses the standard in-memory interpreter.
 generateTextWithWorkers ::
+  (MonadIO m) =>
   Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-generateTextWithWorkers mbWorkerMap unsafeEnv conv msg = generateTextInternal mbGenWorkerMap unsafeEnv conv'
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+generateTextWithWorkers mbWorkerMap = generateTextWith simpleChatStepInterpreter mbGenWorkerMap
   where
-    conv' = withConversation conv (++ [UserTurn msg])
     mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
 
 generateTextConversationWithWorkers ::
+  (MonadIO m) =>
   Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-generateTextConversationWithWorkers mbWorkerMap = generateTextInternal mbGenWorkerMap
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+generateTextConversationWithWorkers mbWorkerMap = generateTextConversationWith simpleChatStepInterpreter mbGenWorkerMap
   where
     mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
 
-generateTextInternal ::
-  Maybe (GenerateText, WorkerMap) ->
+-- | Like 'generateTextSimple', but streams text deltas via a callback.
+streamText ::
+  (MonadIO m) =>
   ChatEnv ->
   Conversation ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-generateTextInternal mbGenWorkerMap unsafeEnv conv = do
-  let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-  onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
-  withFallback env conv $ \mc c u ->
-    let call = gwGenerateText (mcGateway mc) (envHooks env)
-     in chatLoop mbGenWorkerMap env mc call 0 u c
-
--- | Like 'generateText', but streams text deltas via a callback as they arrive.
-streamText :: ChatEnv -> Conversation -> Text -> (StreamEvent -> IO ()) -> IO (GeneratedResult (Text, Conversation, Usage))
+  Text ->
+  (StreamEvent -> IO ()) ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamText = streamTextWithWorkers Nothing
 
-streamTextConversation :: ChatEnv -> Conversation -> (StreamEvent -> IO ()) -> IO (GeneratedResult (Text, Conversation, Usage))
-streamTextConversation = streamTextConversationWithWorkers Nothing
-
 streamTextWithWorkers ::
+  (MonadIO m) =>
   Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextInternal mbGenWorkerMap unsafeEnv conv' callback
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextWith simpleChatStepInterpreter mbGenWorkerMap unsafeEnv conv msg callback
   where
-    conv' = withConversation conv (++ [UserTurn msg])
     mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
 
+streamTextConversation ::
+  (MonadIO m) =>
+  ChatEnv ->
+  Conversation ->
+  (StreamEvent -> IO ()) ->
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamTextConversation = streamTextConversationWithWorkers Nothing
+
 streamTextConversationWithWorkers ::
+  (MonadIO m) =>
   Maybe WorkerMap ->
   ChatEnv ->
   Conversation ->
   (StreamEvent -> IO ()) ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-streamTextConversationWithWorkers mbWorkerMap unsafeEnv conv callback = streamTextInternal mbGenWorkerMap unsafeEnv conv callback
+  m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+streamTextConversationWithWorkers mbWorkerMap unsafeEnv conv callback = streamTextConversationWith simpleChatStepInterpreter mbGenWorkerMap unsafeEnv conv callback
   where
     mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
 
-streamTextInternal ::
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
-  Conversation ->
-  (StreamEvent -> IO ()) ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-streamTextInternal mbGenWorkerMap unsafeEnv conv callback = do
-  let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-      logIt = onLog (envHooks env)
-  logIt Info $ "streamText: tools=" <> T.pack (show (length (envTools env)))
-  withFallback env conv $ \mc c u ->
-    let call req = gwStreamText (mcGateway mc) (envHooks env) req callback
-     in chatLoop mbGenWorkerMap env mc call 0 u c
-
--- | Shared loop used by both generateText and streamText.
--- The @call@ parameter abstracts over streaming vs non-streaming.
--- On failure, returns the partial conversation and accumulated usage
--- so that a fallback model can continue from where this one left off.
-chatLoop ::
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
-  ModelConfig ->
-  (ChatRequest -> IO LLMTextResult) ->
-  Int ->
-  Usage ->
-  Conversation ->
-  IO (GeneratedResult (Text, Conversation, Usage))
-chatLoop mbGenWorkerMap env mc call rounds acc conv
-  | rounds >= envMaxToolRounds env = do
-      onLog (envHooks env) Error $ "Tool loop exceeded: " <> T.pack (show rounds) <> " rounds"
-      pure $ Left (ToolLoopExceeded rounds, conv, acc)
-  | otherwise = do
-      aborted <- checkAbort env
-      if aborted
-        then do
-          onLog (envHooks env) Info "Aborted before API call"
-          pure $ Left (Aborted, conv, acc)
-        else do
-          let request = mkRequestWithWorkers mbGenWorkerMap env mc conv (envReadonly env)
-              logIt = onLog (envHooks env)
-          logIt Debug $ requestLogMessage mc rounds request
-          case mcThrottleDelay mc of
-            Just d -> do
-              logIt Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
-              threadDelay (d * 1000)
-            Nothing -> pure ()
-          result <-
-            withTimeout (mcRequestTimeout mc) $
-              withRetry (modelRetryPolicy mc) logIt $
-                call request
-          case result of
-            Left err -> do
-              logIt Error $ "API error: " <> T.pack (show err)
-              pure $ Left (err, conv, acc)
-            Right resp ->
-              let responseUsage = fromMaybe emptyUsage (respUsage resp)
-                  cost = estimateCost (mcPricing mc) responseUsage
-                  acc' = addUsage acc (responseUsage {usageTotalCost = cost})
-               in if hasToolCalls resp
-                    then do
-                      let calls = getToolCalls resp
-                      logIt Info $ toolCallsLogMessage calls
-                      let offset = windowOffset (envContextWindow env) conv
-                          ctx =
-                            ToolContext
-                              { tcConversation = conv,
-                                tcUsage = acc',
-                                tcWindowOffset = offset,
-                                tcAbortSignal = envAbortSignal env
-                              }
-                          filteredTools = getFilteredToolsWithWorkers mbGenWorkerMap (envReadonly env) env
-                      toolResults <- executeToolsWithAbort (envAbortSignal env) ctx filteredTools calls
-                      case toolResults of
-                        Left _ -> do
-                          logIt Info "Aborted during tool execution"
-                          pure $ Left (Aborted, conv, acc')
-                        Right results -> do
-                          logIt Debug $ toolResultsLogMessage results
-                          let conv' = appendConversation conv [AssistantTurn (respText resp) calls, ToolTurn results]
-                          chatLoop mbGenWorkerMap env mc call (rounds + 1) acc' conv'
-                    else do
-                      logIt Info $ responseLogMessage resp
-                      let finalConv = withConversation conv (++ [AssistantTurn (respText resp) []])
-                      pure $ Right (respText resp, finalConv, acc')
-
--- | Check whether the abort signal has been fired.
-checkAbort :: ChatEnv -> IO Bool
-checkAbort env = case envAbortSignal env of
-  Nothing -> pure False
-  Just sig -> isAborted sig
+-- | Standard IO interpreter for 'ChatStep'. Executes effects directly:
+-- logging, throttling, LLM calls (with retry/timeout), and tool execution.
+simpleChatStepInterpreter :: (MonadIO m) => ChatStepInterpreter m
+simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
+  where
+    go :: (MonadIO m) => ChatStep -> m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
+    go (Done result) = pure result
+    go (Log _level msg next) = do
+      liftIO $ onLog hooks _level msg
+      go next
+    go (Throttle ms next) = do
+      liftIO $ threadDelay (ms * 1000)
+      go next
+    go (CheckAbort k) = do
+      aborted <- liftIO $ maybe (pure False) isAborted abortSig
+      go (k aborted)
+    go (CallLLM req k) = do
+      result <-
+        liftIO $
+          withTimeout reqTimeout $
+            withRetry retryPolicy (onLog hooks) $
+              call req
+      go (k result)
+    go step@ExecTools {} = do
+      let conv = esConv step
+          usage = esUsage step
+          offset = windowOffset ctxWindow conv
+          ctx =
+            ToolContext
+              { tcConversation = conv,
+                tcUsage = usage,
+                tcWindowOffset = offset,
+                tcAbortSignal = abortSig
+              }
+      results <- liftIO $ executeToolsWithAbort abortSig ctx tools (esCalls step)
+      go (esCont step results)
