@@ -1,5 +1,6 @@
 module Adapters.SessionChat (sessionChat, sessionChatMain, SessionCommand (..)) where
 
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Aeson (FromJSON, ToJSON, eitherDecodeFileStrict', encodeFile)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -72,7 +73,7 @@ sessionChatMain command = do
   (env, _) <- loadDefaultEnvOrThrow defaultEnvFilePaths hooks
   sessionChat env command
 
-sessionChat :: ChatEnv -> SessionCommand -> IO ()
+sessionChat :: ChatEnv IO -> SessionCommand -> IO ()
 sessionChat env command = do
   hSetBuffering stdout NoBuffering
   case command of
@@ -84,7 +85,7 @@ sessionChat env command = do
       printHistory (sfConversation sf) (sfUsage sf)
     PromptSession prompt -> do
       sf <- loadSessionFile
-      result <- streamText env (sfConversation sf) prompt $ \case
+      result <- liftIO $ streamText env (sfConversation sf) prompt $ \case
         StreamDelta txt -> TIO.putStr txt
         StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
       case result of

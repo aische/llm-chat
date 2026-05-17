@@ -1,5 +1,6 @@
 module LLM.Tools.Age (ageTool) where
 
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson
   ( KeyValue ((.=)),
     Value,
@@ -15,7 +16,7 @@ import LLM.Core.Types
     ToolDef (..),
   )
 
-ageTool :: Tool
+ageTool :: (MonadUnliftIO m) => Tool m
 ageTool =
   Tool
     { toolDef =
@@ -44,8 +45,8 @@ ageSchema =
     ]
 
 -- | Dummy implementation — in reality you'd call a weather API
-getAge :: Value -> IO Text
-getAge args = do
+getAge :: (MonadUnliftIO m) => Value -> m Text
+getAge args = liftIO $ do
   let name = fromMaybe "unknown" $ parseMaybe parsePersonName args
   -- error "Age database is currently unavailable"
   if toLower name == "alice"

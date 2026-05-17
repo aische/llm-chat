@@ -60,13 +60,13 @@ mockProvider mp adapter =
             Just chatResponse -> pure $ Right chatResponse
     }
 
-streamChatLoopMain :: Bool -> ChatEnv -> [Text] -> IO ()
+streamChatLoopMain :: Bool -> ChatEnv IO -> [Text] -> IO ()
 streamChatLoopMain stream env prompts = do
   putStrLn "\n=== Ollama (with Claude  and Gemini fallbacks) ==="
   _ <- streamChatLoop stream env prompts
   pure ()
 
-streamChatLoop :: Bool -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop :: Bool -> ChatEnv IO -> [Text] -> IO Conversation
 streamChatLoop stream env = aux emptyUsage (Conversation [])
   where
     aux _totalUsage conv [] = do

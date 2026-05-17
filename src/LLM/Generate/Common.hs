@@ -13,6 +13,8 @@ module LLM.Generate.Common
   )
 where
 
+import Control.Monad.Catch (MonadCatch)
+import Control.Monad.IO.Unlift (MonadIO, MonadUnliftIO)
 import Control.Retry (RetryPolicyM, fullJitterBackoff, limitRetries)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -53,16 +55,16 @@ findNthUserFromEnd n conv = go (length (unConversation conv) - 1) n
           UserTurn _ -> go (idx - 1) (remaining - 1)
           _ -> go (idx - 1) remaining
 
-modelRetryPolicy :: ModelConfig -> RetryPolicyM IO
+modelRetryPolicy :: (MonadIO m) => ModelConfig -> RetryPolicyM m
 modelRetryPolicy mc = limitRetries (mcRetryCount mc) <> fullJitterBackoff (mcJitterBackoff mc * 1000)
 
 -- | Build a ChatRequest from the model config and a conversation.
 -- When 'envContextWindow' is set, only the last N user messages (and their
 -- associated replies) are sent to the model.
-mkRequest :: ChatEnv -> ModelConfig -> Conversation -> Bool -> ChatRequest
+mkRequest :: (MonadUnliftIO m, MonadCatch m) => ChatEnv m -> ModelConfig -> Conversation -> Bool -> ChatRequest
 mkRequest = mkRequestWithWorkers Nothing
 
-mkRequestWithWorkers :: Maybe (GenerateText, WorkerMap) -> ChatEnv -> ModelConfig -> Conversation -> Bool -> ChatRequest
+mkRequestWithWorkers :: (MonadUnliftIO m, MonadCatch m) => Maybe (GenerateText m, WorkerMap m) -> ChatEnv m -> ModelConfig -> Conversation -> Bool -> ChatRequest
 mkRequestWithWorkers mbGenWorkerMap env mc conv readonly =
   ChatRequest
     { reqModel = mcModel mc,
@@ -76,11 +78,11 @@ mkRequestWithWorkers mbGenWorkerMap env mc conv readonly =
   where
     offset = windowOffset (envContextWindow env) conv
 
-getFilteredToolsWithWorkers :: Maybe (GenerateText, WorkerMap) -> Bool -> ChatEnv -> [Tool]
+getFilteredToolsWithWorkers :: (MonadUnliftIO m, MonadCatch m) => Maybe (GenerateText m, WorkerMap m) -> Bool -> ChatEnv m -> [Tool m]
 getFilteredToolsWithWorkers mbGenWorkerMap readonly env =
   filterReadonlyTools readonly (getToolsWithWorkers mbGenWorkerMap env)
 
-filterReadonlyTools :: Bool -> [Tool] -> [Tool]
+filterReadonlyTools :: Bool -> [Tool m] -> [Tool m]
 filterReadonlyTools False tools = tools
 filterReadonlyTools True tools = filter (toolReadonly . toolDef) tools
 

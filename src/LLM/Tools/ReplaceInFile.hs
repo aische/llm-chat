@@ -1,6 +1,7 @@
 module LLM.Tools.ReplaceInFile (replaceInFileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -26,7 +27,7 @@ instance AC.HasCodec ReplaceInFileToolArgs where
         <*> AC.requiredField "old" "The text content to be replaced in the file" AC..= _rifOld
         <*> AC.requiredField "new" "The replacement text content to write to the file" AC..= _rifNew
 
-replaceInFileToolTyped :: FsConfig -> TypedTool ReplaceInFileToolArgs
+replaceInFileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m ReplaceInFileToolArgs
 replaceInFileToolTyped cfg =
   TypedTool
     { ttoolName = "replace_in_file",
@@ -38,8 +39,8 @@ replaceInFileToolTyped cfg =
       ttoolExecute = const (replaceExecTyped cfg)
     }
 
-replaceExecTyped :: FsConfig -> ReplaceInFileToolArgs -> IO Text
-replaceExecTyped cfg args = do
+replaceExecTyped :: (MonadUnliftIO m) => FsConfig -> ReplaceInFileToolArgs -> m Text
+replaceExecTyped cfg args = liftIO $ do
   let ReplaceInFileToolArgs {_rifPath, _rifOld, _rifNew} = args
       p = _rifPath
   resolved <- sandboxPath cfg (T.unpack p)

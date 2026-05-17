@@ -2,6 +2,7 @@ module LLM.Tools.DirectoryTree (directoryTreeToolTyped) where
 
 import Autodocodec qualified as AC
 import Control.Monad (forM)
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -26,7 +27,7 @@ instance AC.HasCodec DirectoryTreeToolArgs where
     AC.object "show a directory tree and its subdirectories" $
       DirectoryTreeToolArgs <$> AC.requiredField "path" "Relative directory path to show the tree of" AC..= _dtPath
 
-directoryTreeToolTyped :: FsConfig -> TypedTool DirectoryTreeToolArgs
+directoryTreeToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m DirectoryTreeToolArgs
 directoryTreeToolTyped fsConfig =
   TypedTool
     { ttoolName = "directory_tree",
@@ -38,8 +39,8 @@ directoryTreeToolTyped fsConfig =
       ttoolExecute = const (directoryTreeExecTyped fsConfig)
     }
 
-directoryTreeExecTyped :: FsConfig -> DirectoryTreeToolArgs -> IO Text
-directoryTreeExecTyped cfg args = do
+directoryTreeExecTyped :: (MonadUnliftIO m) => FsConfig -> DirectoryTreeToolArgs -> m Text
+directoryTreeExecTyped cfg args = liftIO $ do
   let relPath = T.unpack $ _dtPath args
   resolved <- sandboxPath cfg relPath
   drawTree resolved

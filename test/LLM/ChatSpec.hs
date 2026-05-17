@@ -86,7 +86,7 @@ mockModel gw =
       mcJitterBackoff = 0
     }
 
-weatherTool :: Tool
+weatherTool :: Tool IO
 weatherTool =
   Tool
     { toolDef =
@@ -99,7 +99,7 @@ weatherTool =
       toolExecute = \_ _ -> pure "Sunny, 22°C"
     }
 
-env :: LLMGateway -> ChatEnv
+env :: LLMGateway -> ChatEnv IO
 env gw = defaultChatEnv (mockModel gw)
 
 spec :: Spec

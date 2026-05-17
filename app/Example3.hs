@@ -35,10 +35,10 @@ instance AC.HasCodec ExampleObject where
         <*> AC.requiredField "rating" "quality of the example (1..10)" AC..= _rating
         <*> AC.requiredField "flag" "is the example good?" AC..= _flag
 
-generateExample :: ChatEnv -> Text -> IO (GeneratedResult (ExampleObject, Usage))
+generateExample :: ChatEnv IO -> Text -> IO (GeneratedResult (ExampleObject, Usage))
 generateExample env = generateObject env emptyConversation
 
-example :: ChatEnv -> IO ()
+example :: ChatEnv IO -> IO ()
 example env = do
   x <- generateExample env "createn an example of a poem"
   print x

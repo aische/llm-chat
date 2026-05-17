@@ -9,6 +9,8 @@ where
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
 import Control.Concurrent (threadDelay)
+import Control.Monad.Catch (MonadCatch)
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (Value)
 import Data.Aeson qualified as AE
 import Data.Maybe (fromMaybe)
@@ -45,28 +47,28 @@ import LLM.Generate.Types
 import LLM.Generate.WithFallback (withFallback)
 
 generateObject ::
-  (Generatable t) =>
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m, Generatable t) =>
+  ChatEnv m ->
   Conversation ->
   Text ->
-  IO (GeneratedResult (t, Usage))
+  m (GeneratedResult (t, Usage))
 generateObject unsafeEnv conv msg = generateObjectConversationInternal unsafeEnv AC.codec conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
 
 generateObjectConversation ::
-  (Generatable t) =>
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m, Generatable t) =>
+  ChatEnv m ->
   Conversation ->
-  IO (GeneratedResult (t, Usage))
+  m (GeneratedResult (t, Usage))
 generateObjectConversation unsafeEnv = generateObjectConversationInternal unsafeEnv AC.codec
 
 generateObjectConversationInternal ::
-  (Generatable t) =>
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m, Generatable t) =>
+  ChatEnv m ->
   AC.JSONCodec t ->
   Conversation ->
-  IO (GeneratedResult (t, Usage))
+  m (GeneratedResult (t, Usage))
 generateObjectConversationInternal unsafeEnv codec conv = do
   let jsonschema = stripBoundsAndComments $ AE.toJSON $ jsonSchemaVia codec
   res <- generateObjectConversationUntyped unsafeEnv jsonschema conv
@@ -78,30 +80,32 @@ generateObjectConversationInternal unsafeEnv codec conv = do
         AE.Success a -> pure $ Right (a, u)
 
 generateObjectUntyped ::
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  ChatEnv m ->
   Value ->
   Conversation ->
   Text ->
-  IO (GeneratedResult (Value, Usage))
+  m (GeneratedResult (Value, Usage))
 generateObjectUntyped unsafeEnv schema conv msg = generateObjectConversationUntyped unsafeEnv schema conv'
   where
     conv' = withConversation conv (++ [UserTurn msg])
 
 generateObjectConversationUntyped ::
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  ChatEnv m ->
   Value ->
   Conversation ->
-  IO (GeneratedResult (Value, Usage))
+  m (GeneratedResult (Value, Usage))
 generateObjectConversationUntyped unsafeEnv schema conv = do
   let env = unsafeEnv {envHooks = safeHooks (envHooks unsafeEnv)}
-  onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
+  liftIO $ onLog (envHooks env) Info $ "generateText: tools=" <> T.pack (show (length (envTools env)))
   withFallback env conv $ \mc c u ->
-    let call = gwGenerateObject (mcGateway mc) (envHooks env) schema
+    let call = liftIO . gwGenerateObject (mcGateway mc) (envHooks env) schema
         logIt = onLog (envHooks env)
         request = mkRequest env mc c (envReadonly env)
      in do
           case mcThrottleDelay mc of
-            Just d -> do
+            Just d -> liftIO $ do
               logIt Debug $ "Throttle: waiting " <> T.pack (show d) <> "ms"
               threadDelay (d * 1000)
             Nothing -> pure ()
@@ -111,7 +115,7 @@ generateObjectConversationUntyped unsafeEnv schema conv = do
                 call request
           case result of
             Left err -> do
-              logIt Error $ "API error: " <> T.pack (show err)
+              liftIO $ logIt Error $ "API error: " <> T.pack (show err)
               pure $ Left (err, conv, u)
             Right (value, mbu) ->
               let responseUsage = fromMaybe emptyUsage mbu

@@ -1,6 +1,7 @@
 module LLM.Tools.History (historyToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -26,7 +27,7 @@ instance AC.HasCodec HistoryToolArgs where
     AC.object "get conversation history" $
       HistoryToolArgs <$> AC.requiredField "chunk" "0 = most recent hidden chunk, 1 = the one before that, etc." AC..= _historyChunk
 
-getHistoryExecTyped :: ToolContext -> HistoryToolArgs -> IO Text
+getHistoryExecTyped :: (MonadUnliftIO m) => ToolContext -> HistoryToolArgs -> m Text
 getHistoryExecTyped ctx args = do
   let chunkIdx = _historyChunk args
       hidden = take (tcWindowOffset ctx) (unConversation $ tcConversation ctx)
@@ -41,7 +42,7 @@ getHistoryExecTyped ctx args = do
         then pure "(no more history)"
         else pure $ formatChunk (chunks !! chunkIdx)
 
-historyToolTyped :: TypedTool HistoryToolArgs
+historyToolTyped :: (MonadUnliftIO m) => TypedTool m HistoryToolArgs
 historyToolTyped =
   TypedTool
     { ttoolName = "get_history",

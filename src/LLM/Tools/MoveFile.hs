@@ -1,6 +1,7 @@
 module LLM.Tools.MoveFile (moveFileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -23,7 +24,7 @@ instance AC.HasCodec MoveFileToolArgs where
         <$> AC.requiredField "source" "Relative path of the file to move" AC..= _mfSrc
         <*> AC.requiredField "destination" "Relative destination path (including filename)" AC..= _mfDst
 
-moveFileToolTyped :: FsConfig -> TypedTool MoveFileToolArgs
+moveFileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m MoveFileToolArgs
 moveFileToolTyped cfg =
   TypedTool
     { ttoolName = "move_file",
@@ -34,8 +35,8 @@ moveFileToolTyped cfg =
       ttoolExecute = const (moveFileExecTyped cfg)
     }
 
-moveFileExecTyped :: FsConfig -> MoveFileToolArgs -> IO Text
-moveFileExecTyped cfg args = do
+moveFileExecTyped :: (MonadUnliftIO m) => FsConfig -> MoveFileToolArgs -> m Text
+moveFileExecTyped cfg args = liftIO $ do
   let src = _mfSrc args
       dst = _mfDst args
   srcResolved <- sandboxPath cfg (T.unpack src)

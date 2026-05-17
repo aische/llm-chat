@@ -12,7 +12,9 @@ module LLM.Generate.Generate
 where
 
 import Control.Concurrent (threadDelay)
+import Control.Monad.Catch (MonadCatch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Text (Text)
 import LLM.Core.Abort (isAborted)
 import LLM.Core.Logger (Hooks (..))
@@ -40,25 +42,26 @@ import LLM.Generate.Types
   )
 
 generateText ::
-  (MonadIO m) =>
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  ChatEnv m ->
   Conversation ->
   Text ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateText = generateTextWithWorkers Nothing
 
 generateTextConversation ::
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe (GenerateText m, WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
-  IO (GeneratedResult (Text, Conversation, Usage))
+  m (GeneratedResult (Text, Conversation, Usage))
 generateTextConversation = generateTextConversationWith simpleChatStepInterpreter
 
 -- | Run a non-streaming chat. Uses the standard in-memory interpreter.
 generateTextWithWorkers ::
-  (MonadIO m) =>
-  Maybe WorkerMap ->
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe (WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   Text ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
@@ -67,9 +70,9 @@ generateTextWithWorkers mbWorkerMap = generateTextWith simpleChatStepInterpreter
     mbGenWorkerMap = fmap (generateTextWithWorkers mbWorkerMap,) mbWorkerMap
 
 generateTextConversationWithWorkers ::
-  (MonadIO m) =>
-  Maybe WorkerMap ->
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe (WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateTextConversationWithWorkers mbWorkerMap = generateTextConversationWith simpleChatStepInterpreter mbGenWorkerMap
@@ -78,8 +81,8 @@ generateTextConversationWithWorkers mbWorkerMap = generateTextConversationWith s
 
 -- | Like 'generateTextSimple', but streams text deltas via a callback.
 streamText ::
-  (MonadIO m) =>
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  ChatEnv m ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
@@ -87,9 +90,9 @@ streamText ::
 streamText = streamTextWithWorkers Nothing
 
 streamTextWithWorkers ::
-  (MonadIO m) =>
-  Maybe WorkerMap ->
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe (WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
@@ -99,17 +102,17 @@ streamTextWithWorkers mbWorkerMap unsafeEnv conv msg callback = streamTextWith s
     mbGenWorkerMap = fmap (\c d t -> streamTextWithWorkers mbWorkerMap c d t callback,) mbWorkerMap
 
 streamTextConversation ::
-  (MonadIO m) =>
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  ChatEnv m ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 streamTextConversation = streamTextConversationWithWorkers Nothing
 
 streamTextConversationWithWorkers ::
-  (MonadIO m) =>
-  Maybe WorkerMap ->
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe (WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
@@ -119,10 +122,11 @@ streamTextConversationWithWorkers mbWorkerMap unsafeEnv conv callback = streamTe
 
 -- | Standard IO interpreter for 'ChatStep'. Executes effects directly:
 -- logging, throttling, LLM calls (with retry/timeout), and tool execution.
-simpleChatStepInterpreter :: (MonadIO m) => ChatStepInterpreter m
+simpleChatStepInterpreter ::
+  (MonadUnliftIO m, MonadCatch m) =>
+  ChatStepInterpreter m
 simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout call = go
   where
-    go :: (MonadIO m) => ChatStep -> m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
     go (Done result) = pure result
     go (Log _level msg next) = do
       liftIO $ onLog hooks _level msg
@@ -151,5 +155,5 @@ simpleChatStepInterpreter hooks abortSig tools ctxWindow retryPolicy reqTimeout 
                 tcWindowOffset = offset,
                 tcAbortSignal = abortSig
               }
-      results <- liftIO $ executeToolsWithAbort abortSig ctx tools (esCalls step)
+      results <- executeToolsWithAbort abortSig ctx tools (esCalls step)
       go (esCont step results)

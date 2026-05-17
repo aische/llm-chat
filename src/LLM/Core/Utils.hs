@@ -21,7 +21,10 @@ where
 
 import Autodocodec qualified as AC
 import Autodocodec.Schema (jsonSchemaVia)
-import Control.Exception (SomeException, try)
+-- import Control.Exception (SomeException, try)
+import Control.Monad.Catch (MonadCatch, SomeException, try)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Retry (RetryPolicyM, RetryStatus (rsIterNumber), retrying)
 import Data.Aeson (FromJSON, Value, encode, object, (.=))
 import Data.Aeson qualified as AE
@@ -47,7 +50,7 @@ import LLM.Core.Types
     TypedTool (TypedTool),
   )
 import LLM.Core.Usage (Usage (..))
-import System.Timeout (timeout)
+import UnliftIO.Timeout (timeout)
 
 withConversation :: Conversation -> ([Turn] -> [Turn]) -> Conversation
 withConversation (Conversation turns) f = Conversation (f turns)
@@ -66,7 +69,7 @@ toolResult :: ToolCall -> Text -> ToolResult
 toolResult tc = ToolResult (tcId tc) (tcName tc)
 
 -- | Execute a single tool call by looking it up in the tool list
-executeTool :: ToolContext -> [Tool] -> ToolCall -> IO ToolResult
+executeTool :: (MonadUnliftIO m, MonadCatch m) => ToolContext -> [Tool m] -> ToolCall -> m ToolResult
 executeTool ctx tools tc = case lookup (tcName tc) toolMap of
   Nothing -> pure $ toolResult tc ("Unknown tool: " <> tcName tc)
   Just exec -> do
@@ -79,12 +82,18 @@ executeTool ctx tools tc = case lookup (tcName tc) toolMap of
     toolMap = [(toolName (toolDef t), toolExecute t) | t <- tools]
 
 -- | Execute all tool calls from a response
-executeTools :: ToolContext -> [Tool] -> [ToolCall] -> IO [ToolResult]
+executeTools :: (MonadUnliftIO m, MonadCatch m) => ToolContext -> [Tool m] -> [ToolCall] -> m [ToolResult]
 executeTools ctx tools = mapM (executeTool ctx tools)
 
 -- | Execute tool calls one at a time, checking the abort signal between each.
 -- Returns @Left Aborted@ if the signal fires before all calls finish.
-executeToolsWithAbort :: Maybe AbortSignal -> ToolContext -> [Tool] -> [ToolCall] -> IO (Either LLMError [ToolResult])
+executeToolsWithAbort ::
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe AbortSignal ->
+  ToolContext ->
+  [Tool m] ->
+  [ToolCall] ->
+  m (Either LLMError [ToolResult])
 executeToolsWithAbort Nothing ctx tools tcs = Right <$> executeTools ctx tools tcs
 executeToolsWithAbort (Just sig) ctx tools tcs = go [] tcs
   where
@@ -115,7 +124,7 @@ isRetryable (NetworkError _) = True
 isRetryable _ = False
 
 -- | Wrap an action with a timeout (ms). Returns 'TimeoutError' on expiry.
-withTimeout :: Maybe Int -> IO (LLMResult a) -> IO (LLMResult a)
+withTimeout :: (MonadUnliftIO m) => Maybe Int -> m (LLMResult a) -> m (LLMResult a)
 withTimeout Nothing action = action
 withTimeout (Just us) action = do
   result <- timeout (us * 1000) action
@@ -123,17 +132,18 @@ withTimeout (Just us) action = do
 
 -- | Retry an action using the retry package's policy (exponential backoff + jitter).
 -- The policy controls max attempts, delays, and jitter.
-withRetry :: RetryPolicyM IO -> Logger -> IO (LLMResult a) -> IO (LLMResult a)
+withRetry :: (MonadIO m) => RetryPolicyM m -> Logger -> m (LLMResult a) -> m (LLMResult a)
 withRetry policy logIt action =
   retrying
     policy
     ( \status result -> case result of
         Left err | isRetryable err -> do
-          logIt Warn $
-            "Retryable error (attempt "
-              <> T.pack (show (rsIterNumber status + 1))
-              <> "): "
-              <> T.pack (show err)
+          liftIO $
+            logIt Warn $
+              "Retryable error (attempt "
+                <> T.pack (show (rsIterNumber status + 1))
+                <> "): "
+                <> T.pack (show err)
           pure True
         _ -> pure False
     )
@@ -189,10 +199,10 @@ parseChatResponse = AE.withObject "ChatResponse" $ \v -> do
 printValue :: Value -> IO ()
 printValue val = L8.putStrLn (encode val)
 
-getSchema :: (AC.HasCodec t, FromJSON t) => TypedTool t -> AC.JSONCodec t
+getSchema :: (MonadIO m) => (AC.HasCodec t, FromJSON t) => TypedTool m t -> AC.JSONCodec t
 getSchema _ = AC.codec
 
-toTool :: (AC.HasCodec t, FromJSON t) => TypedTool t -> Tool
+toTool :: (MonadIO m) => (AC.HasCodec t, FromJSON t) => TypedTool m t -> Tool m
 toTool t@(TypedTool name descr readonly exec) =
   Tool
     { toolDef =

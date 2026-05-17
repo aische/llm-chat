@@ -36,11 +36,11 @@ data ModelConfig = ModelConfig
 
 -- | Application-level chat configuration.
 -- Tools, system prompt, and hooks stay fixed across fallback attempts.
-data ChatEnv = ChatEnv
+data ChatEnv m = ChatEnv
   { envModel :: ModelConfig, -- primary
     envFallbacks :: [ModelConfig], -- fallbacks, tried in order
     envSystem :: Maybe Text,
-    envTools :: [Tool],
+    envTools :: [Tool m],
     envReadonly :: Bool,
     envMaxToolRounds :: Int,
     envContextWindow :: Maybe Int, -- max recent turns sent to the model; Nothing = all
@@ -53,13 +53,13 @@ type Generatable t = (FromJSON t, HasCodec t)
 
 type GeneratedResult a = Either (LLMError, Conversation, Usage) a
 
-data Worker = Worker
+data Worker m = Worker
   { workerName :: Text,
-    workerEnv :: ChatEnv,
+    workerEnv :: ChatEnv m,
     workerDescription :: Text
   }
 
-type WorkerMap = Map.Map Text Worker
+type WorkerMap m = Map.Map Text (Worker m)
 
-type GenerateText =
-  ChatEnv -> Conversation -> Text -> IO (GeneratedResult (Text, Conversation, Usage))
+type GenerateText m =
+  ChatEnv m -> Conversation -> Text -> m (GeneratedResult (Text, Conversation, Usage))

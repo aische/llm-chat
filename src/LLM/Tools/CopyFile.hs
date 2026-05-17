@@ -1,6 +1,7 @@
 module LLM.Tools.CopyFile (copyFileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -23,7 +24,7 @@ instance AC.HasCodec CopyFileToolArgs where
         <$> AC.requiredField "source" "Relative path of the file to copy" AC..= _cfSrc
         <*> AC.requiredField "destination" "Relative destination path (including filename)" AC..= _cfDst
 
-copyFileToolTyped :: FsConfig -> TypedTool CopyFileToolArgs
+copyFileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m CopyFileToolArgs
 copyFileToolTyped cfg =
   TypedTool
     { ttoolName = "copy_file",
@@ -35,8 +36,8 @@ copyFileToolTyped cfg =
       ttoolExecute = const (copyFileExecTyped cfg)
     }
 
-copyFileExecTyped :: FsConfig -> CopyFileToolArgs -> IO Text
-copyFileExecTyped cfg args = do
+copyFileExecTyped :: (MonadUnliftIO m) => FsConfig -> CopyFileToolArgs -> m Text
+copyFileExecTyped cfg args = liftIO $ do
   let src = _cfSrc args
       dst = _cfDst args
   srcResolved <- sandboxPath cfg (T.unpack src)

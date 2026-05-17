@@ -1,6 +1,7 @@
 module LLM.Tools.Readdir (readdirToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.List (sort)
 import Data.Text (Text)
@@ -22,7 +23,7 @@ instance AC.HasCodec ReaddirToolArgs where
     AC.object "list a directory" $
       ReaddirToolArgs <$> AC.requiredField "path" "Relative directory path to list" AC..= _rdPath
 
-readdirToolTyped :: FsConfig -> TypedTool ReaddirToolArgs
+readdirToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m ReaddirToolArgs
 readdirToolTyped fsConfig =
   TypedTool
     { ttoolName = "read_dir",
@@ -34,8 +35,8 @@ readdirToolTyped fsConfig =
       ttoolExecute = const (readdirExecTyped fsConfig)
     }
 
-readdirExecTyped :: FsConfig -> ReaddirToolArgs -> IO Text
-readdirExecTyped cfg args = do
+readdirExecTyped :: (MonadUnliftIO m) => FsConfig -> ReaddirToolArgs -> m Text
+readdirExecTyped cfg args = liftIO $ do
   let relPath = T.unpack $ _rdPath args
   resolved <- sandboxPath cfg relPath
   entries <- sort <$> listDirectory resolved

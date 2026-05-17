@@ -8,6 +8,8 @@ module LLM.Generate.Utils
   )
 where
 
+import Control.Monad.Catch (MonadCatch)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -19,7 +21,7 @@ import LLM.Generate.Types (ChatEnv (..), GenerateText, ModelConfig (..), Worker 
 import LLM.Generate.WorkerTool (workerToolTyped)
 
 -- | Sensible defaults — single model, no fallback.
-defaultChatEnv :: ModelConfig -> ChatEnv
+defaultChatEnv :: ModelConfig -> ChatEnv m
 defaultChatEnv mc =
   ChatEnv
     { envModel = mc,
@@ -34,7 +36,7 @@ defaultChatEnv mc =
       envAbortSignal = Nothing
     }
 
-createChatEnv :: ModelConfig -> Text -> [Tool] -> ChatEnv
+createChatEnv :: ModelConfig -> Text -> [Tool m] -> ChatEnv m
 createChatEnv mc system tools =
   ChatEnv
     { envModel = mc,
@@ -63,10 +65,10 @@ createModelConfig gateway modelName =
       mcJitterBackoff = 1_000
     }
 
-addTool :: Tool -> ChatEnv -> ChatEnv
+addTool :: Tool m -> ChatEnv m -> ChatEnv m
 addTool tool env = env {envTools = tool : envTools env}
 
-getToolsWithWorkers :: Maybe (GenerateText, WorkerMap) -> ChatEnv -> [Tool]
+getToolsWithWorkers :: (MonadUnliftIO m, MonadCatch m) => Maybe (GenerateText m, WorkerMap m) -> ChatEnv m -> [Tool m]
 getToolsWithWorkers Nothing chatEnv = envTools chatEnv
 getToolsWithWorkers (Just (gen, workerMap)) chatEnv =
   let workerTools =
@@ -83,7 +85,7 @@ getToolsWithWorkers (Just (gen, workerMap)) chatEnv =
                    in toTool (workerToolTyped gen env name desc)
    in envTools chatEnv ++ workerTools
 
-addHooksToWorkerMap :: Hooks -> Maybe WorkerMap -> Maybe WorkerMap
+addHooksToWorkerMap :: Hooks -> Maybe (WorkerMap m) -> Maybe (WorkerMap m)
 addHooksToWorkerMap _hooks Nothing = Nothing
 addHooksToWorkerMap hooks (Just workerMap) =
   Just $

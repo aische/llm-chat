@@ -4,6 +4,7 @@ import Control.Lens (Each, each, mapMOf)
 import Control.Monad (forM, forM_)
 import Control.Monad.Except (ExceptT (..), liftEither, runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -33,24 +34,24 @@ defaultEnvFilePaths =
       workerCatalogFilePath = Just "worker-catalog.json"
     }
 
-loadDefaultEnvOrThrow :: EnvFilePaths -> Hooks -> IO (ChatEnv, LoadedEnvs)
+loadDefaultEnvOrThrow :: (MonadUnliftIO m) => EnvFilePaths -> Hooks -> m (ChatEnv m, LoadedEnvs m)
 loadDefaultEnvOrThrow envFilePaths = loadEnvOrThrow envFilePaths "default"
 
-loadEnvOrThrow :: EnvFilePaths -> Text -> Hooks -> IO (ChatEnv, LoadedEnvs)
+loadEnvOrThrow :: (MonadUnliftIO m) => EnvFilePaths -> Text -> Hooks -> m (ChatEnv m, LoadedEnvs m)
 loadEnvOrThrow envFilePaths name hooks = do
   envs <- either (error . show) id <$> loadEnvs envFilePaths
   case getLoadedChatEnvByName envs hooks name of
     Left err -> error $ show err
     Right env -> pure (env, envs)
 
-loadEnvsOrThrow :: (Each s t Text ChatEnv) => EnvFilePaths -> Hooks -> s -> IO (t, LoadedEnvs)
+loadEnvsOrThrow :: (MonadUnliftIO m, Each s t Text (ChatEnv m)) => EnvFilePaths -> Hooks -> s -> m (t, LoadedEnvs m)
 loadEnvsOrThrow envFilePaths hooks names = do
   envs <- either (error . show) id <$> loadEnvs envFilePaths
   case getAllLoadedChatEnvs envs hooks names of
     Left err -> error $ show err
     Right env -> pure (env, envs)
 
-loadEnvs :: EnvFilePaths -> IO (Either LoadEnvError LoadedEnvs)
+loadEnvs :: (MonadUnliftIO m) => EnvFilePaths -> m (Either LoadEnvError (LoadedEnvs m))
 loadEnvs envFilePaths = runExceptT $ do
   gateways <- liftIO loadGateways
   modelConfigs <- loadModelConfigMap (modelCatalogFilePath envFilePaths) gateways
@@ -68,7 +69,7 @@ loadEnvs envFilePaths = runExceptT $ do
         fsConf = mbFsConfig
       }
 
-validateWorkersExist :: ChatEnvMap -> Maybe WorkerMap -> Either LoadEnvError ()
+validateWorkersExist :: ChatEnvMap m -> Maybe (WorkerMap m) -> Either LoadEnvError ()
 validateWorkersExist _chatEnvs Nothing = pure ()
 validateWorkersExist chatEnvs (Just workerMap) =
   forM_ (Map.toList chatEnvs) $ \(name, chatEnv) ->
@@ -80,28 +81,28 @@ validateWorkersExist chatEnvs (Just workerMap) =
             Nothing -> Left $ LoadWorkerMissingError ("worker for env " <> T.unpack name <> " missing: " <> T.unpack worker)
             Just _ -> pure ()
 
-getLoadedChatEnvByName :: LoadedEnvs -> Hooks -> Text -> Either LoadEnvError ChatEnv
+getLoadedChatEnvByName :: LoadedEnvs m -> Hooks -> Text -> Either LoadEnvError (ChatEnv m)
 getLoadedChatEnvByName loadedEnvs hooks name =
   case Map.lookup name (chatEnvs loadedEnvs) of
     Nothing -> Left $ LoadChatError $ T.unpack name <> " env not found"
     Just env -> pure env {envHooks = hooks}
 
-getAllLoadedChatEnvs :: (Each s t Text ChatEnv) => LoadedEnvs -> Hooks -> s -> Either LoadEnvError t
+getAllLoadedChatEnvs :: (Each s t Text (ChatEnv m)) => LoadedEnvs m -> Hooks -> s -> Either LoadEnvError t
 getAllLoadedChatEnvs loadedEnvs hooks = mapMOf each (getLoadedChatEnvByName loadedEnvs hooks)
 
-loadChatEnvMap :: FilePath -> ModelConfigMap -> ToolMap -> ExceptT LoadEnvError IO ChatEnvMap
+loadChatEnvMap :: (MonadUnliftIO m) => FilePath -> ModelConfigMap -> ToolMap m -> ExceptT LoadEnvError m (ChatEnvMap m)
 loadChatEnvMap filePath modelConfigMap toolMap = do
   chatEnvCatalogItems <- decodeJsonFile filePath LoadChatEnvConfigError
   createChatEnvMap modelConfigMap toolMap chatEnvCatalogItems
 
-createChatEnvMap :: ModelConfigMap -> ToolMap -> [ChatEnvConfigItem] -> ExceptT LoadEnvError IO ChatEnvMap
+createChatEnvMap :: (MonadUnliftIO m) => ModelConfigMap -> ToolMap m -> [ChatEnvConfigItem] -> ExceptT LoadEnvError m (ChatEnvMap m)
 createChatEnvMap modelConfigMap toolMap chatEnvCatalogItems = do
   let configs = forM chatEnvCatalogItems $ \ceci -> do
         ce <- createChatEnvFromConfigItem modelConfigMap toolMap ceci
         pure (chatEnvName ceci, ce)
   Map.fromList <$> configs
 
-createChatEnvFromConfigItem :: ModelConfigMap -> ToolMap -> ChatEnvConfigItem -> ExceptT LoadEnvError IO ChatEnv
+createChatEnvFromConfigItem :: (MonadUnliftIO m) => ModelConfigMap -> ToolMap m -> ChatEnvConfigItem -> ExceptT LoadEnvError m (ChatEnv m)
 createChatEnvFromConfigItem models toolMap conf = do
   modelConfig <- liftEither $ getModel (model conf) models
   fb <- liftEither $ mapM (`getModel` models) (fallbacks conf)
@@ -126,7 +127,7 @@ getModel name models = case Map.lookup name models of
   Just mc -> Right mc
   Nothing -> Left $ LoadModelError $ "Model config not found: " ++ show name
 
-getTool :: Text -> ToolMap -> Either LoadEnvError Tool
+getTool :: Text -> ToolMap m -> Either LoadEnvError (Tool m)
 getTool name toolMap = case Map.lookup name toolMap of
   Just t -> Right t
   Nothing -> Left $ LoadToolError $ "Tool config not found: " ++ show name

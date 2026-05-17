@@ -1,6 +1,7 @@
 module LLM.Tools.CreateDirectory (createDirectoryToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -23,7 +24,7 @@ instance AC.HasCodec CreateDirectoryToolArgs where
         <$> AC.requiredField "path" "Relative path of the directory to create" AC..= _cdPath
         <*> AC.optionalFieldWithDefault "parents" True "Create intermediate parent directories as needed" AC..= _cdParents
 
-createDirectoryToolTyped :: FsConfig -> TypedTool CreateDirectoryToolArgs
+createDirectoryToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m CreateDirectoryToolArgs
 createDirectoryToolTyped cfg =
   TypedTool
     { ttoolName = "create_directory",
@@ -35,8 +36,8 @@ createDirectoryToolTyped cfg =
       ttoolExecute = const (createDirectoryExecTyped cfg)
     }
 
-createDirectoryExecTyped :: FsConfig -> CreateDirectoryToolArgs -> IO Text
-createDirectoryExecTyped cfg args = do
+createDirectoryExecTyped :: (MonadUnliftIO m) => FsConfig -> CreateDirectoryToolArgs -> m Text
+createDirectoryExecTyped cfg args = liftIO $ do
   let p = _cdPath args
       parents = _cdParents args
   resolved <- sandboxPath cfg (T.unpack p)

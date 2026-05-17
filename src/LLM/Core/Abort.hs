@@ -6,6 +6,7 @@ module LLM.Core.Abort
   )
 where
 
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
 -- | A cooperative cancellation signal.
@@ -22,5 +23,5 @@ abort :: AbortSignal -> IO ()
 abort (AbortSignal ref) = writeIORef ref True
 
 -- | Check whether the signal has been fired.
-isAborted :: AbortSignal -> IO Bool
-isAborted (AbortSignal ref) = readIORef ref
+isAborted :: (MonadIO m) => AbortSignal -> m Bool
+isAborted (AbortSignal ref) = liftIO $ readIORef ref

@@ -18,7 +18,7 @@ decodeJsonFile filePath tag =
     either (Left . tag) Right
       <$> liftIO (eitherDecodeFileStrict filePath)
 
-getSystemPrompt :: Maybe Text -> ExceptT LoadEnvError IO (Maybe Text)
+getSystemPrompt :: (MonadIO m) => Maybe Text -> ExceptT LoadEnvError m (Maybe Text)
 getSystemPrompt mbSystemPrompt =
   case mbSystemPrompt of
     Nothing -> pure Nothing

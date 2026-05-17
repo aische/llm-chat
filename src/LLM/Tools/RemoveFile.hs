@@ -1,6 +1,7 @@
 module LLM.Tools.RemoveFile (removeFileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -20,7 +21,7 @@ instance AC.HasCodec RemoveFileToolArgs where
     AC.object "remove a file" $
       RemoveFileToolArgs <$> AC.requiredField "path" "Relative path of the file to remove" AC..= _rftPath
 
-removeFileToolTyped :: FsConfig -> TypedTool RemoveFileToolArgs
+removeFileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m RemoveFileToolArgs
 removeFileToolTyped cfg =
   TypedTool
     { ttoolName = "remove_file",
@@ -31,8 +32,8 @@ removeFileToolTyped cfg =
       ttoolExecute = const (removeFileExecTyped cfg)
     }
 
-removeFileExecTyped :: FsConfig -> RemoveFileToolArgs -> IO Text
-removeFileExecTyped cfg args = do
+removeFileExecTyped :: (MonadUnliftIO m) => FsConfig -> RemoveFileToolArgs -> m Text
+removeFileExecTyped cfg args = liftIO $ do
   let p = _rftPath args
   resolved <- sandboxPath cfg (T.unpack p)
   removeFile resolved

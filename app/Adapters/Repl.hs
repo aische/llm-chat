@@ -1,5 +1,7 @@
 module Adapters.Repl (repl, replMain) where
 
+import Control.Monad.Catch (MonadCatch)
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
@@ -26,31 +28,32 @@ import System.Exit (exitSuccess)
 import System.IO (BufferMode (NoBuffering), hFlush, hSetBuffering, isEOF, stdout)
 import Text.Printf (printf)
 
-replMain :: IO ()
+replMain :: (MonadUnliftIO m, MonadCatch m) => m ()
 replMain = do
   let hooks = withJsonDump "./dumps" . withStderrLogger Debug $ noHooks
   (env, envs) <- loadEnvOrThrow defaultEnvFilePaths "default" hooks
   repl (workerMap envs) env
 
-repl :: Maybe WorkerMap -> ChatEnv -> IO ()
+repl :: (MonadUnliftIO m, MonadCatch m) => Maybe (WorkerMap m) -> ChatEnv m -> m ()
 repl mbWorkerMap env = do
-  hSetBuffering stdout NoBuffering
-  putStrLn "Type a message (or /quit to exit, /clear to reset conversation)."
+  liftIO $ hSetBuffering stdout NoBuffering
+  liftIO $ putStrLn "Type a message (or /quit to exit, /clear to reset conversation)."
   loop mbWorkerMap env emptyUsage (Conversation [])
 
-loop :: Maybe WorkerMap -> ChatEnv -> Usage -> Conversation -> IO ()
+loop :: (MonadUnliftIO m, MonadCatch m) => Maybe (WorkerMap m) -> ChatEnv m -> Usage -> Conversation -> m ()
 loop mbWorkerMap env totalUsage conv = do
-  TIO.putStr "> "
-  hFlush stdout
-  eof <- isEOF
+  eof <- liftIO $ do
+    TIO.putStr "> "
+    hFlush stdout
+    isEOF
   if eof
-    then printSummary totalUsage
+    then liftIO $ printSummary totalUsage
     else do
-      input <- T.strip <$> TIO.getLine
+      input <- liftIO $ T.strip <$> TIO.getLine
       case parseCommand input of
-        Quit -> printSummary totalUsage
+        Quit -> liftIO $ printSummary totalUsage
         Clear -> do
-          putStrLn "(conversation cleared)"
+          liftIO $ putStrLn "(conversation cleared)"
           loop mbWorkerMap env emptyUsage (Conversation [])
         Chat "" -> loop mbWorkerMap env totalUsage conv
         Chat msg -> do
@@ -59,17 +62,18 @@ loop mbWorkerMap env totalUsage conv = do
             StreamToolCall tc -> TIO.putStrLn $ "  [tool call: " <> T.pack (show tc) <> "]"
           case result of
             Left (err, _, _) -> do
-              putStrLn $ "\nError: " <> show err
+              liftIO $ putStrLn $ "\nError: " <> show err
               loop mbWorkerMap env totalUsage conv
             Right (_, conv', usage) -> do
-              putStrLn ""
+              liftIO $ putStrLn ""
               let totalUsage' = addUsage totalUsage usage
-              printf
-                "  (%d turns, %d in + %d out tokens, $%.4f)\n"
-                (length $ unConversation conv')
-                (usageInputTokens usage)
-                (usageOutputTokens usage)
-                (usageTotalCost usage)
+              liftIO $
+                printf
+                  "  (%d turns, %d in + %d out tokens, $%.4f)\n"
+                  (length $ unConversation conv')
+                  (usageInputTokens usage)
+                  (usageOutputTokens usage)
+                  (usageTotalCost usage)
               loop mbWorkerMap env totalUsage' conv'
 
 data Command = Quit | Clear | Chat Text

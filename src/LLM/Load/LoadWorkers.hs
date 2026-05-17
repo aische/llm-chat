@@ -2,6 +2,7 @@ module LLM.Load.LoadWorkers where
 
 import Control.Monad (forM)
 import Control.Monad.Except (ExceptT, liftEither)
+import Control.Monad.IO.Unlift (MonadIO)
 import Data.Map qualified as Map
 import Data.Text qualified as T
 import LLM.Generate.Types
@@ -15,12 +16,12 @@ import LLM.Load.Types
   )
 import LLM.Load.Utils (decodeJsonFile)
 
-loadWorkerMap :: ChatEnvMap -> FilePath -> ExceptT LoadEnvError IO WorkerMap
+loadWorkerMap :: (MonadIO m) => ChatEnvMap m -> FilePath -> ExceptT LoadEnvError m (WorkerMap m)
 loadWorkerMap chatEnvMap filePath = do
   workerCatalogItems <- decodeJsonFile filePath LoadWorkerConfigError
   liftEither $ createWorkerMap chatEnvMap workerCatalogItems
 
-createWorkerMap :: ChatEnvMap -> [WorkerConfigItem] -> Either LoadEnvError WorkerMap
+createWorkerMap :: ChatEnvMap m -> [WorkerConfigItem] -> Either LoadEnvError (WorkerMap m)
 createWorkerMap chatEnvMap workerCatalogItems = Map.fromList <$> configs
   where
     configs = forM workerCatalogItems $ \wci -> do

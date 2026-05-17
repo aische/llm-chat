@@ -46,16 +46,16 @@ type GatewayMap = Map Text LLMGateway
 
 type ModelConfigMap = Map Text ModelConfig
 
-type ChatEnvMap = Map Text ChatEnv
+type ChatEnvMap m = Map Text (ChatEnv m)
 
-type ToolMap = Map Text Tool
+type ToolMap m = Map Text (Tool m)
 
-data LoadedEnvs = LoadedEnvs
-  { chatEnvs :: ChatEnvMap,
+data LoadedEnvs m = LoadedEnvs
+  { chatEnvs :: ChatEnvMap m,
     modelConfigs :: ModelConfigMap,
     gateways :: GatewayMap,
-    toolMap :: ToolMap,
-    workerMap :: Maybe WorkerMap,
+    toolMap :: ToolMap m,
+    workerMap :: Maybe (WorkerMap m),
     fsConf :: Maybe FsConfig
   }
 

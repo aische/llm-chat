@@ -1,5 +1,6 @@
 module LLM.Load.LoadTools where
 
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Map qualified as Map
 import LLM.Core.Types (Tool (toolDef), ToolDef (toolName))
 import LLM.Core.Utils (toTool)
@@ -22,7 +23,7 @@ import LLM.Tools.Weather (weatherToolTyped)
 import LLM.Tools.Writefile (writefileToolTyped)
 import System.Environment (lookupEnv)
 
-loadToolMap :: IO (ToolMap, Maybe FsConfig)
+loadToolMap :: (MonadUnliftIO m) => IO (ToolMap m, Maybe FsConfig)
 loadToolMap = do
   userProjectPath <- lookupEnv "USER_PROJECT_PATH"
   fsConfig <- case userProjectPath of
@@ -30,7 +31,7 @@ loadToolMap = do
     Just p -> Just <$> mkFsConfig p
   pure (getTools fsConfig, fsConfig)
 
-getTools :: Maybe FsConfig -> ToolMap
+getTools :: (MonadUnliftIO m) => Maybe FsConfig -> ToolMap m
 getTools fsConfig =
   let fsTools =
         maybe

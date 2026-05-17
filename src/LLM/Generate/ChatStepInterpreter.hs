@@ -7,7 +7,9 @@ module LLM.Generate.ChatStepInterpreter
   )
 where
 
+import Control.Monad.Catch (MonadCatch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Retry (RetryPolicyM)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -39,7 +41,7 @@ import LLM.Generate.WithFallback (withFallback)
 type ChatStepInterpreter m =
   Hooks ->
   Maybe AbortSignal ->
-  [Tool] ->
+  [Tool m] ->
   Maybe Int -> -- context window
   RetryPolicyM IO ->
   Maybe Int -> -- request timeout
@@ -50,10 +52,10 @@ type ChatStepInterpreter m =
 -- | Generic non-streaming chat with a pluggable interpreter.
 -- Use with @runStepServer store sid@ for persistence, or any custom interpreter.
 generateTextWith ::
-  (MonadIO m) =>
+  (MonadUnliftIO m, MonadCatch m) =>
   ChatStepInterpreter m ->
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
+  Maybe (GenerateText m, WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   Text ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
@@ -62,10 +64,10 @@ generateTextWith interp mbGenWorkerMap unsafeEnv conv msg =
    in generateTextConversationWith interp mbGenWorkerMap unsafeEnv conv'
 
 generateTextConversationWith ::
-  (MonadIO m) =>
+  (MonadUnliftIO m, MonadCatch m) =>
   ChatStepInterpreter m ->
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
+  Maybe (GenerateText m, WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))
 generateTextConversationWith interp mbGenWorkerMap unsafeEnv conv = do
@@ -86,10 +88,10 @@ generateTextConversationWith interp mbGenWorkerMap unsafeEnv conv = do
 
 -- | Generic streaming chat with a pluggable interpreter.
 streamTextWith ::
-  (MonadIO m) =>
+  (MonadUnliftIO m, MonadCatch m) =>
   ChatStepInterpreter m ->
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
+  Maybe (GenerateText m, WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   Text ->
   (StreamEvent -> IO ()) ->
@@ -99,10 +101,10 @@ streamTextWith interp mbGenWorkerMap unsafeEnv conv msg callback = do
    in streamTextConversationWith interp mbGenWorkerMap unsafeEnv conv' callback
 
 streamTextConversationWith ::
-  (MonadIO m) =>
+  (MonadUnliftIO m, MonadCatch m) =>
   ChatStepInterpreter m ->
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
+  Maybe (GenerateText m, WorkerMap m) ->
+  ChatEnv m ->
   Conversation ->
   (StreamEvent -> IO ()) ->
   m (Either (LLMError, Conversation, Usage) (Text, Conversation, Usage))

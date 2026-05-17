@@ -1,6 +1,7 @@
 module LLM.Tools.Readfile (readfileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -20,7 +21,7 @@ instance AC.HasCodec ReadfileToolArgs where
     AC.object "read a file" $
       ReadfileToolArgs <$> AC.requiredField "path" "Relative file path to read" AC..= _rfPath
 
-readfileToolTyped :: FsConfig -> TypedTool ReadfileToolArgs
+readfileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m ReadfileToolArgs
 readfileToolTyped cfg =
   TypedTool
     { ttoolName = "read_file",
@@ -31,8 +32,8 @@ readfileToolTyped cfg =
       ttoolExecute = const (readfileExecTyped cfg)
     }
 
-readfileExecTyped :: FsConfig -> ReadfileToolArgs -> IO Text
-readfileExecTyped cfg args = do
+readfileExecTyped :: (MonadUnliftIO m) => FsConfig -> ReadfileToolArgs -> m Text
+readfileExecTyped cfg args = liftIO $ do
   let p = _rfPath args
-  resolved <- sandboxPath cfg (T.unpack p)
+  resolved <- liftIO $ sandboxPath cfg (T.unpack p)
   TIO.readFile resolved

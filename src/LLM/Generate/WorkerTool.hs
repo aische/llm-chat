@@ -1,6 +1,7 @@
 module LLM.Generate.WorkerTool where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Class (MonadIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -21,7 +22,7 @@ instance AC.HasCodec WorkerToolArgs where
     AC.object "WorkerToolArgs" $
       WorkerToolArgs <$> AC.requiredField "prompt" "Prompt to send to the worker" AC..= _workerPrompt
 
-workerToolTyped :: GenerateText -> ChatEnv -> Text -> Text -> TypedTool WorkerToolArgs
+workerToolTyped :: (MonadIO m) => GenerateText m -> ChatEnv m -> Text -> Text -> TypedTool m WorkerToolArgs
 workerToolTyped gen env name description =
   TypedTool
     { ttoolName = name,
@@ -30,7 +31,7 @@ workerToolTyped gen env name description =
       ttoolExecute = workerExecTyped gen env
     }
 
-workerExecTyped :: GenerateText -> ChatEnv -> ToolContext -> WorkerToolArgs -> IO Text
+workerExecTyped :: (MonadIO m) => GenerateText m -> ChatEnv m -> ToolContext -> WorkerToolArgs -> m Text
 workerExecTyped gen env _ctx args = do
   result <- gen env emptyConversation (_workerPrompt args)
   case result of

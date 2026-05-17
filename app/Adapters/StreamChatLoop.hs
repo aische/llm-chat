@@ -26,14 +26,14 @@ prompts =
     "and in paris?"
   ]
 
-streamChatLoopMain :: Bool -> ChatEnv -> IO ()
+streamChatLoopMain :: Bool -> ChatEnv IO -> IO ()
 streamChatLoopMain stream env = do
   _ <- streamChatLoop stream Nothing env prompts
   pure ()
 
 -- | Interactive streaming loop — runs a list of prompts, printing
 -- streamed deltas and usage stats as it goes.
-streamChatLoop :: Bool -> Maybe WorkerMap -> ChatEnv -> [Text] -> IO Conversation
+streamChatLoop :: Bool -> Maybe (WorkerMap IO) -> ChatEnv IO -> [Text] -> IO Conversation
 streamChatLoop stream mbWorkerMap env = aux emptyUsage (Conversation [])
   where
     aux totalUsage conv [] = do

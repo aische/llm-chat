@@ -10,6 +10,7 @@ import Example2 qualified as E2
 import Example3 qualified as E3
 import Example4 qualified as E4
 import Example5 qualified as E5
+import Example6 qualified as E6
 import Options.Applicative
   ( Parser,
     argument,
@@ -61,6 +62,7 @@ mainInternal args = do
     Example3 -> E3.main
     Example4 -> E4.main
     Example5 -> E5.main
+    Example6 -> E6.main
 
 data RuntimeArgs
   = TestRecorderArgs
@@ -78,6 +80,7 @@ data RuntimeArgs
   | Example3
   | Example4
   | Example5
+  | Example6
 
 runtimeArgsParser :: Parser RuntimeArgs
 runtimeArgsParser =
@@ -92,6 +95,7 @@ runtimeArgsParser =
         <> command "example3" (info (pure Example3) (progDesc "Example3 from Readme.md (generateObject)"))
         <> command "example4" (info (pure Example4) (progDesc "Example4 using json configs for models and envs"))
         <> command "example5" (info (pure Example5) (progDesc "Example5"))
+        <> command "example6" (info (pure Example6) (progDesc "Example6"))
     )
 
 testRecorderArgs :: Parser RuntimeArgs

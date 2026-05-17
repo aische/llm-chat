@@ -1,6 +1,7 @@
 module LLM.Tools.RemoveDirectory (removeDirectoryToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -21,7 +22,7 @@ instance AC.HasCodec RemoveDirectoryToolArgs where
       RemoveDirectoryToolArgs
         <$> AC.requiredField "path" "Relative path of the directory to remove" AC..= _rdPath
 
-removeDirectoryToolTyped :: FsConfig -> TypedTool RemoveDirectoryToolArgs
+removeDirectoryToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m RemoveDirectoryToolArgs
 removeDirectoryToolTyped cfg =
   TypedTool
     { ttoolName = "remove_directory",
@@ -32,8 +33,8 @@ removeDirectoryToolTyped cfg =
       ttoolExecute = const (removeDirectoryExecTyped cfg)
     }
 
-removeDirectoryExecTyped :: FsConfig -> RemoveDirectoryToolArgs -> IO Text
-removeDirectoryExecTyped cfg args = do
+removeDirectoryExecTyped :: (MonadUnliftIO m) => FsConfig -> RemoveDirectoryToolArgs -> m Text
+removeDirectoryExecTyped cfg args = liftIO $ do
   let p = _rdPath args
   resolved <- sandboxPath cfg (T.unpack p)
   removeDirectoryRecursive resolved

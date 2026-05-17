@@ -3,6 +3,7 @@ module LLM.Tools.Weather (weatherToolTyped) where
 -- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
 -- TODO: move to test folder
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text, toLower)
 import GHC.Generics (Generic)
@@ -24,7 +25,7 @@ instance AC.HasCodec WeatherToolArgs where
 
 -- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
 
-weatherToolTyped :: TypedTool WeatherToolArgs
+weatherToolTyped :: (MonadUnliftIO m) => TypedTool m WeatherToolArgs
 weatherToolTyped =
   TypedTool
     { ttoolName = "get_weather",
@@ -36,8 +37,8 @@ weatherToolTyped =
 -- DO NOT TOUCH THIS TOOL - IT IS FOR TESTING
 
 -- | Dummy implementation — in reality you'd call a weather API
-getWeather :: WeatherToolArgs -> IO Text
-getWeather args = do
+getWeather :: (MonadUnliftIO m) => WeatherToolArgs -> m Text
+getWeather args = liftIO $ do
   let loc = _weatherLocation args
   case toLower loc of
     "london" -> pure "Weather in London is partly cloudy, 18°C, light breeze from the west."

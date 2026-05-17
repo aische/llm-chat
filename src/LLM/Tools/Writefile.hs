@@ -1,6 +1,7 @@
 module LLM.Tools.Writefile (writefileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -24,7 +25,7 @@ instance AC.HasCodec WritefileToolArgs where
         <$> AC.requiredField "path" "Relative file path to write to" AC..= _wfPath
         <*> AC.requiredField "content" "The text content to write to the file" AC..= _wfContent
 
-writefileToolTyped :: FsConfig -> TypedTool WritefileToolArgs
+writefileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m WritefileToolArgs
 writefileToolTyped cfg =
   TypedTool
     { ttoolName = "write_file",
@@ -36,8 +37,8 @@ writefileToolTyped cfg =
       ttoolExecute = const (writefileExecTyped cfg)
     }
 
-writefileExecTyped :: FsConfig -> WritefileToolArgs -> IO Text
-writefileExecTyped cfg args = do
+writefileExecTyped :: (MonadUnliftIO m) => FsConfig -> WritefileToolArgs -> m Text
+writefileExecTyped cfg args = liftIO $ do
   let p = _wfPath args
       c = _wfContent args
   resolved <- sandboxWritePath cfg (T.unpack p)

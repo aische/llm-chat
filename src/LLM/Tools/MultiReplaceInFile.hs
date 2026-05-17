@@ -1,6 +1,7 @@
 module LLM.Tools.MultiReplaceInFile (multiReplaceInFileToolTyped) where
 
 import Autodocodec qualified as AC
+import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Data.Aeson (FromJSON)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -39,7 +40,7 @@ instance AC.HasCodec MultiReplaceInFileToolArgs where
         <$> AC.requiredField "path" "Relative file path to edit" AC..= _mrifPath
         <*> AC.requiredField "replacements" "List of replacements to apply in order" AC..= _mrifReplacements
 
-multiReplaceInFileToolTyped :: FsConfig -> TypedTool MultiReplaceInFileToolArgs
+multiReplaceInFileToolTyped :: (MonadUnliftIO m) => FsConfig -> TypedTool m MultiReplaceInFileToolArgs
 multiReplaceInFileToolTyped cfg =
   TypedTool
     { ttoolName = "multi_replace_in_file",
@@ -51,8 +52,8 @@ multiReplaceInFileToolTyped cfg =
       ttoolExecute = const (replaceExecTyped cfg)
     }
 
-replaceExecTyped :: FsConfig -> MultiReplaceInFileToolArgs -> IO Text
-replaceExecTyped cfg args = do
+replaceExecTyped :: (MonadUnliftIO m) => FsConfig -> MultiReplaceInFileToolArgs -> m Text
+replaceExecTyped cfg args = liftIO $ do
   let MultiReplaceInFileToolArgs {_mrifPath, _mrifReplacements} = args
   resolved <- sandboxPath cfg (T.unpack _mrifPath)
   content <- TIO.readFile resolved

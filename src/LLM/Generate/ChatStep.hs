@@ -5,6 +5,8 @@ module LLM.Generate.ChatStep
   )
 where
 
+import Control.Monad.Catch (MonadCatch)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -65,8 +67,9 @@ data ChatStep
 -- | Build a pure 'ChatStep' program from a 'ChatEnv' and 'ModelConfig'.
 -- This replaces the old monolithic @chatLoop@ — same logic, zero IO.
 buildChatStep ::
-  Maybe (GenerateText, WorkerMap) ->
-  ChatEnv ->
+  (MonadUnliftIO m, MonadCatch m) =>
+  Maybe (GenerateText m, WorkerMap m) ->
+  ChatEnv m ->
   ModelConfig ->
   Int ->
   Usage ->

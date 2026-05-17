@@ -23,7 +23,7 @@ import LLM.Generate.Types
 -- and accumulated usage of the failed model, rather than starting over.
 withFallback ::
   (MonadIO m) =>
-  ChatEnv ->
+  ChatEnv m ->
   Conversation ->
   (ModelConfig -> Conversation -> Usage -> m (GeneratedResult a)) ->
   m (GeneratedResult a)

@@ -85,16 +85,16 @@ data ToolDef = ToolDef
 -- | A tool: its definition (sent to the model) paired with its implementation.
 -- 'toolExecute' receives a 'ToolContext' (full conversation + usage) and
 -- the JSON arguments from the model.
-data Tool = Tool
+data Tool m = Tool
   { toolDef :: ToolDef,
-    toolExecute :: ToolContext -> Value -> IO Text
+    toolExecute :: ToolContext -> Value -> m Text
   }
 
-data TypedTool a = TypedTool
+data TypedTool m a = TypedTool
   { ttoolName :: Text,
     ttoolDescription :: Text,
     ttoolReadonly :: Bool,
-    ttoolExecute :: ToolContext -> a -> IO Text
+    ttoolExecute :: ToolContext -> a -> m Text
   }
 
 data ChatRequest = ChatRequest
