@@ -12,8 +12,8 @@ import LLM.Core.Logger
   )
 import LLM.Core.Usage (Usage)
 import LLM.Core.Utils (emptyConversation)
-import LLM.Generate.Generate (GeneratedResult, generateObject)
-import LLM.Generate.Types (ChatEnv (..))
+import LLM.Generate.GenerateObject (generateObject)
+import LLM.Generate.Types (ChatEnv (..), GeneratedResult)
 import LLM.Load.LoadEnvs (defaultEnvFilePaths, loadDefaultEnvOrThrow)
 
 data ExampleObject = ExampleObject

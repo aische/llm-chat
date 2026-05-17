@@ -3,6 +3,7 @@ module LLM
     module LLM.Core.Types,
     module LLM.Core.Utils,
     module LLM.Generate.Generate,
+    module LLM.Generate.GenerateObject,
     module LLM.Generate.Utils,
     module LLM.Generate.Types,
     module LLM.Core.LLMProvider,
@@ -24,6 +25,7 @@ import LLM.Core.Types
 import LLM.Core.Usage
 import LLM.Core.Utils
 import LLM.Generate.Generate
+import LLM.Generate.GenerateObject
 import LLM.Generate.Types
 import LLM.Generate.Utils
 import LLM.Providers.Claude

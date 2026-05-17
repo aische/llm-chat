@@ -80,6 +80,7 @@ library
         LLM.Generate.Utils
         LLM.Generate.WithFallback
         LLM.Generate.WorkerTool
+        LLM.Generate.GenerateObject
         LLM.Core.Types
         LLM.Core.LLMProvider
         LLM.Load.LoadEnvs
